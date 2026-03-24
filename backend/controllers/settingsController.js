@@ -1,0 +1,28 @@
+import Settings from '../models/Settings.js'
+
+// @desc    Ayarları getir
+// @route   GET /api/settings
+// @access  Public (site adı vs frontend için)
+export const getSettings = async (req, res) => {
+  let settings = await Settings.findOne()
+  if (!settings) {
+    settings = await Settings.create({})
+  }
+  res.status(200).json({ success: true, data: settings })
+}
+
+// @desc    Ayarları güncelle
+// @route   PUT /api/settings
+// @access  Admin
+export const updateSettings = async (req, res) => {
+  let settings = await Settings.findOne()
+  if (!settings) {
+    settings = await Settings.create(req.body)
+  } else {
+    Object.keys(req.body).forEach(key => {
+      settings[key] = req.body[key]
+    })
+    await settings.save()
+  }
+  res.status(200).json({ success: true, data: settings })
+}

@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f3f4f6; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+      .wrapper { background-color: #f3f4f6; padding: 40px 20px; }
+      .container { max-width: 600px; width: 100%; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); margin: 0 auto; }
+      .header { background: #0f172a; padding: 30px 40px; text-align: center; border-bottom: 4px solid #10b981; }
+      .header-logo { color: #ffffff; font-size: 28px; font-weight: 800; margin: 0; letter-spacing: -0.5px; }
+      .header-sub { color: #6ee7b7; font-size: 14px; margin-top: 5px; font-weight: 500; }
+      .content { padding: 40px; color: #334155; line-height: 1.6; }
+      .content h2 { color: #0f172a; font-size: 22px; margin-top: 0; }
+      .content p { font-size: 16px; margin-bottom: 20px; }
+      .box-highlight { background: #f0fdf4; border-left: 4px solid #10b981; padding: 20px; border-radius: 4px; margin-bottom: 25px; border-right: 1px solid #dcfce3; border-top: 1px solid #dcfce3; border-bottom: 1px solid #dcfce3;}
+      .box-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #dcfce3; }
+      .box-row:last-child { border-bottom: none; }
+      .box-label { color: #166534; font-weight: 500; }
+      .box-value { color: #064e3b; font-weight: 600; text-align: right; }
+      .btn { display: inline-block; background: #10b981; color: #ffffff !important; text-decoration: none; padding: 14px 28px; border-radius: 6px; font-weight: 600; font-size: 16px; text-align: center; margin-top: 10px; }
+      .footer { background: #f8fafc; padding: 30px 40px; text-align: center; color: #64748b; font-size: 13px; border-top: 1px solid #e2e8f0; }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div class="container">
+        <div class="header">
+          <h1 class="header-logo">Ozkan3D.design</h1>
+          <div class="header-sub">Kargolama Bilgilendirmesi</div>
+        </div>
+        <div class="content">
+          <h2>Siparişiniz Yola Çıktı! 🚚</h2>
+          <p>Merhaba {{name}}, harika haber! Merakla beklediğin ürünlerini özenle paketledik ve kargo firmasına teslim ettik.</p>
+          
+          <div class="box-highlight">
+            <div class="box-row"><span class="box-label">Sipariş No:</span><span class="box-value">{{orderNo}}</span></div>
+            <div class="box-row"><span class="box-label">Kargo Firması:</span><span class="box-value">{{carrier}}</span></div>
+            <div class="box-row"><span class="box-label">Takip No:</span><span class="box-value">{{trackingNo}}</span></div>
+          </div>
+
+          <p>Aşağıdaki butona tıklayarak kargo hareketlerini detaylı olarak takip edebilirsiniz.</p>
+          <div style="text-align: center; margin-top: 20px;">
+            <a href="http://localhost:5173/account" class="btn">Kargomu Takip Et</a>
+          </div>
+        </div>
+        <div class="footer">
+          Bizi tercih ettiğiniz için teşekkür ederiz.<br/><br/>
+          &copy; {{year}} Ozkan3D.design — Tüm hakları saklıdır.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

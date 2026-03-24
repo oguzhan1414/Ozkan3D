@@ -1,0 +1,106 @@
+.policy-page {
+  max-width: 900px;
+  margin: 40px auto 80px;
+  padding: 0 20px;
+  font-family: inherit;
+  color: #334155;
+  line-height: 1.7;
+}
+
+.policy-header {
+  text-align: center;
+  margin-bottom: 40px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.policy-title {
+  font-size: 2.2rem;
+  color: #0f172a;
+  margin-bottom: 10px;
+}
+
+.policy-updated {
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.policy-content h2 {
+  font-size: 1.5rem;
+  color: #1e293b;
+  margin-top: 30px;
+  margin-bottom: 15px;
+}
+
+.policy-content h3 {
+  font-size: 1.25rem;
+  color: #334155;
+  margin-top: 25px;
+  margin-bottom: 10px;
+}
+
+.policy-content p {
+  margin-bottom: 15px;
+}
+
+.policy-content ul {
+  margin-bottom: 20px;
+  padding-left: 20px;
+}
+
+.policy-content li {
+  margin-bottom: 8px;
+}
+
+/* FAQ Specific Styles */
+.faq-filter {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+}
+
+.faq-filter-btn {
+  padding: 8px 16px;
+  border: 1px solid #cbd5e1;
+  background: white;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.faq-filter-btn:hover {
+  background: #f1f5f9;
+}
+
+.faq-filter-btn.active {
+  background: #2563eb;
+  color: white;
+  border-color: #2563eb;
+}
+
+/* Blog Placeholder */
+.blog-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 60px 20px;
+  background: #f8fafc;
+  border-radius: 12px;
+  margin-top: 40px;
+}
+
+.blog-placeholder-icon {
+  font-size: 48px;
+  margin-bottom: 20px;
+  color: #64748b;
+}
+
+.blog-placeholder h2 {
+  margin-bottom: 15px;
+  color: #1e293b;
+}
