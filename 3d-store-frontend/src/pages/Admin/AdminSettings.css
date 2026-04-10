@@ -217,6 +217,64 @@
 
 .add-carrier-btn:hover { border-color: var(--color-accent); color: var(--color-accent); }
 
+/* Homepage Slider */
+.hero-slides-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.hero-slide-item {
+  border: 1px solid #eeeeee;
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.hero-slide-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hero-slide-head strong {
+  font-size: 0.85rem;
+  color: #0a0a0a;
+}
+
+.hero-slide-upload-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hero-slide-preview {
+  width: 100%;
+  max-width: 420px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.hero-slide-preview img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  display: block;
+}
+
+.hero-slide-uploading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
 /* Payment */
 .payment-methods-section { display: flex; flex-direction: column; gap: var(--space-md); }
 

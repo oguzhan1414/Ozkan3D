@@ -1,0 +1,41 @@
+import multer from 'multer'
+import path from 'path'
+import fs from 'fs'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+const uploadDir = path.join(__dirname, '../uploads/support')
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true })
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir)
+  },
+  filename: (req, file, cb) => {
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`
+    const ext = path.extname(file.originalname).toLowerCase()
+    cb(null, `support-${unique}${ext}`)
+  },
+})
+
+const fileFilter = (req, file, cb) => {
+  const allowedExt = /pdf|jpeg|jpg|png|webp|txt|doc|docx/
+  const extname = allowedExt.test(path.extname(file.originalname).toLowerCase())
+  const mimetype = /application\/pdf|image\/jpeg|image\/jpg|image\/png|image\/webp|text\/plain|application\/msword|application\/vnd.openxmlformats-officedocument.wordprocessingml.document/.test(file.mimetype)
+
+  if (extname && mimetype) {
+    cb(null, true)
+  } else {
+    cb(new Error('Destek dosyası için sadece PDF, görsel, TXT, DOC ve DOCX yüklenebilir.'))
+  }
+}
+
+export const supportUpload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter,
+})

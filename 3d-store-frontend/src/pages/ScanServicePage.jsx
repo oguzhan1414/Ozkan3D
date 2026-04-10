@@ -164,13 +164,13 @@ const ScanServicePage = () => {
               <div className="shipping-info">
                 <div className="info-box">
                   <strong>📮 Gönderim Adresi:</strong>
-                  <p>Özkan3D, Teknopark İstanbul, Sanayi Mah. Teknopark Bulvarı No:1, Pendik/İstanbul</p>
+                  <p>Bolu Kürkçüler Mah. Memursen Toki Blokları C5 -1</p>
                 </div>
               </div>
             </div>
             <div className="contact-btns">
               <a 
-                href="https://wa.me/902165213840?text=Merhaba, 3D tarama hizmeti hakkında bilgi almak istiyorum. Objem var."
+                href="https://wa.me/905411190626?text=Merhaba, 3D tarama hizmeti hakkında bilgi almak istiyorum. Objem var."
                 target="_blank"
                 rel="noreferrer"
                 className="contact-btn contact-btn-whatsapp"
@@ -207,7 +207,7 @@ const ScanServicePage = () => {
             </div>
             <div className="contact-btns">
               <a 
-                href="https://wa.me/902165213840?text=Merhaba, 3D tarama hizmeti hakkında bilgi almak istiyorum."
+                href="https://wa.me/905411190626?text=Merhaba, 3D tarama hizmeti hakkında bilgi almak istiyorum."
                 target="_blank"
                 rel="noreferrer"
                 className="contact-btn contact-btn-whatsapp"
@@ -233,33 +233,33 @@ const ScanServicePage = () => {
         )}
 
         {/* Nasıl Çalışır */}
-        <div className="how-section">
-          <div className="section-header-center">
-            <p className="section-sup">Süreç</p>
-            <h2 className="section-title-center">Nasıl Çalışır?</h2>
+        <div className="scan-how-section">
+          <div className="scan-section-header">
+            <p className="scan-section-sup">Süreç</p>
+            <h2 className="scan-section-title">Nasıl Çalışır?</h2>
           </div>
-          <div className="steps-grid">
+          <div className="scan-steps-grid">
             {steps.map((s, i) => (
-              <div key={i} className="step-card">
-                <div className="step-card-num">{i + 1}</div>
-                <div className="step-card-icon">{s.icon}</div>
-                <h4 className="step-card-title">{s.title}</h4>
-                <p className="step-card-desc">{s.desc}</p>
+              <div key={i} className="scan-step-card">
+                <div className="scan-step-card-num">{i + 1}</div>
+                <div className="scan-step-card-icon">{s.icon}</div>
+                <h4 className="scan-step-card-title">{s.title}</h4>
+                <p className="scan-step-card-desc">{s.desc}</p>
               </div>
             ))}
           </div>
         </div>
 
         {/* Kullanım Alanları */}
-        <div className="use-cases-section">
-          <div className="section-header-center">
-            <p className="section-sup">Kullanım Alanları</p>
-            <h2 className="section-title-center">Neler Taranabilir?</h2>
+        <div className="scan-use-cases-section">
+          <div className="scan-section-header">
+            <p className="scan-section-sup">Kullanım Alanları</p>
+            <h2 className="scan-section-title">Neler Taranabilir?</h2>
           </div>
-          <div className="use-cases-grid">
+          <div className="scan-use-cases-grid">
             {useCases.map((uc, i) => (
-              <div key={i} className="use-case-card">
-                <div className="use-case-icon">{uc.icon}</div>
+              <div key={i} className="scan-use-case-card">
+                <div className="scan-use-case-icon">{uc.icon}</div>
                 <h4>{uc.title}</h4>
                 <p>{uc.desc}</p>
               </div>
@@ -268,38 +268,38 @@ const ScanServicePage = () => {
         </div>
 
         {/* Hizmet Açıklaması */}
-        <div className="info-section">
-          <div className="info-section-inner">
-            <div className="info-text">
-              <p className="section-sup">Hakkımızda</p>
-              <h2 className="info-title">3D Tarama Hizmeti Nedir?</h2>
-              <p className="info-desc">
+        <div className="scan-info-section">
+          <div className="scan-info-section-inner">
+            <div className="scan-info-text">
+              <p className="scan-section-sup">Hakkımızda</p>
+              <h2 className="scan-info-title">3D Tarama Hizmeti Nedir?</h2>
+              <p className="scan-info-desc">
                 3D tarama, fiziksel bir objenin lazer veya optik sensörler kullanılarak
                 dijital ortama aktarılması işlemidir. Creality CR-Scan Raptor ile objenizin
                 her detayını milimetrik hassasiyetle yakalıyoruz.
               </p>
-              <p className="info-desc">
+              <p className="scan-info-desc">
                 Tarama sonucu elde edilen dijital model, 3D baskı, tersine mühendislik,
                 arşivleme, sanal gerçeklik uygulamaları ve daha birçok alanda kullanılabilir.
               </p>
-              <div className="info-tags">
-                <span className="info-tag">🏛️ Kültürel Miras</span>
-                <span className="info-tag">🔧 Endüstriyel Tasarım</span>
-                <span className="info-tag">🎨 Sanat & Koleksiyon</span>
-                <span className="info-tag">🦷 Medikal</span>
-                <span className="info-tag">🎮 Oyun & Hobi</span>
-                <span className="info-tag">🏭 Tersine Mühendislik</span>
+              <div className="scan-info-tags">
+                <span className="scan-info-tag">🏛️ Kültürel Miras</span>
+                <span className="scan-info-tag">🔧 Endüstriyel Tasarım</span>
+                <span className="scan-info-tag">🎨 Sanat & Koleksiyon</span>
+                <span className="scan-info-tag">🦷 Medikal</span>
+                <span className="scan-info-tag">🎮 Oyun & Hobi</span>
+                <span className="scan-info-tag">🏭 Tersine Mühendislik</span>
               </div>
             </div>
-            <div className="info-features">
+            <div className="scan-info-features">
               {[
                 { icon: '🔍', title: '0.02mm Hassasiyet', desc: 'Mikron seviyesinde detay yakalama' },
                 { icon: '🎨', title: 'Renkli Tarama', desc: 'Gerçekçi tekstür ve renkler' },
                 { icon: '⚡', title: 'Hızlı İşlem', desc: '2-3 iş günü teslimat' },
                 { icon: '📁', title: 'Çoklu Format', desc: 'STL, OBJ, PLY, 3MF' },
               ].map((f, i) => (
-                <div key={i} className="info-feature-card">
-                  <span className="info-feature-icon">{f.icon}</span>
+                <div key={i} className="scan-info-feature-card">
+                  <span className="scan-info-feature-icon">{f.icon}</span>
                   <div>
                     <strong>{f.title}</strong>
                     <p>{f.desc}</p>
@@ -311,20 +311,20 @@ const ScanServicePage = () => {
         </div>
 
         {/* SSS */}
-        <div className="faq-section">
-          <div className="section-header-center">
-            <p className="section-sup">SSS</p>
-            <h2 className="section-title-center">Sıkça Sorulan Sorular</h2>
+        <div className="scan-faq-section">
+          <div className="scan-section-header">
+            <p className="scan-section-sup">SSS</p>
+            <h2 className="scan-section-title">Sıkça Sorulan Sorular</h2>
           </div>
-          <div className="faq-list">
+          <div className="scan-faq-list">
             {faqs.map((faq, i) => (
-              <div key={i} className={`faq-item ${openFaq === i ? 'faq-open' : ''}`}>
-                <button className="faq-question" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
+              <div key={i} className={`scan-faq-item ${openFaq === i ? 'faq-open' : ''}`}>
+                <button className="scan-faq-question" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
                   <span>{faq.q}</span>
                   {openFaq === i ? <FiChevronUp size={18} /> : <FiChevronDown size={18} />}
                 </button>
                 {openFaq === i && (
-                  <div className="faq-answer">{faq.a}</div>
+                  <div className="scan-faq-answer">{faq.a}</div>
                 )}
               </div>
             ))}
@@ -339,7 +339,7 @@ const ScanServicePage = () => {
           </p>
           <div className="contact-btns">
             <a 
-              href="https://wa.me/902165213840"
+              href="https://wa.me/905411190626?text=Merhaba, 3D tarama hizmeti hakkında bilgi almak istiyorum."
               target="_blank"
               rel="noreferrer"
               className="contact-btn contact-btn-whatsapp"

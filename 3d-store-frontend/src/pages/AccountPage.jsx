@@ -4,20 +4,23 @@ import {
   FiUser, FiShoppingBag, FiHeart, FiMessageSquare,
   FiLogOut, FiChevronRight, FiEdit2, FiMapPin,
   FiLock, FiCheck, FiX, FiShield, FiTruck,
-  FiPackage, FiStar, FiRefreshCw, FiEye
+  FiPackage, FiStar, FiRefreshCw, FiEye, FiHelpCircle, FiUploadCloud, FiClock
 } from 'react-icons/fi'
 import { useAuth } from '../context/AuthContext'
 import { useFavorite } from '../context/FavoriteContext'
 import {
   updateProfileApi, changePasswordApi,
-  addAddressApi, deleteAddressApi
+  addAddressApi, updateAddressApi, deleteAddressApi
 } from '../api/authApi'
-import { getMyOrdersApi, cancelOrderApi } from '../api/orderApi'
+import { getMyOrdersApi } from '../api/orderApi'
 import { getProductReviewsApi } from '../api/reviweApi'
+import { createSupportRequestApi, getMySupportRequestsApi } from '../api/supportApi'
 import './AccountPage.css'
 
 const menuItems = [
   { id: 'orders',   label: 'Siparişlerim',    icon: FiShoppingBag },
+  { id: 'addresses',label: 'Adres Defterim',  icon: FiMapPin },
+  { id: 'support',  label: 'Destek Taleplerim', icon: FiHelpCircle },
   { id: 'profile',  label: 'Hesap Ayarlarım', icon: FiUser },
   { id: 'favorites',label: 'Favorilerim',     icon: FiHeart },
   { id: 'reviews',  label: 'Yorumlarım',      icon: FiMessageSquare },
@@ -32,6 +35,33 @@ const statusColors = {
   'İptal':          { color: '#e53e3e', bg: '#fff0f0' },
 }
 
+const statusMessages = {
+  'Bekliyor': {
+    title: 'Ödeme alındı, basım için hazırlanıyor',
+    description: 'Siparişiniz sıraya alındı. Üretim planına göre kısa süre içinde basım aşamasına geçecektir.',
+  },
+  'Basımda': {
+    title: 'Ürününüz basım aşamasında',
+    description: '3D basım işlemi devam ediyor. Basım tamamlandıktan sonra kalite kontrol ve paketleme yapılacaktır.',
+  },
+  'Hazırlanıyor': {
+    title: 'Kalite kontrol ve paketleme yapılıyor',
+    description: 'Basım tamamlandı. Ürününüz güvenli paketleme sürecinde, kargoya hazırlanıyor.',
+  },
+  'Kargoda': {
+    title: 'Siparişiniz yolda',
+    description: 'Paketiniz kargoya teslim edildi. Takip numarası ile anlık durumunu takip edebilirsiniz.',
+  },
+  'Teslim Edildi': {
+    title: 'Siparişiniz teslim edildi',
+    description: 'Teslimat tamamlandı. Deneyiminizle ilgili geri bildiriminizi her zaman paylaşabilirsiniz.',
+  },
+  'İptal': {
+    title: 'Sipariş iptal edildi',
+    description: 'Siparişiniz iptal edildi. İade süreci varsa ödeme yönteminize göre başlatılacaktır.',
+  },
+}
+
 const AccountPage = () => {
   const [searchParams] = useSearchParams()
   const initialTab = searchParams.get('tab') || 'orders'
@@ -40,6 +70,8 @@ const AccountPage = () => {
   const [editingProfile, setEditingProfile] = useState(false)
   const [editingPassword, setEditingPassword] = useState(false)
   const [addingAddress, setAddingAddress] = useState(false)
+  const [editingAddressId, setEditingAddressId] = useState(null)
+  const [addressLoading, setAddressLoading] = useState(false)
   const [profileLoading, setProfileLoading] = useState(false)
   const [passwordLoading, setPasswordLoading] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
@@ -49,11 +81,19 @@ const AccountPage = () => {
   const [orders, setOrders] = useState([])
   const [ordersLoading, setOrdersLoading] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState(null)
-  const [cancellingId, setCancellingId] = useState(null)
 
   // Yorumlar
   const [myReviews, setMyReviews] = useState([])
   const [reviewsLoading, setReviewsLoading] = useState(false)
+  const [supportRequests, setSupportRequests] = useState([])
+  const [supportLoading, setSupportLoading] = useState(false)
+  const [supportSubmitting, setSupportSubmitting] = useState(false)
+  const [supportFile, setSupportFile] = useState(null)
+  const [settingsOpen, setSettingsOpen] = useState({
+    profile: true,
+    password: false,
+    announcements: false,
+  })
 
   const { user, setUser, logout, isAdmin } = useAuth()
   const { favorites, toggleFavorite } = useFavorite()
@@ -72,13 +112,24 @@ const AccountPage = () => {
 
   const [addressForm, setAddressForm] = useState({
     title: 'Ev', fullName: '', phone: '',
-    city: '', district: '', address: '', isDefault: false,
+    city: '', district: '', neighborhood: '', address: '', isDefault: false,
+  })
+
+  const [supportForm, setSupportForm] = useState({
+    email: user?.email || '',
+    subject: '',
+    message: '',
   })
 
   useEffect(() => {
     if (activeTab === 'orders') fetchOrders()
     if (activeTab === 'reviews') fetchReviews()
+    if (activeTab === 'support') fetchSupportRequests()
   }, [activeTab])
+
+  useEffect(() => {
+    setSupportForm(prev => ({ ...prev, email: user?.email || '' }))
+  }, [user?.email])
 
   const fetchOrders = async () => {
     setOrdersLoading(true)
@@ -102,6 +153,18 @@ const AccountPage = () => {
       setMyReviews([])
     } finally {
       setReviewsLoading(false)
+    }
+  }
+
+  const fetchSupportRequests = async () => {
+    setSupportLoading(true)
+    try {
+      const res = await getMySupportRequestsApi()
+      setSupportRequests(res.data || [])
+    } catch {
+      setSupportRequests([])
+    } finally {
+      setSupportLoading(false)
     }
   }
 
@@ -143,39 +206,84 @@ const AccountPage = () => {
     }
   }
 
-  const handleAddAddress = async () => {
+  const resetAddressForm = () => {
+    setAddressForm({
+      title: 'Ev',
+      fullName: `${user?.firstName || ''} ${user?.lastName || ''}`.trim(),
+      phone: user?.phone || '',
+      city: '',
+      district: '',
+      neighborhood: '',
+      address: '',
+      isDefault: !(user?.addresses?.length > 0),
+    })
+  }
+
+  const handleAddressSave = async () => {
+    if (!addressForm.fullName || !addressForm.phone || !addressForm.city || !addressForm.district || !addressForm.address) {
+      showError('Adres için zorunlu alanları doldurun.')
+      return
+    }
+
+    setAddressLoading(true)
     try {
-      const res = await addAddressApi(addressForm)
+      const payload = {
+        ...addressForm,
+        fullName: addressForm.fullName.trim(),
+        phone: addressForm.phone.trim(),
+        city: addressForm.city.trim(),
+        district: addressForm.district.trim(),
+        neighborhood: (addressForm.neighborhood || '').trim(),
+        address: addressForm.address.trim(),
+      }
+
+      const res = editingAddressId
+        ? await updateAddressApi(editingAddressId, payload)
+        : await addAddressApi(payload)
+
       setUser(prev => ({ ...prev, addresses: res.data }))
       setAddingAddress(false)
-      setAddressForm({ title: 'Ev', fullName: '', phone: '', city: '', district: '', address: '', isDefault: false })
-      showSuccess('Adres eklendi!')
+      setEditingAddressId(null)
+      resetAddressForm()
+      showSuccess(editingAddressId ? 'Adres güncellendi!' : 'Adres eklendi!')
     } catch (err) {
-      showError(err.response?.data?.message || 'Adres eklenemedi.')
+      showError(err.response?.data?.message || 'Adres kaydedilemedi.')
+    } finally {
+      setAddressLoading(false)
     }
+  }
+
+  const handleStartEditAddress = (addr) => {
+    setEditingAddressId(addr._id)
+    setAddingAddress(true)
+    setAddressForm({
+      title: addr.title || 'Ev',
+      fullName: addr.fullName || '',
+      phone: addr.phone || '',
+      city: addr.city || '',
+      district: addr.district || '',
+      neighborhood: addr.neighborhood || '',
+      address: addr.address || '',
+      isDefault: !!addr.isDefault,
+    })
+  }
+
+  const handleCancelAddressForm = () => {
+    setAddingAddress(false)
+    setEditingAddressId(null)
+    resetAddressForm()
   }
 
   const handleDeleteAddress = async (addressId) => {
     try {
       const res = await deleteAddressApi(addressId)
       setUser(prev => ({ ...prev, addresses: res.data }))
+      if (editingAddressId === addressId) {
+        handleCancelAddressForm()
+      }
       showSuccess('Adres silindi.')
     } catch {
       showError('Adres silinemedi.')
-    }
-  }
-
-  const handleCancelOrder = async (orderId) => {
-    if (!window.confirm('Bu siparişi iptal etmek istediğinize emin misiniz?')) return
-    setCancellingId(orderId)
-    try {
-      await cancelOrderApi(orderId)
-      setOrders(prev => prev.map(o => o._id === orderId ? { ...o, status: 'İptal' } : o))
-      showSuccess('Sipariş iptal edildi.')
-    } catch (err) {
-      showError(err.response?.data?.message || 'Sipariş iptal edilemedi.')
-    } finally {
-      setCancellingId(null)
     }
   }
 
@@ -184,15 +292,77 @@ const AccountPage = () => {
     navigate('/login')
   }
 
+  const handleToggleSetting = (section) => {
+    setSettingsOpen(prev => ({ ...prev, [section]: !prev[section] }))
+  }
+
+  const handleSupportSubmit = async (e) => {
+    e.preventDefault()
+
+    if (!supportForm.email || !supportForm.subject.trim() || !supportForm.message.trim()) {
+      showError('Destek talebi için e-posta, konu ve detay zorunludur.')
+      return
+    }
+
+    setSupportSubmitting(true)
+    try {
+      const formData = new FormData()
+      formData.append('email', supportForm.email.trim())
+      formData.append('subject', supportForm.subject.trim())
+      formData.append('message', supportForm.message.trim())
+      if (supportFile) formData.append('attachment', supportFile)
+
+      const res = await createSupportRequestApi(formData)
+      if (res?.data) {
+        setSupportRequests(prev => [{ ...res.data, createdAtDisplay: formatDateTime(res.data.createdAt) }, ...prev])
+      }
+
+      setSupportForm(prev => ({ ...prev, subject: '', message: '' }))
+      setSupportFile(null)
+      showSuccess('Destek talebiniz bize ulaştı.')
+    } catch (err) {
+      showError(err.response?.data?.message || 'Destek talebi gönderilemedi.')
+    } finally {
+      setSupportSubmitting(false)
+    }
+  }
+
   const getInitials = () => `${user?.firstName?.[0] || ''}${user?.lastName?.[0] || ''}`
 
-  const getTimeAgo = (date) => {
-    const diff = Date.now() - new Date(date).getTime()
-    const days = Math.floor(diff / 86400000)
-    if (days === 0) return 'Bugün'
-    if (days === 1) return 'Dün'
-    if (days < 30) return `${days} gün önce`
-    return new Date(date).toLocaleDateString('tr-TR')
+  const formatDateTime = (dateValue) => {
+    if (!dateValue) return '—'
+    return new Intl.DateTimeFormat('tr-TR', {
+      timeZone: 'Europe/Istanbul',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(dateValue))
+  }
+
+  const getSupportStatusLabel = (status) => {
+    if (status === 'resolved') return 'Çözüldü'
+    if (status === 'in-progress') return 'İşlemde'
+    return 'Yeni'
+  }
+
+  const getSupportStatusClass = (status) => {
+    if (status === 'resolved') return 'support-status-resolved'
+    if (status === 'in-progress') return 'support-status-progress'
+    return 'support-status-new'
+  }
+
+  const getStatusMessage = (status) => {
+    return statusMessages[status] || {
+      title: 'Siparişiniz işleme alındı',
+      description: 'Durum güncellemeleri burada otomatik olarak gösterilecektir.',
+    }
+  }
+
+  const formatOrderDate = (order) => {
+    if (order?.createdAtDisplay) return order.createdAtDisplay
+    return formatDateTime(order?.createdAt)
   }
 
   // Admin yönlendirme
@@ -295,7 +465,7 @@ const AccountPage = () => {
                         <div className="order-card-header">
                           <div className="order-card-left">
                             <span className="order-card-no">{order.orderNo}</span>
-                            <span className="order-card-date">{getTimeAgo(order.createdAt)}</span>
+                            <span className="order-card-date">{formatOrderDate(order)}</span>
                           </div>
                           <div className="order-card-right">
                             <span className="order-status-badge" style={{ color: sc.color, background: sc.bg }}>
@@ -347,21 +517,16 @@ const AccountPage = () => {
                               <FiStar size={14} /> Yorum Yap
                             </Link>
                           )}
-                          {['Bekliyor', 'Onaylandı'].includes(order.status) && (
-                            <button
-                              className="order-cancel-btn"
-                              onClick={() => handleCancelOrder(order._id)}
-                              disabled={cancellingId === order._id}
-                            >
-                              <FiX size={14} />
-                              {cancellingId === order._id ? 'İptal ediliyor...' : 'İptal Et'}
-                            </button>
-                          )}
                         </div>
 
                         {/* Detay Açılır */}
                         {selectedOrder?._id === order._id && (
                           <div className="order-detail-expand">
+                            <div className="order-status-explain">
+                              <span className="order-status-explain-label">Durum Bilgisi</span>
+                              <strong>{getStatusMessage(order.status).title}</strong>
+                              <p>{getStatusMessage(order.status).description}</p>
+                            </div>
                             <div className="order-detail-section">
                               <strong>Teslimat Adresi</strong>
                               <p>
@@ -423,191 +588,369 @@ const AccountPage = () => {
                 <h2>Hesap Ayarlarım</h2>
               </div>
               <div className="profile-cards">
-
-                {/* Kişisel Bilgiler */}
-                <div className="profile-card">
-                  <div className="profile-card-header">
+                <div className={`profile-card profile-card-accordion ${settingsOpen.profile ? 'is-open' : ''}`}>
+                  <button className="profile-accordion-head" onClick={() => handleToggleSetting('profile')}>
                     <div className="profile-card-icon"><FiUser size={18} /></div>
-                    <h4>Kişisel Bilgiler</h4>
-                    <button className="profile-edit-btn" onClick={() => {
-                      setEditingProfile(p => !p)
-                      setProfileForm({
-                        firstName: user?.firstName || '',
-                        lastName: user?.lastName || '',
-                        phone: user?.phone || '',
-                        birthDate: user?.birthDate ? user.birthDate.split('T')[0] : '',
-                      })
-                    }}>
-                      <FiEdit2 size={14} /> {editingProfile ? 'İptal' : 'Düzenle'}
-                    </button>
-                  </div>
+                    <h4>Üyelik Bilgilerim</h4>
+                    <FiChevronRight size={16} className="profile-accordion-arrow" />
+                  </button>
 
-                  {editingProfile ? (
-                    <div className="profile-edit-form">
-                      <div className="profile-form-row">
-                        <div className="profile-form-group">
-                          <label>Ad</label>
-                          <input className="profile-input" value={profileForm.firstName}
-                            onChange={e => setProfileForm(p => ({ ...p, firstName: e.target.value }))} />
-                        </div>
-                        <div className="profile-form-group">
-                          <label>Soyad</label>
-                          <input className="profile-input" value={profileForm.lastName}
-                            onChange={e => setProfileForm(p => ({ ...p, lastName: e.target.value }))} />
-                        </div>
+                  {settingsOpen.profile && (
+                    <div className="profile-accordion-body">
+                      <div className="profile-card-header profile-card-header-inner">
+                        <p>İletişim ve temel hesap bilgilerini bu bölümden düzenleyebilirsiniz.</p>
+                        <button className="profile-edit-btn" onClick={() => {
+                          setEditingProfile(p => !p)
+                          setProfileForm({
+                            firstName: user?.firstName || '',
+                            lastName: user?.lastName || '',
+                            phone: user?.phone || '',
+                            birthDate: user?.birthDate ? user.birthDate.split('T')[0] : '',
+                          })
+                        }}>
+                          <FiEdit2 size={14} /> {editingProfile ? 'İptal' : 'Düzenle'}
+                        </button>
                       </div>
-                      <div className="profile-form-row">
-                        <div className="profile-form-group">
-                          <label>Telefon</label>
-                          <input className="profile-input" value={profileForm.phone}
-                            onChange={e => setProfileForm(p => ({ ...p, phone: e.target.value }))} />
+
+                      {editingProfile ? (
+                        <div className="profile-edit-form">
+                          <div className="profile-form-row">
+                            <div className="profile-form-group">
+                              <label>Ad</label>
+                              <input className="profile-input" value={profileForm.firstName}
+                                onChange={e => setProfileForm(p => ({ ...p, firstName: e.target.value }))} />
+                            </div>
+                            <div className="profile-form-group">
+                              <label>Soyad</label>
+                              <input className="profile-input" value={profileForm.lastName}
+                                onChange={e => setProfileForm(p => ({ ...p, lastName: e.target.value }))} />
+                            </div>
+                          </div>
+                          <div className="profile-form-row">
+                            <div className="profile-form-group">
+                              <label>Telefon</label>
+                              <input className="profile-input" value={profileForm.phone}
+                                onChange={e => setProfileForm(p => ({ ...p, phone: e.target.value }))} />
+                            </div>
+                            <div className="profile-form-group">
+                              <label>Doğum Tarihi</label>
+                              <input type="date" className="profile-input" value={profileForm.birthDate}
+                                onChange={e => setProfileForm(p => ({ ...p, birthDate: e.target.value }))} />
+                            </div>
+                          </div>
+                          <button className="profile-save-btn" onClick={handleProfileSave} disabled={profileLoading}>
+                            {profileLoading ? 'Kaydediliyor...' : <><FiCheck size={14} /> Kaydet</>}
+                          </button>
                         </div>
-                        <div className="profile-form-group">
-                          <label>Doğum Tarihi</label>
-                          <input type="date" className="profile-input" value={profileForm.birthDate}
-                            onChange={e => setProfileForm(p => ({ ...p, birthDate: e.target.value }))} />
+                      ) : (
+                        <div className="profile-rows">
+                          <div className="profile-row"><span>Ad Soyad</span><strong>{user?.firstName} {user?.lastName}</strong></div>
+                          <div className="profile-row"><span>E-posta</span><strong>{user?.email}</strong></div>
+                          <div className="profile-row"><span>Telefon</span><strong>{user?.phone || '—'}</strong></div>
+                          <div className="profile-row">
+                            <span>Doğum Tarihi</span>
+                            <strong>{user?.birthDate ? new Date(user.birthDate).toLocaleDateString('tr-TR') : '—'}</strong>
+                          </div>
                         </div>
-                      </div>
-                      <button className="profile-save-btn" onClick={handleProfileSave} disabled={profileLoading}>
-                        {profileLoading ? 'Kaydediliyor...' : <><FiCheck size={14} /> Kaydet</>}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="profile-rows">
-                      <div className="profile-row"><span>Ad Soyad</span><strong>{user?.firstName} {user?.lastName}</strong></div>
-                      <div className="profile-row"><span>E-posta</span><strong>{user?.email}</strong></div>
-                      <div className="profile-row"><span>Telefon</span><strong>{user?.phone || '—'}</strong></div>
-                      <div className="profile-row">
-                        <span>Doğum Tarihi</span>
-                        <strong>{user?.birthDate ? new Date(user.birthDate).toLocaleDateString('tr-TR') : '—'}</strong>
-                      </div>
+                      )}
                     </div>
                   )}
                 </div>
 
-                {/* Şifre */}
-                <div className="profile-card">
-                  <div className="profile-card-header">
+                <div className={`profile-card profile-card-accordion ${settingsOpen.password ? 'is-open' : ''}`}>
+                  <button className="profile-accordion-head" onClick={() => handleToggleSetting('password')}>
                     <div className="profile-card-icon"><FiLock size={18} /></div>
-                    <h4>Şifre & Güvenlik</h4>
-                    <button className="profile-edit-btn" onClick={() => setEditingPassword(p => !p)}>
-                      <FiEdit2 size={14} /> {editingPassword ? 'İptal' : 'Değiştir'}
-                    </button>
-                  </div>
+                    <h4>Şifre Değiştir</h4>
+                    <FiChevronRight size={16} className="profile-accordion-arrow" />
+                  </button>
 
-                  {editingPassword ? (
-                    <div className="profile-edit-form">
-                      <div className="profile-form-group">
-                        <label>Mevcut Şifre</label>
-                        <input type="password" className="profile-input"
-                          value={passwordForm.currentPassword}
-                          onChange={e => setPasswordForm(p => ({ ...p, currentPassword: e.target.value }))}
-                          placeholder="••••••••" />
+                  {settingsOpen.password && (
+                    <div className="profile-accordion-body">
+                      <div className="profile-card-header profile-card-header-inner">
+                        <p>Hesap güvenliğiniz için şifrenizi düzenli aralıklarla güncelleyin.</p>
+                        <button className="profile-edit-btn" onClick={() => setEditingPassword(p => !p)}>
+                          <FiEdit2 size={14} /> {editingPassword ? 'İptal' : 'Değiştir'}
+                        </button>
                       </div>
-                      <div className="profile-form-row">
-                        <div className="profile-form-group">
-                          <label>Yeni Şifre</label>
-                          <input type="password" className="profile-input"
-                            value={passwordForm.newPassword}
-                            onChange={e => setPasswordForm(p => ({ ...p, newPassword: e.target.value }))}
-                            placeholder="En az 8 karakter" />
+
+                      {editingPassword ? (
+                        <div className="profile-edit-form">
+                          <div className="profile-form-group">
+                            <label>Mevcut Şifre</label>
+                            <input type="password" className="profile-input"
+                              value={passwordForm.currentPassword}
+                              onChange={e => setPasswordForm(p => ({ ...p, currentPassword: e.target.value }))}
+                              placeholder="••••••••" />
+                          </div>
+                          <div className="profile-form-row">
+                            <div className="profile-form-group">
+                              <label>Yeni Şifre</label>
+                              <input type="password" className="profile-input"
+                                value={passwordForm.newPassword}
+                                onChange={e => setPasswordForm(p => ({ ...p, newPassword: e.target.value }))}
+                                placeholder="En az 8 karakter" />
+                            </div>
+                            <div className="profile-form-group">
+                              <label>Şifre Tekrar</label>
+                              <input type="password" className="profile-input"
+                                value={passwordForm.confirmPassword}
+                                onChange={e => setPasswordForm(p => ({ ...p, confirmPassword: e.target.value }))}
+                                placeholder="••••••••" />
+                            </div>
+                          </div>
+                          <button className="profile-save-btn" onClick={handlePasswordSave} disabled={passwordLoading}>
+                            {passwordLoading ? 'Değiştiriliyor...' : <><FiCheck size={14} /> Şifreyi Değiştir</>}
+                          </button>
                         </div>
-                        <div className="profile-form-group">
-                          <label>Şifre Tekrar</label>
-                          <input type="password" className="profile-input"
-                            value={passwordForm.confirmPassword}
-                            onChange={e => setPasswordForm(p => ({ ...p, confirmPassword: e.target.value }))}
-                            placeholder="••••••••" />
+                      ) : (
+                        <div className="profile-rows">
+                          <div className="profile-row"><span>Şifre</span><strong>••••••••</strong></div>
+                          <div className="profile-row"><span>Üyelik Tarihi</span><strong>{formatDateTime(user?.createdAt)}</strong></div>
                         </div>
-                      </div>
-                      <button className="profile-save-btn" onClick={handlePasswordSave} disabled={passwordLoading}>
-                        {passwordLoading ? 'Değiştiriliyor...' : <><FiCheck size={14} /> Şifreyi Değiştir</>}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="profile-rows">
-                      <div className="profile-row"><span>Şifre</span><strong>••••••••</strong></div>
-                      <div className="profile-row">
-                        <span>Üyelik Tarihi</span>
-                        <strong>{user?.createdAt ? new Date(user.createdAt).toLocaleDateString('tr-TR') : '—'}</strong>
-                      </div>
+                      )}
                     </div>
                   )}
                 </div>
 
-                {/* Adresler */}
-                <div className="profile-card">
-                  <div className="profile-card-header">
-                    <div className="profile-card-icon"><FiMapPin size={18} /></div>
-                    <h4>Adreslerim</h4>
-                    <button className="profile-edit-btn" onClick={() => setAddingAddress(p => !p)}>
-                      <FiEdit2 size={14} /> {addingAddress ? 'İptal' : 'Ekle'}
-                    </button>
-                  </div>
+                <div className={`profile-card profile-card-accordion ${settingsOpen.announcements ? 'is-open' : ''}`}>
+                  <button className="profile-accordion-head" onClick={() => handleToggleSetting('announcements')}>
+                    <div className="profile-card-icon"><FiMessageSquare size={18} /></div>
+                    <h4>Duyuru Tercihlerim</h4>
+                    <FiChevronRight size={16} className="profile-accordion-arrow" />
+                  </button>
+                  {settingsOpen.announcements && (
+                    <div className="profile-accordion-body">
+                      <div className="profile-rows">
+                        <div className="profile-row"><span>Durum</span><strong>Yakında aktif olacak</strong></div>
+                        <div className="profile-row"><span>Bilgilendirme e-postası</span><strong>{user?.email}</strong></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
-                  {addingAddress && (
-                    <div className="profile-edit-form">
-                      <div className="profile-form-row">
-                        <div className="profile-form-group">
-                          <label>Başlık</label>
-                          <select className="profile-input" value={addressForm.title}
-                            onChange={e => setAddressForm(p => ({ ...p, title: e.target.value }))}>
-                            <option>Ev</option>
-                            <option>İş</option>
-                            <option>Diğer</option>
-                          </select>
-                        </div>
-                        <div className="profile-form-group">
-                          <label>Ad Soyad</label>
-                          <input className="profile-input" value={addressForm.fullName}
-                            onChange={e => setAddressForm(p => ({ ...p, fullName: e.target.value }))} />
-                        </div>
+          {/* ── Adres Defterim ── */}
+          {activeTab === 'addresses' && (
+            <div className="account-section">
+              <div className="account-section-header">
+                <h2>Adres Defterim</h2>
+                <button className="profile-edit-btn" onClick={() => {
+                  if (addingAddress) {
+                    handleCancelAddressForm()
+                  } else {
+                    resetAddressForm()
+                    setAddingAddress(true)
+                  }
+                }}>
+                  <FiEdit2 size={14} /> {addingAddress ? 'İptal' : 'Yeni Adres'}
+                </button>
+              </div>
+
+              <div className="address-book-layout">
+                <div className="address-book-stats">
+                  <div className="address-stat-card">
+                    <strong>{user?.addresses?.length || 0}</strong>
+                    <span>Kayıtlı Adres</span>
+                  </div>
+                  <div className="address-stat-card">
+                    <strong>{user?.addresses?.find(a => a.isDefault)?.title || '—'}</strong>
+                    <span>Varsayılan</span>
+                  </div>
+                </div>
+
+                {addingAddress && (
+                  <div className="profile-edit-form address-book-form">
+                    <div className="profile-form-row">
+                      <div className="profile-form-group">
+                        <label>Başlık</label>
+                        <select className="profile-input" value={addressForm.title}
+                          onChange={e => setAddressForm(p => ({ ...p, title: e.target.value }))}>
+                          <option>Ev</option>
+                          <option>İş</option>
+                          <option>Diğer</option>
+                        </select>
                       </div>
-                      <div className="profile-form-row">
-                        <div className="profile-form-group">
-                          <label>Telefon</label>
-                          <input className="profile-input" value={addressForm.phone}
-                            onChange={e => setAddressForm(p => ({ ...p, phone: e.target.value }))} />
-                        </div>
-                        <div className="profile-form-group">
-                          <label>Şehir</label>
-                          <input className="profile-input" value={addressForm.city}
-                            onChange={e => setAddressForm(p => ({ ...p, city: e.target.value }))} />
-                        </div>
+                      <div className="profile-form-group">
+                        <label>Ad Soyad</label>
+                        <input className="profile-input" value={addressForm.fullName}
+                          onChange={e => setAddressForm(p => ({ ...p, fullName: e.target.value }))} />
                       </div>
+                    </div>
+                    <div className="profile-form-row">
+                      <div className="profile-form-group">
+                        <label>Telefon</label>
+                        <input className="profile-input" value={addressForm.phone}
+                          onChange={e => setAddressForm(p => ({ ...p, phone: e.target.value }))} />
+                      </div>
+                      <div className="profile-form-group">
+                        <label>Şehir</label>
+                        <input className="profile-input" value={addressForm.city}
+                          onChange={e => setAddressForm(p => ({ ...p, city: e.target.value }))} />
+                      </div>
+                    </div>
+                    <div className="profile-form-row">
                       <div className="profile-form-group">
                         <label>İlçe</label>
                         <input className="profile-input" value={addressForm.district}
                           onChange={e => setAddressForm(p => ({ ...p, district: e.target.value }))} />
                       </div>
                       <div className="profile-form-group">
-                        <label>Açık Adres</label>
-                        <textarea className="profile-textarea" value={addressForm.address}
-                          onChange={e => setAddressForm(p => ({ ...p, address: e.target.value }))} rows={3} />
+                        <label>Mahalle</label>
+                        <input className="profile-input" value={addressForm.neighborhood}
+                          onChange={e => setAddressForm(p => ({ ...p, neighborhood: e.target.value }))} />
                       </div>
-                      <button className="profile-save-btn" onClick={handleAddAddress}>
-                        <FiCheck size={14} /> Adresi Kaydet
-                      </button>
                     </div>
-                  )}
+                    <div className="profile-form-group">
+                      <label>Açık Adres</label>
+                      <textarea className="profile-textarea" value={addressForm.address}
+                        onChange={e => setAddressForm(p => ({ ...p, address: e.target.value }))} rows={4} />
+                    </div>
+                    <label className="form-checkbox">
+                      <input
+                        type="checkbox"
+                        checked={addressForm.isDefault}
+                        onChange={e => setAddressForm(p => ({ ...p, isDefault: e.target.checked }))}
+                      />
+                      <span className="checkbox-custom" />
+                      <span className="checkbox-text">Varsayılan adres yap</span>
+                    </label>
+                    <button className="profile-save-btn" onClick={handleAddressSave} disabled={addressLoading}>
+                      {addressLoading
+                        ? 'Kaydediliyor...'
+                        : <><FiCheck size={14} /> {editingAddressId ? 'Adresi Güncelle' : 'Adresi Kaydet'}</>}
+                    </button>
+                  </div>
+                )}
 
-                  <div className="profile-rows">
-                    {user?.addresses?.length > 0 ? user.addresses.map((addr, i) => (
-                      <div key={i} className="address-item-row">
-                        <div className="address-item-info">
-                          <strong>{addr.title} — {addr.fullName}</strong>
-                          <span>{addr.address}, {addr.district} / {addr.city}</span>
-                        </div>
+                <div className="address-book-list">
+                  {user?.addresses?.length > 0 ? user.addresses.map((addr, i) => (
+                    <div key={i} className="address-item-row">
+                      <div className="address-item-info">
+                        <strong>
+                          {addr.title} — {addr.fullName}
+                          {addr.isDefault && <span className="address-default-badge">Varsayılan</span>}
+                        </strong>
+                        <span>{addr.phone}</span>
+                        <span>{addr.address}, {addr.district} / {addr.city}</span>
+                      </div>
+                      <div className="address-actions">
+                        <button className="address-edit-btn" onClick={() => handleStartEditAddress(addr)}>
+                          <FiEdit2 size={13} />
+                        </button>
                         <button className="address-delete-btn" onClick={() => handleDeleteAddress(addr._id)}>
                           <FiX size={14} />
                         </button>
                       </div>
-                    )) : (
-                      <div className="profile-row">
-                        <span>Henüz adres eklenmedi</span>
-                      </div>
-                    )}
+                    </div>
+                  )) : (
+                    <div className="account-empty">
+                      <div className="account-empty-icon">📍</div>
+                      <h3>Henüz adres yok</h3>
+                      <p>Siparişte hızlı seçim için ilk adresinizi ekleyin.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Destek Taleplerim ── */}
+          {activeTab === 'support' && (
+            <div className="account-section">
+              <div className="account-section-header">
+                <h2>Destek Taleplerim</h2>
+              </div>
+
+              <div className="support-layout">
+                <form className="support-form" onSubmit={handleSupportSubmit}>
+                  <h4>Yeni Talep Oluştur</h4>
+                  <p>Konu, detay ve varsa ekran görüntüsü ekleyerek bize hızlıca ulaşabilirsiniz.</p>
+
+                  <div className="profile-form-group">
+                    <label>E-posta</label>
+                    <input
+                      className="profile-input"
+                      value={supportForm.email}
+                      onChange={e => setSupportForm(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="ornek@mail.com"
+                    />
                   </div>
+                  <div className="profile-form-group">
+                    <label>Konu</label>
+                    <input
+                      className="profile-input"
+                      value={supportForm.subject}
+                      onChange={e => setSupportForm(prev => ({ ...prev, subject: e.target.value }))}
+                      maxLength={140}
+                      placeholder="Örn: Siparişimde tarih hatalı görünüyor"
+                    />
+                  </div>
+                  <div className="profile-form-group">
+                    <label>Detay</label>
+                    <textarea
+                      className="profile-textarea"
+                      rows={5}
+                      value={supportForm.message}
+                      onChange={e => setSupportForm(prev => ({ ...prev, message: e.target.value }))}
+                      placeholder="Sorunu adım adım yazabilirsiniz."
+                    />
+                  </div>
+
+                  <label className="support-file-label">
+                    <FiUploadCloud size={16} />
+                    <span>{supportFile ? supportFile.name : 'Dosya ekle (opsiyonel)'}</span>
+                    <input
+                      type="file"
+                      onChange={e => setSupportFile(e.target.files?.[0] || null)}
+                      accept=".pdf,.jpg,.jpeg,.png,.webp,.txt,.doc,.docx"
+                    />
+                  </label>
+
+                  <button className="profile-save-btn" type="submit" disabled={supportSubmitting}>
+                    {supportSubmitting ? 'Gönderiliyor...' : <><FiCheck size={14} /> Talebi Gönder</>}
+                  </button>
+                </form>
+
+                <div className="support-list-wrap">
+                  <div className="support-list-head">
+                    <h4>Önceki Talepler</h4>
+                    <button className="account-refresh-btn" onClick={fetchSupportRequests}>
+                      <FiRefreshCw size={14} />
+                    </button>
+                  </div>
+
+                  {supportLoading ? (
+                    <div className="account-loading">
+                      <FiRefreshCw size={20} className="spin" />
+                      <span>Yükleniyor...</span>
+                    </div>
+                  ) : supportRequests.length > 0 ? (
+                    <div className="support-list">
+                      {supportRequests.map((ticket) => (
+                        <div className="support-item" key={ticket._id}>
+                          <div className="support-item-top">
+                            <strong>{ticket.subject}</strong>
+                            <span className={`support-status ${getSupportStatusClass(ticket.status)}`}>
+                              {getSupportStatusLabel(ticket.status)}
+                            </span>
+                          </div>
+                          <p>{ticket.message}</p>
+                          <div className="support-item-meta">
+                            <span><FiClock size={13} /> {ticket.createdAtDisplay || formatDateTime(ticket.createdAt)}</span>
+                            {ticket.attachmentName && <span><FiUploadCloud size={13} /> {ticket.attachmentName}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="account-empty">
+                      <div className="account-empty-icon">🛟</div>
+                      <h3>Henüz destek talebi yok</h3>
+                      <p>Bir sorun yaşarsanız bu alandan hızlıca bize yazabilirsiniz.</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -697,7 +1040,7 @@ const AccountPage = () => {
                               className={s <= r.rating ? 'star-filled' : 'star-empty'} />
                           ))}
                         </div>
-                        <span className="account-review-date">{getTimeAgo(r.createdAt)}</span>
+                        <span className="account-review-date">{formatDateTime(r.createdAt)}</span>
                       </div>
                       <p className="account-review-comment">"{r.comment}"</p>
                       <div className="account-review-status">

@@ -46,6 +46,26 @@ export const getReviews = async (req, res) => {
   })
 }
 
+// @desc    Sadece onaylı yorumları getir (Anasayfa için)
+// @route   GET /api/reviews/public
+// @access  Public
+export const getPublicReviews = async (req, res) => {
+  const { limit = 6 } = req.query
+  const limitNum = Number(limit)
+
+  const reviews = await Review.find({ status: 'approved' })
+    .populate('user', 'firstName lastName')
+    .populate('product', 'name images slug')
+    .sort({ createdAt: -1 })
+    .limit(limitNum)
+
+  res.status(200).json({
+    success: true,
+    count: reviews.length,
+    data: reviews,
+  })
+}
+
 // @desc    Yorum oluştur
 // @route   POST /api/reviews
 // @access  Private
@@ -74,7 +94,16 @@ export const createReview = async (req, res) => {
   const hasPurchased = await Order.findOne({
     user: req.user._id,
     'items.product': productId,
-    status: { $in: ['Onaylandı', 'Hazırlanıyor', 'Kargoya Verildi', 'Teslim Edildi'] },
+    status: {
+      $in: [
+        'Onaylandı',
+        'Basımda',
+        'Hazırlanıyor',
+        'Kargoya Verildi',
+        'Kargoda',
+        'Teslim Edildi',
+      ],
+    },
   })
 
   if (!hasPurchased) {

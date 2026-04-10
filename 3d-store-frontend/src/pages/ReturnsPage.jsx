@@ -23,7 +23,7 @@ const ReturnsPage = () => {
         <h2>İade Sürecini Nasıl Başlatırım?</h2>
         <ol>
           <li>Üyelerimiz <Link to="/account">Hesabım</Link> sayfasındaki ilgili sipariş üzerinden iade butonuna tıklayarak talebini iletir.</li>
-          <li>Üyeliksiz alışveriş yapan kullanıcılarımız iletişim sayfasında veya bilgi@ozkan3d.design mailinden bizimle iletişime geçer.</li>
+          <li>Üyeliksiz alışveriş yapan kullanıcılarımız iletişim sayfasında veya ozkan3d.design@gmail.com mailinden bizimle iletişime geçer.</li>
           <li>Sunulan İade Kodu ile ürün, anlaşmalı firmamıza ücretsiz teslim edilir.</li>
           <li>Ürün tarafımıza ulaştığında incelemesi yapılır, iade onaylandığında para iadeniz otomatik olarak kartınıza/hesabınıza 1-3 iş günü içinde yansır.</li>
         </ol>

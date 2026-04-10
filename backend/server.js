@@ -23,6 +23,7 @@ import paymentRoutes from './routes/paymentRoutes.js'
 import cartRoutes from './routes/cartRoutes.js'
 import settingsRoutes from './routes/settingsRoutes.js'
 import contactRoutes from './routes/contactRoutes.js'
+import supportRoutes from './routes/supportRoutes.js'
 dotenv.config()
 connectDB()
 
@@ -39,14 +40,37 @@ const productsDir = path.join(__dirname, 'uploads/products')
 if (!fs.existsSync(productsDir)) {
   fs.mkdirSync(productsDir, { recursive: true })
 }
+const supportDir = path.join(__dirname, 'uploads/support')
+if (!fs.existsSync(supportDir)) {
+  fs.mkdirSync(supportDir, { recursive: true })
+}
 
 const app = express()
 const httpServer = createServer(app)
 
+const rawClientOrigins = process.env.CLIENT_URLS || process.env.CLIENT_URL || ''
+const allowedOrigins = rawClientOrigins
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+
+const normalizedAllowedOrigins = allowedOrigins.length > 0 ? allowedOrigins : ['http://localhost:5173']
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || normalizedAllowedOrigins.includes(origin)) {
+      callback(null, true)
+      return
+    }
+    callback(new Error(`CORS engellendi: ${origin}`))
+  },
+  credentials: true,
+}
+
 // Socket.io
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL,
+    origin: normalizedAllowedOrigins,
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -70,14 +94,14 @@ io.on('connection', (socket) => {
 })
 
 // Middleware
+app.set('trust proxy', 1)
+
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginOpenerPolicy: false,
   contentSecurityPolicy: false,
 }))
-app.use(cors({
-  origin: process.env.CLIENT_URL,
-  credentials: true,
-}))
+app.use(cors(corsOptions))
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 app.use(cookieParser())
@@ -99,6 +123,7 @@ app.use('/api/payment', paymentRoutes)
 app.use('/api/cart', cartRoutes)
 app.use('/api/settings', settingsRoutes)
 app.use('/api/contact', contactRoutes)
+app.use('/api/support', supportRoutes)
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Ozkan3D API çalışıyor 🚀' })
 })

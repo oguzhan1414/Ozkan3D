@@ -8,6 +8,8 @@ import { AuthProvider } from './context/AuthContext'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SocketProvider } from './context/SocketContext'
 import { FavoriteProvider } from './context/FavoriteContext.jsx'
+import { HelmetProvider } from 'react-helmet-async'
+import { GoogleOAuthProvider } from '@react-oauth/google'
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -25,7 +27,11 @@ createRoot(document.getElementById('root')).render(
           <CartProvider>
             <SocketProvider>
             <FavoriteProvider>
-              <App />
+              <HelmetProvider>
+                <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || '123456789-dummy-id.apps.googleusercontent.com'}>
+                  <App />
+                </GoogleOAuthProvider>
+              </HelmetProvider>
             </FavoriteProvider>
             </SocketProvider>
           </CartProvider>

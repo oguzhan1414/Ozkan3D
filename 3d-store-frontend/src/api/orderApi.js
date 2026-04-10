@@ -44,3 +44,8 @@ export const checkPurchaseApi = async (productId) => {
   const res = await api.get(`/orders/check-purchase/${productId}`)
   return res.data
 }
+
+export const getShippingQuoteApi = async (payload) => {
+  const res = await api.post('/orders/shipping-quote', payload)
+  return res.data
+}

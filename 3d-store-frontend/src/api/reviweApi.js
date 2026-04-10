@@ -15,6 +15,11 @@ export const getReviewsApi = async (params = {}) => {
   return res.data
 }
 
+export const getPublicReviewsApi = async (params) => {
+  const res = await api.get('/reviews/public', { params })
+  return res.data
+}
+
 export const updateReviewStatusApi = async (id, status) => {
   const res = await api.put(`/reviews/${id}/status`, { status })
   return res.data

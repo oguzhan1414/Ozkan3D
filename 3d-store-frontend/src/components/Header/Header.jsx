@@ -10,6 +10,7 @@ import {
   FiSun, FiMoon, FiLogOut, FiSettings,
   FiPackage, FiShield, FiHeart
 } from 'react-icons/fi'
+import siteLogo from '../../images/logo-wordmark.png'
 import './Header.css'
 
 const navLinks = [
@@ -32,7 +33,6 @@ const Header = () => {
   const [searchFocused, setSearchFocused] = useState(false)
   const [activeDropdown, setActiveDropdown] = useState(null)
   const [hoverTimeout, setHoverTimeout] = useState(null)
-  const [showTopBar, setShowTopBar] = useState(true)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const navbarRef = useRef(null)
   const searchRef = useRef(null)
@@ -45,21 +45,9 @@ const Header = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
-    setMenuOpen(false)
-    setActiveDropdown(null)
-    setUserMenuOpen(false)
-  }, [location])
-
-  useEffect(() => {
     document.body.style.overflow = menuOpen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
   }, [menuOpen])
-
-  useEffect(() => {
-    const handleScroll = () => setShowTopBar(window.scrollY <= 50)
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -99,26 +87,12 @@ const Header = () => {
 
   return (
     <>
-      {/* Top Bar */}
-      <div className={`topbar ${showTopBar ? 'topbar-visible' : 'topbar-hidden'}`}>
-        <div className="topbar-container">
-          <div className="topbar-left">
 
-          </div>
-          <div className="topbar-right">
-            <span className="topbar-text">🚚 500₺ Üzeri Ücretsiz Kargo</span>
-          </div>
-        </div>
-      </div>
       {/* Mid Bar */}
       <div className="midbar">
         <div className="midbar-container">
           <Link to="/" className="header-logo">
-            <div className="logo-icon"><span>O</span></div>
-            <div className="logo-text-wrap">
-              <span className="logo-brand">Ozkan3D</span>
-              <span className="logo-domain">.design</span>
-            </div>
+            <img src={siteLogo} alt="Ozkan3D logo" className="header-logo-image" />
           </Link>
 
           <form className={`search-form ${searchFocused ? 'search-focused' : ''}`} onSubmit={handleSearch}>
@@ -342,7 +316,7 @@ const Header = () => {
           )}
           <div className="mobile-contact">
             <a href="tel:02165213840" className="topbar-link"><FiPhone size={13} /> 0216 521 38 40</a>
-            <a href="mailto:bilgi@ozkan3d.design" className="topbar-link"><FiMail size={13} /> bilgi@ozkan3d.design</a>
+            <a href="mailto:ozkan3d.design@gmail.com" className="topbar-link"><FiMail size={13} /> ozkan3d.design@gmail.com</a>
           </div>
         </div>
       </div>

@@ -6,6 +6,7 @@ import './NotificationPanel.css'
 
 const NotificationPanel = () => {
   const [open, setOpen] = useState(false)
+  const [nowMs, setNowMs] = useState(() => Date.now())
   const panelRef = useRef(null)
   const { notifications, unreadCount, markAllRead, markRead, clearAll } = useSocket()
 
@@ -19,8 +20,13 @@ const NotificationPanel = () => {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
+  useEffect(() => {
+    const timer = setInterval(() => setNowMs(Date.now()), 60000)
+    return () => clearInterval(timer)
+  }, [])
+
   const getTimeAgo = (timestamp) => {
-    const diff = Date.now() - new Date(timestamp).getTime()
+    const diff = nowMs - new Date(timestamp).getTime()
     const mins = Math.floor(diff / 60000)
     if (mins < 1) return 'Az önce'
     if (mins < 60) return `${mins} dk önce`

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useState, useEffect, useCallback } from 'react'
+import { useParams, Link } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useFavorite } from '../context/FavoriteContext'
 import { useAuth } from '../context/AuthContext'
@@ -11,13 +11,26 @@ import {
 import { getProductApi, getProductsApi } from '../api/productApi'
 import { getProductReviewsApi, createReviewApi } from '../api/reviweApi'
 import { checkPurchaseApi } from '../api/orderApi'
+import { optimizeImage } from '../utils/imageUtils'
 import './ProductDetailPage.css'
+
+const getRelatedImageUrl = (url) => {
+  if (!url || typeof url !== 'string') return url
+  if (!url.includes('cloudinary.com')) return url
+
+  if (url.includes('/upload/f_auto,q_auto:best,dpr_auto/')) return url
+  if (url.includes('/upload/f_auto,q_auto/')) {
+    return url.replace('/upload/f_auto,q_auto/', '/upload/f_auto,q_auto:best,dpr_auto/')
+  }
+
+  return optimizeImage(url).replace('/upload/f_auto,q_auto/', '/upload/f_auto,q_auto:best,dpr_auto/')
+}
 
 const ProductDetailPage = () => {
   const { id } = useParams()
   const { addToCart } = useCart()
   const { toggleFavorite, isFavorite } = useFavorite()
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated } = useAuth()
 
   const [product, setProduct] = useState(null)
   const [relatedProducts, setRelatedProducts] = useState([])
@@ -43,12 +56,7 @@ const ProductDetailPage = () => {
   const [hasPurchased, setHasPurchased] = useState(false)
   const REVIEWS_PER_PAGE = 5
 
-  useEffect(() => {
-    fetchProduct()
-    window.scrollTo(0, 0)
-  }, [id])
-
-  const fetchProduct = async () => {
+  const fetchProduct = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
@@ -76,12 +84,17 @@ const ProductDetailPage = () => {
           setHasPurchased(false)
         }
       }
-    } catch (err) {
+    } catch {
       setError('Ürün bulunamadı.')
     } finally {
       setLoading(false)
     }
-  }
+  }, [id, isAuthenticated])
+
+  useEffect(() => {
+    fetchProduct()
+    window.scrollTo(0, 0)
+  }, [fetchProduct])
 
   const handleAddToCart = async () => {
     if (!product) return
@@ -355,15 +368,15 @@ const ProductDetailPage = () => {
             <div className="detail-meta">
               <div className="detail-meta-item">
                 <FiTruck size={16} />
-                <span><strong>Ücretsiz kargo</strong> — 500₺ üzeri siparişlerde</span>
+                <span><strong>Kargo bilgisi</strong> — ücret ve teslim süresi ödeme adımında adrese göre hesaplanır</span>
               </div>
               <div className="detail-meta-item">
                 <FiShield size={16} />
-                <span><strong>Güvenli ödeme</strong> — iyzico altyapısı ile</span>
+                <span><strong>Ödeme güvenliği</strong> — işlemler iyzico altyapısı ile korunur</span>
               </div>
               <div className="detail-meta-item">
                 <FiRefreshCw size={16} />
-                <span><strong>14 gün iade</strong> — koşulsuz iade garantisi</span>
+                <span><strong>İade ve değişim</strong> — talepler ürün durumuna göre destek ekibi tarafından değerlendirilir</span>
               </div>
             </div>
           </div>
@@ -597,7 +610,13 @@ const ProductDetailPage = () => {
                 <Link key={p._id} to={`/product/${p.slug || p._id}`} className="related-card">
                   <div className="related-card-img">
                     {p.images?.[0] ? (
-                      <img src={p.images[0]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img
+                        src={getRelatedImageUrl(p.images[0])}
+                        alt={p.name}
+                        className="related-card-image"
+                        loading="lazy"
+                        decoding="async"
+                      />
                     ) : (
                       <div className="related-placeholder">3D</div>
                     )}

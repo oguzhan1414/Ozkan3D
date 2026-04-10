@@ -1,9 +1,8 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { io } from 'socket.io-client'
 import { useAuth } from './AuthContext'
 
 const SocketContext = createContext({
-  socket: null,
   notifications: [],
   unreadCount: 0,
   markAllRead: () => {},
@@ -16,6 +15,11 @@ export const SocketProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
   const { isAuthenticated, isAdmin, user } = useAuth()
+
+  const addNotification = useCallback((notif) => {
+    setNotifications(prev => [notif, ...prev].slice(0, 50))
+    setUnreadCount(prev => prev + 1)
+  }, [])
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -82,12 +86,7 @@ export const SocketProvider = ({ children }) => {
       socket.disconnect()
       socketRef.current = null
     }
-  }, [isAuthenticated, isAdmin, user?._id])
-
-  const addNotification = (notif) => {
-    setNotifications(prev => [notif, ...prev].slice(0, 50))
-    setUnreadCount(prev => prev + 1)
-  }
+  }, [isAuthenticated, isAdmin, user?._id, addNotification])
 
   const markAllRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
@@ -108,7 +107,6 @@ export const SocketProvider = ({ children }) => {
 
   return (
     <SocketContext.Provider value={{
-      socket: socketRef.current,
       notifications,
       unreadCount,
       markAllRead,
@@ -124,7 +122,6 @@ export const useSocket = () => {
   const context = useContext(SocketContext)
   if (!context) {
     return {
-      socket: null,
       notifications: [],
       unreadCount: 0,
       markAllRead: () => {},

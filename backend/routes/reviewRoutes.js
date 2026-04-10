@@ -1,6 +1,6 @@
 import express from 'express'
 import {
-  getProductReviews, getReviews,
+  getProductReviews, getReviews, getPublicReviews,
   createReview, updateReviewStatus, deleteReview
 } from '../controllers/reviewController.js'
 import { protect } from '../middleware/authMiddleware.js'
@@ -9,6 +9,7 @@ import { getMyReviews } from '../controllers/reviewController.js'
 const router = express.Router()
 
 router.get('/product/:productId', getProductReviews)
+router.get('/public', getPublicReviews)
 router.get('/', protect, admin, getReviews)
 router.post('/', protect, createReview)
 router.put('/:id/status', protect, admin, updateReviewStatus)

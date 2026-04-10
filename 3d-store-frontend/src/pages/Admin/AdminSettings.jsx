@@ -1,21 +1,20 @@
 import { useState, useEffect } from 'react'
 import {
-  FiGlobe, FiTruck, FiCreditCard, FiMail,
-  FiUsers, FiShield, FiBell, FiSave, FiCheck,
-  FiUpload, FiEye, FiEyeOff, FiPlus, FiTrash2,
-  FiRefreshCw
+  FiGlobe, FiTruck, FiMail,
+  FiUsers, FiBell, FiSave, FiCheck,
+  FiPlus, FiTrash2,
+  FiRefreshCw, FiImage
 } from 'react-icons/fi'
-import { getSettingsApi, updateSettingsApi } from '../../api/settingsApi'
+import { getSettingsApi, updateSettingsApi, uploadHeroImageApi } from '../../api/settingsApi'
 import { getUsersApi, updateUserApi, deleteUserApi } from '../../api/userApi'
 import './AdminSettings.css'
 
 const settingsTabs = [
   { id: 'general',       label: 'Genel',        icon: FiGlobe },
+  { id: 'homepage',      label: 'Anasayfa',     icon: FiImage },
   { id: 'shipping',      label: 'Kargo',         icon: FiTruck },
-  { id: 'payment',       label: 'Ödeme',         icon: FiCreditCard },
   { id: 'email',         label: 'E-posta',       icon: FiMail },
   { id: 'users',         label: 'Kullanıcılar',  icon: FiUsers },
-  { id: 'security',      label: 'Güvenlik',      icon: FiShield },
   { id: 'notifications', label: 'Bildirimler',   icon: FiBell },
 ]
 
@@ -30,13 +29,11 @@ const AdminSettings = () => {
   const [loading, setLoading]         = useState(true)
   const [saving, setSaving]           = useState(false)
   const [saved, setSaved]             = useState(false)
-  const [showPass, setShowPass]       = useState(false)
+  const [heroUploadingIndex, setHeroUploadingIndex] = useState(null)
 
   // Users
   const [users, setUsers]             = useState([])
   const [usersLoading, setUsersLoading] = useState(false)
-  const [showUserForm, setShowUserForm] = useState(false)
-  const [userForm, setUserForm]       = useState({ firstName: '', lastName: '', email: '', role: 'user', password: '' })
 
   useEffect(() => { fetchSettings() }, [])
   useEffect(() => { if (activeTab === 'users') fetchUsers() }, [activeTab])
@@ -84,6 +81,64 @@ const AdminSettings = () => {
     setSettings(prev => ({ ...prev, [key]: value }))
   }
 
+  const resolveAssetUrl = (url) => {
+    if (!url) return ''
+    if (/^https?:\/\//i.test(url)) return url
+
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+    const origin = apiBase.replace(/\/api\/?$/, '')
+
+    if (url.startsWith('/')) return `${origin}${url}`
+    return `${origin}/${url}`
+  }
+
+  const heroSlides = Array.isArray(settings?.heroSlides) ? settings.heroSlides : []
+
+  const addHeroSlide = () => {
+    const nextSlides = [
+      ...heroSlides,
+      {
+        imageUrl: '',
+        altText: '',
+        isActive: true,
+        sortOrder: heroSlides.length,
+      },
+    ]
+    updateField('heroSlides', nextSlides)
+  }
+
+  const removeHeroSlide = (index) => {
+    const nextSlides = heroSlides
+      .filter((_, slideIndex) => slideIndex !== index)
+      .map((slide, slideIndex) => ({
+        ...slide,
+        sortOrder: Number.isFinite(Number(slide.sortOrder)) ? Number(slide.sortOrder) : slideIndex,
+      }))
+    updateField('heroSlides', nextSlides)
+  }
+
+  const updateHeroSlide = (index, key, value) => {
+    const nextSlides = heroSlides.map((slide, slideIndex) => (
+      slideIndex === index ? { ...slide, [key]: value } : slide
+    ))
+    updateField('heroSlides', nextSlides)
+  }
+
+  const handleHeroImageUpload = async (index, file) => {
+    if (!file) return
+
+    setHeroUploadingIndex(index)
+    try {
+      const res = await uploadHeroImageApi(file)
+      updateHeroSlide(index, 'imageUrl', res.url || '')
+    } catch (err) {
+      console.log('Slider görsel yükleme hatası:', err.message)
+      alert(err.response?.data?.message || 'Görsel yüklenemedi, lütfen tekrar deneyin.')
+    } finally {
+      setHeroUploadingIndex(null)
+    }
+  }
+
   const addCarrier = () => {
     const name = prompt('Kargo firması adı:')
     if (name) updateField('carriers', [...(settings.carriers || []), name])
@@ -105,7 +160,7 @@ const AdminSettings = () => {
 
   const handleRoleChange = async (userId, newRole) => {
     try {
-      const res = await updateUserApi(userId, { role: newRole })
+      await updateUserApi(userId, { role: newRole })
       setUsers(prev => prev.map(u => u._id === userId ? { ...u, role: newRole } : u))
     } catch (err) {
       console.log('Rol güncellenemedi:', err.message)
@@ -129,7 +184,7 @@ const AdminSettings = () => {
           <h1 className="admin-page-title">Ayarlar</h1>
           <p className="admin-page-sub">Mağaza yapılandırmasını buradan yönetin</p>
         </div>
-        {activeTab !== 'users' && activeTab !== 'security' && (
+        {activeTab !== 'users' && (
           <button
             className={`settings-save-btn ${saved ? 'settings-saved' : ''}`}
             onClick={handleSave}
@@ -231,6 +286,122 @@ const AdminSettings = () => {
                   </div>
                 </div>
 
+                <div className="settings-todo-notice">
+                  <span>ℹ️</span>
+                  <div>
+                    <strong>Ürün Standardı</strong>
+                    <p>Mevcut operasyonda malzeme otomatik olarak PLA kullanılır. Ürün açıklama alanlarında karakter limiti kaldırılmıştır, içerik tek satır düzeninde normalize edilir.</p>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* ── Anasayfa ── */}
+          {activeTab === 'homepage' && (
+            <div className="settings-card">
+              <div className="settings-card-header">
+                <FiImage size={18} />
+                <h3>Anasayfa Slider Ayarları</h3>
+              </div>
+
+              <div className="settings-form">
+                <div className="settings-todo-notice">
+                  <span>ℹ️</span>
+                  <div>
+                    <strong>Yönetim Mantığı</strong>
+                    <p>Bu alana eklediğiniz aktif görseller anasayfa açılış sliderında gösterilir. Kod değişmeden buradan güncelleyebilirsiniz.</p>
+                  </div>
+                </div>
+
+                <div className="hero-slides-list">
+                  {heroSlides.map((slide, index) => (
+                    <div key={index} className="hero-slide-item">
+                      <div className="hero-slide-head">
+                        <strong>Slide #{index + 1}</strong>
+                        <button
+                          className="carrier-remove"
+                          onClick={() => removeHeroSlide(index)}
+                          title="Slide sil"
+                        >
+                          <FiTrash2 size={13} />
+                        </button>
+                      </div>
+
+                      <div className="settings-form-row">
+                        <div className="settings-form-group">
+                          <label>Görsel URL</label>
+                          <input
+                            className="admin-input"
+                            value={slide.imageUrl || ''}
+                            onChange={e => updateHeroSlide(index, 'imageUrl', e.target.value)}
+                            placeholder="/uploads/home-hero/hero-...png"
+                          />
+                        </div>
+                        <div className="settings-form-group">
+                          <label>Alternatif Metin (SEO)</label>
+                          <input
+                            className="admin-input"
+                            value={slide.altText || ''}
+                            onChange={e => updateHeroSlide(index, 'altText', e.target.value)}
+                            placeholder="Örn: Ejderha koleksiyonu"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="settings-form-row">
+                        <div className="settings-form-group">
+                          <label>Sıra</label>
+                          <input
+                            type="number"
+                            className="admin-input"
+                            value={Number.isFinite(Number(slide.sortOrder)) ? Number(slide.sortOrder) : 0}
+                            onChange={e => updateHeroSlide(index, 'sortOrder', Number(e.target.value))}
+                            min={0}
+                          />
+                        </div>
+                        <div className="settings-form-group">
+                          <label>Aktif</label>
+                          <label className="toggle-switch" style={{ marginTop: '10px' }}>
+                            <input
+                              type="checkbox"
+                              checked={slide.isActive !== false}
+                              onChange={e => updateHeroSlide(index, 'isActive', e.target.checked)}
+                            />
+                            <span className="toggle-slider" />
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="hero-slide-upload-row">
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/jpg,image/webp"
+                          onChange={e => handleHeroImageUpload(index, e.target.files?.[0])}
+                          className="admin-input"
+                        />
+                        <small className="input-hint">Maksimum 5MB, desteklenen formatlar: JPG, PNG, WEBP</small>
+                      </div>
+
+                      {slide.imageUrl && (
+                        <div className="hero-slide-preview">
+                          <img src={resolveAssetUrl(slide.imageUrl)} alt={slide.altText || 'Anasayfa slider görseli'} />
+                        </div>
+                      )}
+
+                      {heroUploadingIndex === index && (
+                        <div className="hero-slide-uploading">
+                          <FiRefreshCw size={14} className="spin" /> Görsel yükleniyor...
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <button className="add-carrier-btn" onClick={addHeroSlide}>
+                  <FiPlus size={14} /> Yeni Slide Ekle
+                </button>
               </div>
             </div>
           )}
@@ -246,34 +417,55 @@ const AdminSettings = () => {
 
                 <div className="settings-form-row">
                   <div className="settings-form-group">
-                    <label>Ücretsiz Kargo Eşiği (₺)</label>
+                    <label>Bolu İçi Kargo Ücreti (₺)</label>
                     <input
                       type="number"
                       className="admin-input"
-                      value={settings?.freeShippingThreshold || 500}
-                      onChange={e => updateField('freeShippingThreshold', Number(e.target.value))}
+                      value={settings?.localShippingCost || 89}
+                      onChange={e => updateField('localShippingCost', Number(e.target.value))}
                     />
-                    <small className="input-hint">Bu tutarın üzerinde kargo ücretsiz</small>
+                    <small className="input-hint">Ücretsiz kargo uygulanmaz, tüm siparişlerde kargo ücreti alınır.</small>
                   </div>
                   <div className="settings-form-group">
-                    <label>Standart Kargo Ücreti (₺)</label>
+                    <label>Yakın Bölge Kargo Ücreti (₺)</label>
                     <input
                       type="number"
                       className="admin-input"
-                      value={settings?.standardShippingCost || 49}
+                      value={settings?.nearShippingCost || 109}
+                      onChange={e => updateField('nearShippingCost', Number(e.target.value))}
+                    />
+                  </div>
+                </div>
+
+                <div className="settings-form-row">
+                  <div className="settings-form-group">
+                    <label>Orta Bölge Kargo Ücreti (₺)</label>
+                    <input
+                      type="number"
+                      className="admin-input"
+                      value={settings?.standardShippingCost || 139}
                       onChange={e => updateField('standardShippingCost', Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="settings-form-group">
+                    <label>Uzak Bölge Kargo Ücreti (₺)</label>
+                    <input
+                      type="number"
+                      className="admin-input"
+                      value={settings?.farShippingCost || 179}
+                      onChange={e => updateField('farShippingCost', Number(e.target.value))}
                     />
                   </div>
                 </div>
 
                 <div className="settings-form-group">
-                  <label>Ekspres Kargo Ücreti (₺)</label>
+                  <label>Ekspres Kargo Ek Ücreti (₺)</label>
                   <input
                     type="number"
                     className="admin-input"
-                    value={settings?.expressShippingCost || 79}
-                    onChange={e => updateField('expressShippingCost', Number(e.target.value))}
-                    style={{ maxWidth: '200px' }}
+                    value={settings?.expressShippingSurcharge || 35}
+                    onChange={e => updateField('expressShippingSurcharge', Number(e.target.value))}
+                    style={{ maxWidth: '220px' }}
                   />
                 </div>
 
@@ -292,59 +484,6 @@ const AdminSettings = () => {
                       <FiPlus size={14} /> Kargo Firması Ekle
                     </button>
                   </div>
-                </div>
-
-              </div>
-            </div>
-          )}
-
-          {/* ── Ödeme ── */}
-          {activeTab === 'payment' && (
-            <div className="settings-card">
-              <div className="settings-card-header">
-                <FiCreditCard size={18} />
-                <h3>Ödeme Ayarları</h3>
-              </div>
-              <div className="settings-form">
-
-                {/* TODO: İleride backend'e bağlanacak */}
-                <div className="settings-todo-notice">
-                  <span>ℹ️</span>
-                  <div>
-                    <strong>Ödeme Entegrasyonu</strong>
-                    <p>iyzico API anahtarları ve ödeme yöntemleri ileride backend'e bağlanacak. Şu an `.env` dosyasından yönetilmektedir.</p>
-                  </div>
-                </div>
-
-                <div className="settings-form-group">
-                  <label>iyzico Ortamı</label>
-                  <select className="admin-input" defaultValue="sandbox">
-                    <option value="sandbox">Sandbox (Test)</option>
-                    <option value="production">Production (Canlı)</option>
-                  </select>
-                </div>
-
-                <div className="settings-form-group">
-                  <label>iyzico API Key</label>
-                  <input
-                    className="admin-input"
-                    defaultValue="sandbox-****"
-                    readOnly
-                    style={{ opacity: 0.6 }}
-                  />
-                  <small className="input-hint">API anahtarları .env dosyasından yönetilir</small>
-                </div>
-
-                <div className="settings-form-group">
-                  <label>Taksit Seçenekleri</label>
-                  <div className="installment-options">
-                    {['1', '2', '3', '6', '9', '12'].map(n => (
-                      <button key={n} className="installment-btn installment-active">
-                        {n === '1' ? 'Tek Çekim' : `${n} Taksit`}
-                      </button>
-                    ))}
-                  </div>
-                  <small className="input-hint">Taksit yönetimi ileride backend'e bağlanacak</small>
                 </div>
 
               </div>
@@ -375,7 +514,7 @@ const AdminSettings = () => {
                       className="admin-input"
                       value={settings?.emailSender || ''}
                       onChange={e => updateField('emailSender', e.target.value)}
-                      placeholder="noreply@ozkan3d.design"
+                      placeholder="ozkan3d.design@gmail.com"
                     />
                   </div>
                 </div>
@@ -486,49 +625,6 @@ const AdminSettings = () => {
                     </div>
                   ))}
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── Güvenlik ── */}
-          {activeTab === 'security' && (
-            <div className="settings-card">
-              <div className="settings-card-header">
-                <FiShield size={18} />
-                <h3>Güvenlik Ayarları</h3>
-              </div>
-              <div className="settings-form">
-
-                {/* TODO: İleride backend'e bağlanacak */}
-                <div className="settings-todo-notice">
-                  <span>ℹ️</span>
-                  <div>
-                    <strong>Güvenlik Ayarları</strong>
-                    <p>2FA, IP kısıtlama ve oturum yönetimi ileride backend'e bağlanacak.</p>
-                  </div>
-                </div>
-
-                <div className="security-items">
-                  {[
-                    { label: 'SSL Zorunlu', desc: 'HTTP\'yi HTTPS\'e yönlendir', enabled: true },
-                    { label: 'Başarısız Giriş Kilidi', desc: '5 başarısız denemede hesap kilitle', enabled: true },
-                    { label: 'Rate Limiting', desc: 'API isteklerini sınırla (100/15dk)', enabled: true },
-                    { label: 'İki Faktörlü Doğrulama', desc: 'Admin girişlerinde 2FA — yakında', enabled: false },
-                    { label: 'IP Kısıtlama', desc: 'Belirtilen IP\'lerden erişim — yakında', enabled: false },
-                  ].map((item, i) => (
-                    <div key={i} className="security-item">
-                      <div className="security-item-info">
-                        <strong>{item.label}</strong>
-                        <span>{item.desc}</span>
-                      </div>
-                      <label className="toggle-switch">
-                        <input type="checkbox" defaultChecked={item.enabled} disabled={!item.enabled} />
-                        <span className="toggle-slider" />
-                      </label>
-                    </div>
-                  ))}
-                </div>
-
               </div>
             </div>
           )}

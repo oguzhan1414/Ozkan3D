@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link, useSearchParams, useLocation } from 'react-router-dom'
 import { FiStar, FiFilter, FiX, FiChevronDown, FiGrid, FiList, FiLoader } from 'react-icons/fi'
 import { getProductsApi } from '../api/productApi'
@@ -132,7 +132,7 @@ const ShopPage = () => {
         setSelectedBadges([]) 
       }
     }
-  }, [subParam])
+  }, [subParam, selectedSubs])
 
   // "3D Baskı Ürünleri" tıklanıldığını yakala ve sıfırla
   useEffect(() => {
@@ -141,11 +141,7 @@ const ShopPage = () => {
     }
   }, [location.state])
 
-  useEffect(() => {
-    fetchProducts()
-  }, [selectedCats, selectedSubs, selectedBadges, minPrice, maxPrice, sort, currentPage, keyword])
-
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
@@ -175,7 +171,11 @@ const ShopPage = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentPage, keyword, selectedCats, selectedSubs, selectedBadges, minPrice, maxPrice, sort])
+
+  useEffect(() => {
+    fetchProducts()
+  }, [fetchProducts])
 
   const toggleItem = (arr, setArr, val) => {
     setArr(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val])

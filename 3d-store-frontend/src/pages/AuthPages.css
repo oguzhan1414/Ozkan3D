@@ -1,10 +1,13 @@
 .auth-page {
-  min-height: 100vh;
+  min-height: auto;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  background: #f8f8f8;
-  padding: var(--space-xl);
+  background:
+    radial-gradient(1200px 480px at 0% -5%, rgba(37, 99, 235, 0.08), transparent 60%),
+    radial-gradient(900px 420px at 100% 0%, rgba(14, 165, 233, 0.07), transparent 62%),
+    #f8f8f8;
+  padding: clamp(14px, 2.4vh, 22px) var(--space-lg) clamp(22px, 3.5vh, 32px);
 }
 
 /* ── Kart ── */
@@ -14,25 +17,69 @@
   background: #ffffff;
   border: 1px solid #eeeeee;
   border-radius: var(--radius-xl);
-  padding: var(--space-3xl);
+  padding: clamp(22px, 3.2vw, 34px);
   box-shadow: 0 8px 40px rgba(0,0,0,0.06);
+  margin: 0 auto;
+}
+
+/* Register specific layout */
+.register-card {
+  max-width: 560px;
+  padding: var(--space-2xl);
+}
+
+/* Login specific layout */
+.login-card {
+  max-width: 500px;
+  padding: clamp(24px, 3.6vw, 40px);
+}
+
+.login-card .auth-form-header h1 {
+  font-size: 1.85rem;
+}
+
+.login-card .auth-form-header p {
+  font-size: 0.95rem;
+}
+
+.login-card .form-label {
+  font-size: 0.88rem;
+}
+
+.login-card .form-label-link {
+  font-size: 0.82rem;
+}
+
+.login-card .form-input {
+  height: 54px;
+  font-size: 0.97rem;
+  padding-left: 48px;
+}
+
+.login-card .auth-submit-btn {
+  height: 54px;
+  font-size: 1rem;
+}
+
+.login-card .auth-social {
+  margin-top: 2px;
 }
 
 /* Logo */
 .auth-logo {
   display: flex;
   align-items: center;
-  gap: 10px;
   text-decoration: none;
   width: fit-content;
-  margin-bottom: var(--space-2xl);
+  margin-bottom: var(--space-lg);
 }
 
 .auth-logo-icon {
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  background: var(--color-accent);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -42,6 +89,12 @@
   font-size: 1rem;
   font-weight: 800;
   color: #ffffff;
+}
+
+.auth-logo-image {
+  height: 56px;
+  width: auto;
+  display: block;
 }
 
 .auth-logo-brand {
@@ -65,7 +118,7 @@
 
 /* Header */
 .auth-form-header {
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-lg);
 }
 
 .auth-form-header h1 {
@@ -102,11 +155,41 @@
   margin-bottom: var(--space-md);
 }
 
+.auth-success {
+  padding: var(--space-md);
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  color: #166534;
+  font-weight: 500;
+  margin-bottom: var(--space-md);
+}
+
+.verify-timer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.verify-timer-row strong {
+  font-size: 0.9rem;
+}
+
+.verify-actions {
+  margin-bottom: var(--space-md);
+}
+
+.verify-actions .auth-submit-btn {
+  margin-top: 0;
+}
+
 /* Form */
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: 12px;
 }
 
 .form-row {
@@ -178,6 +261,16 @@
 
 .form-input::placeholder { color: #bbbbbb; }
 
+.register-card .form-input {
+  height: 52px;
+  font-size: 0.95rem;
+  padding-left: 48px;
+}
+
+.register-card .form-row {
+  gap: var(--space-lg);
+}
+
 .input-error { border-color: #ef4444 !important; }
 .input-success { border-color: #16a34a !important; }
 
@@ -201,6 +294,56 @@
   right: 40px;
   color: #16a34a;
   pointer-events: none;
+}
+
+/* Phone input with fixed country code */
+.phone-input-wrap {
+  border: 1.5px solid #e8e8e8;
+  border-radius: var(--radius-md);
+  background: #fafafa;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.phone-input-wrap:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+  background: #ffffff;
+}
+
+.phone-prefix {
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px 0 14px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #1f2937;
+  border-right: 1px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.5);
+  border-top-left-radius: var(--radius-md);
+  border-bottom-left-radius: var(--radius-md);
+  white-space: nowrap;
+}
+
+.phone-input-wrap .phone-input {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0 12px;
+  letter-spacing: 0.01em;
+}
+
+.phone-input-wrap .phone-input:focus {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.phone-help-text {
+  margin-top: 4px;
+  font-size: 0.74rem;
+  color: #7b8794;
 }
 
 /* Password Strength */
@@ -274,6 +417,169 @@
   line-height: 1.5;
 }
 
+/* Register legal consent */
+.legal-consent-block {
+  border: 1px solid #e5eaf3;
+  border-radius: var(--radius-lg);
+  background: #f8fbff;
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.legal-doc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.legal-doc-btn {
+  height: 34px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid #d7e1f2;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-primary);
+  transition: all 0.2s ease;
+}
+
+.legal-doc-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.legal-doc-btn.is-read {
+  border-color: #86efac;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.checkbox-label input {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.checkbox-label span {
+  font-size: 0.82rem;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+.checkbox-label-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-info-text {
+  margin: 0;
+  font-size: 0.74rem;
+  color: #64748b;
+}
+
+/* Legal modal */
+.legal-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.48);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+  z-index: 1200;
+}
+
+.legal-modal {
+  width: 100%;
+  max-width: 580px;
+  background: #ffffff;
+  border-radius: var(--radius-xl);
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.22);
+  padding: var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.legal-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.legal-modal-head h3 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.legal-modal-close {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.legal-modal-intro {
+  margin: 0;
+  font-size: 0.86rem;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.legal-points {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.legal-points li {
+  font-size: 0.82rem;
+  color: #334155;
+  line-height: 1.55;
+}
+
+.legal-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.legal-open-link {
+  height: 44px;
+}
+
+.legal-approve-btn {
+  width: auto;
+  height: 44px;
+  margin-top: 0;
+  padding: 0 var(--space-lg);
+}
+
 /* Submit */
 .auth-submit-btn {
   height: 50px;
@@ -323,7 +629,7 @@
   gap: var(--space-md);
   color: #cccccc;
   font-size: 0.82rem;
-  margin: var(--space-sm) 0;
+  margin: 10px 0;
 }
 
 .auth-divider::before,
@@ -368,11 +674,55 @@
   margin-top: var(--space-sm);
 }
 
+.auth-bottom-text-login {
+  font-size: 0.83rem;
+  color: #8b96a7;
+  line-height: 1.75;
+  max-width: 420px;
+  margin: var(--space-md) auto 0;
+}
+
 /* Responsive */
 @media (max-width: 480px) {
-  .auth-page { padding: var(--space-md); }
+  .auth-page {
+    min-height: auto;
+    padding: 10px var(--space-md) 18px;
+  }
   .auth-card { padding: var(--space-xl); }
   .form-row { grid-template-columns: 1fr; }
+
+  .auth-bottom-text-login {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .register-card .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .legal-doc-actions {
+    flex-direction: column;
+  }
+
+  .legal-doc-btn {
+    width: 100%;
+    text-align: left;
+    justify-content: flex-start;
+  }
+
+  .legal-modal {
+    padding: var(--space-lg);
+  }
+
+  .legal-modal-actions {
+    flex-direction: column;
+  }
+
+  .legal-approve-btn,
+  .legal-open-link {
+    width: 100%;
+  }
 }
 
 /* Loading */

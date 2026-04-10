@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   FiStar, FiCheck, FiX, FiTrash2,
   FiSearch, FiRefreshCw, FiEye
@@ -23,11 +23,7 @@ const AdminReviews = () => {
   const [selectedReview, setSelectedReview] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
 
-  useEffect(() => {
-    fetchReviews()
-  }, [statusFilter, currentPage])
-
-  const fetchReviews = async () => {
+  const fetchReviews = useCallback(async () => {
     setLoading(true)
     try {
       const params = { page: currentPage, limit: 15, status: statusFilter }
@@ -40,7 +36,11 @@ const AdminReviews = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [statusFilter, currentPage])
+
+  useEffect(() => {
+    fetchReviews()
+  }, [fetchReviews])
 
   const handleStatusUpdate = async (id, status) => {
     try {

@@ -20,8 +20,13 @@ export const deleteUserApi = async (id) => {
   return res.data
 }
 
-export const getDashboardStatsApi = async () => {
-  const res = await api.get('/users/stats')
+export const sendUserEmailApi = async (id, data) => {
+  const res = await api.post(`/users/${id}/email`, data)
+  return res.data
+}
+
+export const getDashboardStatsApi = async (params = {}) => {
+  const res = await api.get('/users/stats', { params })
   return res.data
 }
 

@@ -81,7 +81,6 @@
 .footer-logo {
   display: flex;
   align-items: center;
-  gap: 10px;
   text-decoration: none;
   width: fit-content;
 }
@@ -90,7 +89,8 @@
   width: 42px;
   height: 42px;
   border-radius: 12px;
-  background: var(--color-accent);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -105,6 +105,12 @@
   font-size: 1.1rem;
   font-weight: 800;
   color: #ffffff;
+}
+
+.footer-logo-image {
+  height: 62px;
+  width: auto;
+  display: block;
 }
 
 .footer-logo-text {
@@ -157,7 +163,39 @@
 .footer-social {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: var(--space-sm);
+}
+
+.footer-instagram-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: fit-content;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  border-color: rgba(37, 99, 235, 0.22);
+  color: #1d4ed8;
+  text-decoration: none;
+  line-height: 1;
+  transition: all 0.2s ease;
+}
+
+.footer-instagram-btn svg {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}
+
+.footer-instagram-btn span {
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
 .social-btn {
@@ -175,6 +213,13 @@
 }
 
 .social-btn:hover {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #ffffff;
+  transform: translateY(-2px);
+}
+
+.footer-instagram-btn:hover {
   background: var(--color-accent);
   border-color: var(--color-accent);
   color: #ffffff;
@@ -397,4 +442,77 @@
 @media (max-width: 480px) {
   .footer-inner { grid-template-columns: 1fr; }
   .payment-icons { flex-wrap: wrap; }
+}
+
+[data-theme="dark"] .footer {
+  background: #121418;
+  border-top-color: #2a2f39;
+}
+
+[data-theme="dark"] .footer-top-banner {
+  background: #0f1115;
+  border-bottom-color: #232833;
+}
+
+[data-theme="dark"] .footer-banner-item strong,
+[data-theme="dark"] .footer-logo-brand,
+[data-theme="dark"] .footer-col-title {
+  color: #f3f4f6;
+}
+
+[data-theme="dark"] .footer-banner-item span,
+[data-theme="dark"] .footer-tagline,
+[data-theme="dark"] .footer-contact-item,
+[data-theme="dark"] .footer-link,
+[data-theme="dark"] .payment-label {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .footer-contact-item:hover,
+[data-theme="dark"] .footer-link:hover {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .footer-link svg {
+  color: #64748b;
+}
+
+[data-theme="dark"] .footer-link:hover svg {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .footer-banner-sep {
+  background: #2a2f39;
+}
+
+[data-theme="dark"] .social-btn {
+  background: #1f2430;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .footer-instagram-btn {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(147, 197, 253, 0.45);
+  color: #dbeafe;
+}
+
+[data-theme="dark"] .social-btn:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .footer-bottom {
+  background: #0f1115;
+  border-top-color: #232833;
+}
+
+[data-theme="dark"] .footer-copyright {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .payment-badge {
+  background: #1f2430;
+  border-color: #334155;
 }

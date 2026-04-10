@@ -1,5 +1,13 @@
 import User from '../models/User.js'
 import Order from '../models/Order.js'
+import { sendEmail } from '../utils/sendEmail.js'
+
+const escapeHtml = (value = '') => String(value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;')
 
 // @desc    Tüm kullanıcıları getir
 // @route   GET /api/users
@@ -115,32 +123,118 @@ export const getUserOrders = async (req, res) => {
   res.status(200).json({ success: true, count: orders.length, data: orders })
 }
 
+// @desc    Admin panelden müşteriye e-posta gönder
+// @route   POST /api/users/:id/email
+// @access  Admin
+export const sendCustomerEmail = async (req, res) => {
+  const { subject, message } = req.body
+
+  if (!subject || !String(subject).trim()) {
+    res.status(400)
+    throw new Error('E-posta konusu zorunludur.')
+  }
+
+  if (!message || !String(message).trim()) {
+    res.status(400)
+    throw new Error('E-posta mesajı zorunludur.')
+  }
+
+  const user = await User.findById(req.params.id)
+
+  if (!user) {
+    res.status(404)
+    throw new Error('Kullanıcı bulunamadı.')
+  }
+
+  const safeMessage = escapeHtml(message).replace(/\r?\n/g, '<br/>')
+  const safeName = escapeHtml(`${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email)
+
+  await sendEmail({
+    to: user.email,
+    subject: String(subject).trim(),
+    html: `
+      <div style="font-family:Arial,Helvetica,sans-serif;line-height:1.6;color:#111;max-width:640px;margin:0 auto;padding:20px;">
+        <p>Merhaba ${safeName},</p>
+        <div style="background:#f8f8f8;border:1px solid #e5e5e5;border-radius:8px;padding:14px 16px;">${safeMessage}</div>
+        <p style="margin-top:16px;">Saygılarımızla,<br/>Ozkan3D Ekibi</p>
+      </div>
+    `,
+  })
+
+  res.status(200).json({ success: true, message: 'E-posta başarıyla gönderildi.' })
+}
+
 // @desc    Admin dashboard istatistikleri
 // @route   GET /api/users/stats
 // @access  Admin
 export const getDashboardStats = async (req, res) => {
-  const totalUsers = await User.countDocuments({ role: 'user' })
-  const totalOrders = await Order.countDocuments()
-  const totalRevenue = await Order.aggregate([
-    { $match: { isPaid: true } },
-    { $group: { _id: null, total: { $sum: '$totalPrice' } } },
-  ])
+  const period = ['today', 'week', 'month', 'quarter', 'year'].includes(req.query.period)
+    ? req.query.period
+    : 'month'
 
-  const pendingOrders = await Order.countDocuments({ status: 'Bekliyor' })
-  const processingOrders = await Order.countDocuments({ status: 'Basımda' })
+  const now = new Date()
+  const startDate = new Date(now)
+  let groupFormat = '%Y-%m-%d'
+  let periodLabel = 'Bu Ay'
+  let salesTitle = 'Son 30 Gün Satış'
 
-  // Son 30 günlük satış
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-  const recentSales = await Order.aggregate([
-    { $match: { createdAt: { $gte: thirtyDaysAgo }, isPaid: true } },
-    {
-      $group: {
-        _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-        revenue: { $sum: '$totalPrice' },
-        orders: { $sum: 1 },
+  if (period === 'today') {
+    startDate.setHours(0, 0, 0, 0)
+    groupFormat = '%H:00'
+    periodLabel = 'Bugün'
+    salesTitle = 'Bugün Saatlik Satış'
+  } else if (period === 'week') {
+    startDate.setDate(now.getDate() - 6)
+    startDate.setHours(0, 0, 0, 0)
+    periodLabel = 'Bu Hafta'
+    salesTitle = 'Son 7 Gün Satış'
+  } else if (period === 'month') {
+    startDate.setDate(now.getDate() - 29)
+    startDate.setHours(0, 0, 0, 0)
+    periodLabel = 'Bu Ay'
+    salesTitle = 'Son 30 Gün Satış'
+  } else if (period === 'quarter') {
+    startDate.setMonth(now.getMonth() - 2, 1)
+    startDate.setHours(0, 0, 0, 0)
+    groupFormat = '%Y-%m'
+    periodLabel = 'Bu Çeyrek'
+    salesTitle = 'Son 3 Ay Satış'
+  } else if (period === 'year') {
+    startDate.setMonth(now.getMonth() - 11, 1)
+    startDate.setHours(0, 0, 0, 0)
+    groupFormat = '%Y-%m'
+    periodLabel = 'Bu Yıl'
+    salesTitle = 'Son 12 Ay Satış'
+  }
+
+  const dateMatch = { createdAt: { $gte: startDate, $lte: now } }
+
+  const [totalUsers, totalOrders, totalRevenueAgg, pendingOrders, processingOrders, recentSales] = await Promise.all([
+    User.countDocuments({ role: 'user' }),
+    Order.countDocuments(dateMatch),
+    Order.aggregate([
+      { $match: { ...dateMatch, isPaid: true } },
+      { $group: { _id: null, total: { $sum: '$totalPrice' } } },
+    ]),
+    Order.countDocuments({ ...dateMatch, status: 'Bekliyor' }),
+    Order.countDocuments({ ...dateMatch, status: { $in: ['Basımda', 'Hazırlanıyor'] } }),
+    Order.aggregate([
+      { $match: { ...dateMatch, isPaid: true } },
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              format: groupFormat,
+              date: '$createdAt',
+              timezone: 'Europe/Istanbul',
+            },
+          },
+          revenue: { $sum: '$totalPrice' },
+          orders: { $sum: 1 },
+        },
       },
-    },
-    { $sort: { _id: 1 } },
+      { $sort: { _id: 1 } },
+    ]),
   ])
 
   res.status(200).json({
@@ -148,10 +242,13 @@ export const getDashboardStats = async (req, res) => {
     data: {
       totalUsers,
       totalOrders,
-      totalRevenue: totalRevenue[0]?.total || 0,
+      totalRevenue: totalRevenueAgg[0]?.total || 0,
       pendingOrders,
       processingOrders,
       recentSales,
+      period,
+      periodLabel,
+      salesTitle,
     },
   })
 }

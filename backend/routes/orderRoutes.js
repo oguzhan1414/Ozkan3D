@@ -1,6 +1,6 @@
 import express from 'express'
 import {
-  createOrder, getMyOrders, getOrder,
+  createOrder, getMyOrders, getOrder, getShippingQuote,
   getOrders, updateOrderStatus, updateTracking,
   getInvoicePDF, updateOrderToPaid, checkPurchase, cancelOrder
 } from '../controllers/orderController.js'
@@ -10,6 +10,7 @@ import { admin } from '../middleware/adminMiddleware.js'
 const router = express.Router()
 
 router.post('/', protect, createOrder)
+router.post('/shipping-quote', protect, getShippingQuote)
 router.get('/mine', protect, getMyOrders)
 router.get('/check-purchase/:productId', protect, checkPurchase)
 router.get('/', protect, admin, getOrders)

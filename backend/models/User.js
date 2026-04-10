@@ -56,6 +56,13 @@ const userSchema = new mongoose.Schema({
     default: 'user',
   },
   addresses: [addressSchema],
+  googleId: String,
+  emailVerified: {
+    type: Boolean,
+    default: false,
+  },
+  emailVerifyToken: String,
+  emailVerifyExpire: Date,
   resetPasswordToken: String,
   resetPasswordExpire: Date,
   isActive: {

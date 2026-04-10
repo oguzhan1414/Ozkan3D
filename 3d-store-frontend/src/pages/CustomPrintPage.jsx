@@ -79,9 +79,9 @@ const CustomPrintPage = () => {
             sana en hızlı ve ekonomik çözümü sunuyoruz.
           </p>
           <div className="custom-hero-badges">
-            <span className="hero-badge">⚡ Hızlı Üretim</span>
-            <span className="hero-badge">🎨 50+ Renk Seçeneği</span>
-            <span className="hero-badge">📦 Türkiye Geneli Kargo</span>
+            <span className="custom-hero-badge">⚡ Hızlı Üretim</span>
+            <span className="custom-hero-badge">🎨 50+ Renk Seçeneği</span>
+            <span className="custom-hero-badge">📦 Türkiye Geneli Kargo</span>
           </div>
         </div>
       </div>
@@ -127,7 +127,7 @@ const CustomPrintPage = () => {
             </div>
             <div className="contact-btns">
               <a 
-                href="https://wa.me/902165213840?text=Merhaba, 3D baskı hizmeti hakkında bilgi almak istiyorum."
+                href="https://wa.me/905411190626?text=Merhaba, 3D baskı hizmeti hakkında bilgi almak istiyorum."
                 target="_blank"
                 rel="noreferrer"
                 className="contact-btn contact-btn-whatsapp"
@@ -141,10 +141,9 @@ const CustomPrintPage = () => {
               <button 
                 onClick={() => handleOpenForm('3D Baskı Hizmeti Talebi (Tasarım Hazır)')}
                 className="contact-btn contact-btn-email"
-                style={{ border: 'none', background: '#f5f5f5', cursor: 'pointer' }}
               >
                 <FiMail size={20} />
-                <div style={{ textAlign: 'left' }}>
+                <div className="contact-btn-body">
                   <strong>Site Üzerinden E-posta Gönder</strong>
                   <span>Hızlı form</span>
                 </div>
@@ -210,7 +209,7 @@ const CustomPrintPage = () => {
             </p>
             <div className="contact-btns">
               <a 
-                href="https://wa.me/902165213840?text=Merhaba, şu modeli bastırmak istiyorum:"
+                href="https://wa.me/905411190626?text=Merhaba, şu modeli bastırmak istiyorum:"
                 target="_blank"
                 rel="noreferrer"
                 className="contact-btn contact-btn-whatsapp"
@@ -224,10 +223,9 @@ const CustomPrintPage = () => {
               <button 
                 onClick={() => handleOpenForm('3D Baskı Model Talebi (Tasarım Aranıyor)')}
                 className="contact-btn contact-btn-email"
-                style={{ border: 'none', background: '#f5f5f5', cursor: 'pointer' }}
               >
                 <FiMail size={20} />
-                <div style={{ textAlign: 'left' }}>
+                <div className="contact-btn-body">
                   <strong>Site Üzerinden E-posta Gönder</strong>
                   <span>Hızlı form</span>
                 </div>
@@ -237,56 +235,56 @@ const CustomPrintPage = () => {
         )}
 
         {/* Nasıl Çalışır */}
-        <div className="how-section">
-          <div className="section-header-center">
-            <p className="section-sup">Süreç</p>
-            <h2 className="section-title-center">Nasıl Çalışır?</h2>
+        <div className="custom-how-section">
+          <div className="custom-section-header">
+            <p className="custom-section-sup">Süreç</p>
+            <h2 className="custom-section-title">Nasıl Çalışır?</h2>
           </div>
-          <div className="steps-grid">
+          <div className="custom-steps-grid">
             {steps.map((s, i) => (
-              <div key={i} className="step-card">
-                <div className="step-card-num">{i + 1}</div>
-                <div className="step-card-icon">{s.icon}</div>
-                <h4 className="step-card-title">{s.title}</h4>
-                <p className="step-card-desc">{s.desc}</p>
+              <div key={i} className="custom-step-card">
+                <div className="custom-step-card-num">{i + 1}</div>
+                <div className="custom-step-card-icon">{s.icon}</div>
+                <h4 className="custom-step-card-title">{s.title}</h4>
+                <p className="custom-step-card-desc">{s.desc}</p>
               </div>
             ))}
           </div>
         </div>
 
         {/* Hizmet Açıklaması */}
-        <div className="info-section">
-          <div className="info-section-inner">
-            <div className="info-text">
-              <p className="section-sup">Hakkımızda</p>
-              <h2 className="info-title">3D Baskı Hizmeti Nedir?</h2>
-              <p className="info-desc">
+        <div className="custom-info-section">
+          <div className="custom-info-section-inner">
+            <div className="custom-info-text">
+              <p className="custom-section-sup">Hakkımızda</p>
+              <h2 className="custom-info-title">3D Baskı Hizmeti Nedir?</h2>
+              <p className="custom-info-desc">
                 3D yazıcı baskı hizmeti, dijital ortamda hazırlanmış bir modelin fiziksel hale
                 getirilmesini sağlayan üretim sürecidir. CAD programlarında oluşturulan 3D model
                 dosyaları, katman katman plastik filament kullanılarak yazıcı tarafından basılır.
               </p>
-              <p className="info-desc">
+              <p className="custom-info-desc">
                 Kendi yazıcısı olmayanlar veya kısa sürede prototip üretmek isteyenler için
                 bu hizmet profesyonel firmalar tarafından sağlanır.
               </p>
-              <div className="info-tags">
-                <span className="info-tag">🔬 Mühendisler</span>
-                <span className="info-tag">🏢 Firmalar</span>
-                <span className="info-tag">🎓 Öğrenciler</span>
-                <span className="info-tag">🎨 Sanatçılar</span>
-                <span className="info-tag">🧒 Eğitim Kurumları</span>
-                <span className="info-tag">🎮 Hobiciler</span>
+              <div className="custom-info-tags">
+                <span className="custom-info-tag">🔬 Mühendisler</span>
+                <span className="custom-info-tag">🏢 Firmalar</span>
+                <span className="custom-info-tag">🎓 Öğrenciler</span>
+                <span className="custom-info-tag">🎨 Sanatçılar</span>
+                <span className="custom-info-tag">🧒 Eğitim Kurumları</span>
+                <span className="custom-info-tag">🎮 Hobiciler</span>
               </div>
             </div>
-            <div className="info-features">
+            <div className="custom-info-features">
               {[
                 { icon: '🖨️', title: 'Yüksek Kalite', desc: '0.1mm hassasiyete kadar baskı' },
                 { icon: '🎨', title: 'Geniş Malzeme', desc: 'PLA, ABS, PETG, TPU, Reçine' },
                 { icon: '⚡', title: 'Hızlı Üretim', desc: '2-5 iş günü teslimat' },
                 { icon: '📦', title: 'Güvenli Kargo', desc: 'Türkiye geneli teslimat' },
               ].map((f, i) => (
-                <div key={i} className="info-feature-card">
-                  <span className="info-feature-icon">{f.icon}</span>
+                <div key={i} className="custom-info-feature-card">
+                  <span className="custom-info-feature-icon">{f.icon}</span>
                   <div>
                     <strong>{f.title}</strong>
                     <p>{f.desc}</p>
@@ -298,20 +296,20 @@ const CustomPrintPage = () => {
         </div>
 
         {/* SSS */}
-        <div className="faq-section">
-          <div className="section-header-center">
-            <p className="section-sup">SSS</p>
-            <h2 className="section-title-center">Sıkça Sorulan Sorular</h2>
+        <div className="custom-faq-section">
+          <div className="custom-section-header">
+            <p className="custom-section-sup">SSS</p>
+            <h2 className="custom-section-title">Sıkça Sorulan Sorular</h2>
           </div>
-          <div className="faq-list">
+          <div className="custom-faq-list">
             {faqs.map((faq, i) => (
-              <div key={i} className={`faq-item ${openFaq === i ? 'faq-open' : ''}`}>
-                <button className="faq-question" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
+              <div key={i} className={`custom-faq-item ${openFaq === i ? 'faq-open' : ''}`}>
+                <button className="custom-faq-question" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
                   <span>{faq.q}</span>
                   {openFaq === i ? <FiChevronUp size={18} /> : <FiChevronDown size={18} />}
                 </button>
                 {openFaq === i && (
-                  <div className="faq-answer">{faq.a}</div>
+                  <div className="custom-faq-answer">{faq.a}</div>
                 )}
               </div>
             ))}
@@ -320,28 +318,35 @@ const CustomPrintPage = () => {
 
         {/* E-posta Formu Popup / Inline */}
         {showForm && (
-          <div id="custom-form-section" className="custom-form-wrapper" style={{ marginTop: '20px', padding: '30px', background: '#fff', borderRadius: '12px', border: '1px solid #eee' }}>
+          <div id="custom-form-section" className="custom-form-wrapper">
             {sent ? (
-              <div style={{ textAlign: 'center', padding: '20px' }}>
-                <FiCheckCircle size={40} color="#16a34a" style={{ marginBottom: '10px' }} />
+              <div className="custom-form-success">
+                <FiCheckCircle size={40} className="custom-form-success-icon" />
                 <h3>Talebiniz İletildi!</h3>
                 <p>En kısa sürede e-posta veya telefon ile size geri dönüş yapacağız.</p>
               </div>
             ) : (
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                  <h3 style={{ margin: 0 }}>E-posta ile Tasarım Talebi Oluştur</h3>
-                  <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888' }}><FiXCircle size={24} /></button>
+              <div className="custom-form-content">
+                <div className="custom-form-header-row">
+                  <h3 className="custom-form-title">E-posta ile Tasarım Talebi Oluştur</h3>
+                  <button
+                    onClick={() => setShowForm(false)}
+                    className="custom-form-close-btn"
+                    type="button"
+                    aria-label="Formu kapat"
+                  >
+                    <FiXCircle size={24} />
+                  </button>
                 </div>
-                {error && <div style={{ color: 'red', marginBottom: '10px' }}>{error}</div>}
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                {error && <div className="custom-form-error">{error}</div>}
+                <form onSubmit={handleSubmit} className="custom-form-grid">
                   <input
                     type="text"
                     name="name"
                     placeholder="Adınız Soyadınız *"
                     value={form.name}
                     onChange={handleChange}
-                    style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ccc', fontFamily: 'inherit' }}
+                    className="custom-form-input"
                   />
                   <input
                     type="email"
@@ -349,14 +354,14 @@ const CustomPrintPage = () => {
                     placeholder="E-posta Adresiniz *"
                     value={form.email}
                     onChange={handleChange}
-                    style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ccc', fontFamily: 'inherit' }}
+                    className="custom-form-input"
                   />
                   <input
                     type="text"
                     name="subject"
                     value={form.subject}
                     disabled
-                    style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ccc', background: '#f5f5f5', color: '#666', fontFamily: 'inherit' }}
+                    className="custom-form-input custom-form-input-disabled"
                   />
                   <textarea
                     name="message"
@@ -364,12 +369,12 @@ const CustomPrintPage = () => {
                     value={form.message}
                     onChange={handleChange}
                     rows={5}
-                    style={{ padding: '12px', borderRadius: '8px', border: '1px solid #ccc', fontFamily: 'inherit', resize: 'vertical' }}
+                    className="custom-form-textarea"
                   />
                   <button
                     type="submit"
                     disabled={loading}
-                    style={{ padding: '15px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+                    className="custom-form-submit"
                   >
                     {loading ? 'Gönderiliyor...' : <><FiSend size={16} /> Talebi Gönder</>}
                   </button>

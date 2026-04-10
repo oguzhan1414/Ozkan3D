@@ -5,8 +5,23 @@ export const registerApi = async (data) => {
   return res.data
 }
 
+export const verifyEmailApi = async (token) => {
+  const res = await api.post(`/auth/verify-email/${token}`)
+  return res.data
+}
+
+export const resendVerificationEmailApi = async (email) => {
+  const res = await api.post('/auth/resend-verification', { email })
+  return res.data
+}
+
 export const loginApi = async (data) => {
   const res = await api.post('/auth/login', data)
+  return res.data
+}
+
+export const googleLoginApi = async (credential) => {
+  const res = await api.post('/auth/google', { credential })
   return res.data
 }
 
@@ -42,6 +57,11 @@ export const resetPasswordApi = async (token, password) => {
 
 export const addAddressApi = async (data) => {
   const res = await api.post('/auth/address', data)
+  return res.data
+}
+
+export const updateAddressApi = async (addressId, data) => {
+  const res = await api.put(`/auth/address/${addressId}`, data)
   return res.data
 }
 

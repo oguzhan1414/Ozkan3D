@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   FiSearch, FiEye, FiTruck, FiX,
   FiCheck, FiFilter, FiRefreshCw
@@ -40,11 +40,7 @@ const AdminOrders = () => {
   const [adminNote, setAdminNote] = useState('')
   const [updating, setUpdating] = useState(false)
 
-  useEffect(() => {
-    fetchOrders()
-  }, [statusFilter, currentPage])
-
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     setLoading(true)
     try {
       const params = {
@@ -64,7 +60,11 @@ const AdminOrders = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [statusFilter, currentPage])
+
+  useEffect(() => {
+    fetchOrders()
+  }, [fetchOrders])
 
   const handleStatusUpdate = async (orderId, newStatus) => {
     try {
@@ -84,7 +84,7 @@ const AdminOrders = () => {
     if (!trackingData.trackingNo || !trackingData.carrier) return
     setUpdating(true)
     try {
-      const res = await updateTrackingApi(editingOrder._id, trackingData)
+      await updateTrackingApi(editingOrder._id, trackingData)
       setOrders(prev => prev.map(o =>
         o._id === editingOrder._id
           ? { ...o, trackingNo: trackingData.trackingNo, carrier: trackingData.carrier, status: 'Kargoda' }
@@ -228,7 +228,7 @@ const AdminOrders = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredOrders.length > 0 ? filteredOrders.map((order, i) => (
+                {filteredOrders.length > 0 ? filteredOrders.map((order) => (
                   <tr key={order._id}>
                     <td><span className="order-id-badge">{order.orderNo}</span></td>
                     <td>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -53,15 +53,11 @@ const AdminOverview = () => {
   const [lowStockProducts, setLowStockProducts] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    fetchData()
-  }, [])
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async (selectedPeriod = period) => {
     setLoading(true)
     try {
       const [statsRes, ordersRes, productsRes] = await Promise.all([
-        getDashboardStatsApi(),
+        getDashboardStatsApi({ period: selectedPeriod }),
         getOrdersApi({ limit: 8, sort: 'createdAt', order: 'desc' }),
         getProductsApi({ limit: 50 }),
       ])
@@ -77,14 +73,20 @@ const AdminOverview = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [period])
+
+  useEffect(() => {
+    fetchData(period)
+  }, [period, fetchData])
 
   // Satış grafiği verisi
   const salesChartData = stats?.recentSales?.map(s => ({
-    day: s._id,
+    label: s._id,
     Ciro: s.revenue,
     Sipariş: s.orders,
   })) || []
+
+  const periodLabel = stats?.periodLabel || 'Bu Ay'
 
   // Sipariş durumu bar chart
   const orderStatusData = [
@@ -95,13 +97,13 @@ const AdminOverview = () => {
 
   const kpis = [
     {
-      label: 'Toplam Sipariş',
+      label: `${periodLabel} Sipariş`,
       value: stats?.totalOrders?.toLocaleString('tr-TR') || '0',
       change: '+12%', up: true,
       icon: FiShoppingBag, color: '#2563eb', bg: '#eff6ff'
     },
     {
-      label: 'Toplam Ciro',
+      label: `${periodLabel} Ciro`,
       value: `${(stats?.totalRevenue || 0).toLocaleString('tr-TR')}₺`,
       change: '+18%', up: true,
       icon: FiDollarSign, color: '#16a34a', bg: '#f0fdf4'
@@ -165,7 +167,7 @@ const AdminOverview = () => {
               </button>
             ))}
           </div>
-          <button className="admin-refresh-btn" onClick={fetchData}>
+          <button className="admin-refresh-btn" onClick={() => fetchData(period)}>
             <FiRefreshCw size={15} />
           </button>
         </div>
@@ -198,7 +200,7 @@ const AdminOverview = () => {
           <div className="admin-card-header">
             <div className="overview-chart-title">
               <FiTrendingUp size={16} />
-              <h3>Son 30 Gün Satış</h3>
+              <h3>{stats?.salesTitle || `${periodLabel} Satış`}</h3>
             </div>
           </div>
           <div className="overview-chart-body">
@@ -212,7 +214,7 @@ const AdminOverview = () => {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#aaaaaa' }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#aaaaaa' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 10, fill: '#aaaaaa' }} axisLine={false} tickLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
                   <Tooltip content={<CustomTooltip />} />
                   <Area type="monotone" dataKey="Ciro" stroke="#2563eb" strokeWidth={2.5} fill="url(#ciroGrad)" dot={false} />

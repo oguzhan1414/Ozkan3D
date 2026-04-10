@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   FiPlus, FiEdit2, FiTrash2, FiSearch,
-  FiCheck, FiX, FiCopy, FiEyeOff, FiPackage,
+  FiCheck, FiX, FiEyeOff, FiPackage,
   FiAlertTriangle, FiGrid, FiList, FiUpload,
   FiTag, FiRefreshCw
 } from 'react-icons/fi'
@@ -14,7 +14,7 @@ import './AdminProducts.css'
 const emptyForm = {
   name: '', category: '', subcategory: '', description: '', shortDesc: '',
   price: '', oldPrice: '', stock: '', sku: '',
-  material: [], colors: ['#ffffff'],
+  material: ['PLA'], colors: ['#ffffff'],
   badge: '', featured: false, isNew: false, onSale: false,
   width: '', height: '', depth: '', weight: '',
   printTime: '', difficulty: 'Orta',
@@ -28,8 +28,54 @@ const subcategories = {
   'Hediyelik / Dekor': ['Kulaklık Tutucular', 'Masa Dekorasyonu', 'Ev Dekorasyon', 'Anahtarlıklar'],
   'Konsol & Oyun': ['PS5 Aksesuarlar', 'Xbox Aksesuarlar', 'Joystick Tutucular', 'Kablo Düzenleyici']
 }
-const materialOptions = ['PLA', 'ABS', 'PETG', 'Reçine']
+const materialOptions = ['PLA']
 const difficultyOptions = ['Kolay', 'Orta', 'Zor']
+
+const REQUIRED_FIELD_TAB = {
+  name: 'basic',
+  category: 'basic',
+  description: 'basic',
+  shortDesc: 'basic',
+  price: 'price',
+  stock: 'price',
+  material: 'variants',
+}
+
+const normalizeAdminDescription = (value) => {
+  if (typeof value !== 'string') return ''
+
+  return value
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
+    .replace(/[•●◦▪▫►▶]/g, '')
+    .replace(/\r?\n+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+const validateProductForm = (form) => {
+  const errors = {}
+
+  if (!form.name?.trim()) errors.name = 'Ürün adı zorunludur.'
+  if (!form.category) errors.category = 'Kategori seçimi zorunludur.'
+
+  const normalizedDescription = normalizeAdminDescription(form.description)
+  const normalizedShortDesc = normalizeAdminDescription(form.shortDesc)
+
+  if (!normalizedDescription) errors.description = 'Açıklama alanı boş bırakılamaz.'
+  if (!normalizedShortDesc) errors.shortDesc = 'Kısa açıklama alanı boş bırakılamaz.'
+
+  if (form.price === '' || Number.isNaN(Number(form.price)) || Number(form.price) <= 0) {
+    errors.price = 'Geçerli bir fiyat giriniz.'
+  }
+
+  if (form.stock === '' || Number.isNaN(Number(form.stock)) || Number(form.stock) < 0) {
+    errors.stock = 'Stok alanı 0 veya daha büyük olmalıdır.'
+  }
+
+  if (!form.material?.includes('PLA')) errors.material = 'Malzeme otomatik olarak PLA olmalıdır.'
+
+  return errors
+}
 
 const AdminProducts = () => {
   const [products, setProducts] = useState([])
@@ -39,6 +85,7 @@ const AdminProducts = () => {
   const [currentPage, setCurrentPage] = useState(1)
 
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [view, setView] = useState('grid')
   const [catFilter, setCatFilter] = useState('all')
 
@@ -53,22 +100,20 @@ const AdminProducts = () => {
   const [newStock, setNewStock] = useState('')
   const [selectedIds, setSelectedIds] = useState([])
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [formErrors, setFormErrors] = useState({})
+  const [submitError, setSubmitError] = useState('')
 
   useEffect(() => {
-    fetchProducts()
-  }, [catFilter, currentPage])
-
-  useEffect(() => {
-    const timer = setTimeout(() => fetchProducts(), 500)
+    const timer = setTimeout(() => setDebouncedSearch(search), 500)
     return () => clearTimeout(timer)
   }, [search])
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async ({ page = 1, category = 'all', searchTerm = '' } = {}) => {
     setLoading(true)
     try {
-      const params = { page: currentPage, limit: 12 }
-      if (catFilter !== 'all') params.category = catFilter
-      if (search) params.keyword = search
+      const params = { page, limit: 12 }
+      if (category !== 'all') params.category = category
+      if (searchTerm) params.keyword = searchTerm
 
       const res = await getProductsApi(params)
       setProducts(res.data || [])
@@ -79,9 +124,28 @@ const AdminProducts = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    fetchProducts({ page: currentPage, category: catFilter, searchTerm: debouncedSearch })
+  }, [currentPage, catFilter, debouncedSearch, fetchProducts])
 
   const lowStock = products.filter(p => p.stock < 10).length
+
+  const clearFieldError = (fieldName) => {
+    setFormErrors(prev => {
+      if (!prev[fieldName]) return prev
+      const next = { ...prev }
+      delete next[fieldName]
+      return next
+    })
+    if (submitError) setSubmitError('')
+  }
+
+  const updateFormField = (fieldName, value) => {
+    setForm(prev => ({ ...prev, [fieldName]: value }))
+    clearFieldError(fieldName)
+  }
 
   const handleEdit = (product) => {
     setEditProduct(product)
@@ -90,13 +154,13 @@ const AdminProducts = () => {
       name: product.name || '',
       category: product.category || '',
       subcategory: product.subcategory || '',
-      description: product.description || '',
-      shortDesc: product.shortDesc || '',
+      description: normalizeAdminDescription(product.description || ''),
+      shortDesc: normalizeAdminDescription(product.shortDesc || ''),
       price: product.price || '',
       oldPrice: product.oldPrice || '',
       stock: product.stock || '',
       sku: product.sku || '',
-      material: product.material || [],
+      material: ['PLA'],
       colors: product.colors?.length ? product.colors : ['#ffffff'],
       badge: product.badge || '',
       featured: product.featured || false,
@@ -107,23 +171,10 @@ const AdminProducts = () => {
       metaDesc: product.metaDesc || '',
       tags: product.tags?.join(', ') || '',
     })
+    setFormErrors({})
+    setSubmitError('')
     setActiveTab('basic')
     setShowForm(true)
-  }
-
-  const handleDuplicate = async (product) => {
-    try {
-      const res = await createProductApi({
-        ...product,
-        name: `${product.name} (Kopya)`,
-        stock: 0,
-        slug: undefined,
-        _id: undefined,
-      })
-      setProducts(prev => [res.data, ...prev])
-    } catch (err) {
-      console.log('Kopyalama hatası:', err.message)
-    }
   }
 
   const handleToggleActive = async (product) => {
@@ -175,7 +226,7 @@ const AdminProducts = () => {
   const handleStockUpdate = async () => {
     if (!newStock) return
     try {
-      const res = await updateStockApi(stockModal._id, Number(newStock))
+      await updateStockApi(stockModal._id, Number(newStock))
       setProducts(prev => prev.map(p => p._id === stockModal._id ? { ...p, stock: Number(newStock) } : p))
       setStockModal(null)
       setNewStock('')
@@ -184,18 +235,20 @@ const AdminProducts = () => {
     }
   }
 
-  const toggleMaterial = (mat) => {
-    setForm(prev => ({
-      ...prev,
-      material: prev.material.includes(mat)
-        ? prev.material.filter(m => m !== mat)
-        : [...prev.material, mat]
-    }))
+  const addColor = () => {
+    setForm(prev => ({ ...prev, colors: [...prev.colors, '#000000'] }))
+    if (submitError) setSubmitError('')
   }
 
-  const addColor = () => setForm(prev => ({ ...prev, colors: [...prev.colors, '#000000'] }))
-  const removeColor = (i) => setForm(prev => ({ ...prev, colors: prev.colors.filter((_, ci) => ci !== i) }))
-  const updateColor = (i, val) => setForm(prev => ({ ...prev, colors: prev.colors.map((c, ci) => ci === i ? val : c) }))
+  const removeColor = (i) => {
+    setForm(prev => ({ ...prev, colors: prev.colors.filter((_, ci) => ci !== i) }))
+    if (submitError) setSubmitError('')
+  }
+
+  const updateColor = (i, val) => {
+    setForm(prev => ({ ...prev, colors: prev.colors.map((c, ci) => ci === i ? val : c) }))
+    if (submitError) setSubmitError('')
+  }
 
   const handleImageDrop = (e) => {
     e.preventDefault()
@@ -203,29 +256,45 @@ const AdminProducts = () => {
     const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))
     const newImages = files.map(f => ({ name: f.name, url: URL.createObjectURL(f), file: f }))
     setForm(prev => ({ ...prev, images: [...prev.images, ...newImages] }))
+    if (submitError) setSubmitError('')
   }
 
   const handleImageSelect = (e) => {
     const files = Array.from(e.target.files)
     const newImages = files.map(f => ({ name: f.name, url: URL.createObjectURL(f), file: f }))
     setForm(prev => ({ ...prev, images: [...prev.images, ...newImages] }))
+    if (submitError) setSubmitError('')
   }
 
   const handleSubmit = async () => {
-    if (!form.name || !form.price) return
+    const validationErrors = validateProductForm(form)
+
+    if (Object.keys(validationErrors).length) {
+      setFormErrors(validationErrors)
+      setSubmitError('Bazı zorunlu alanlar eksik veya hatalı. Lütfen işaretli alanları düzeltin.')
+      const firstErrorField = Object.keys(validationErrors)[0]
+      setActiveTab(REQUIRED_FIELD_TAB[firstErrorField] || 'basic')
+      return
+    }
+
+    if (submitError) setSubmitError('')
+
     setSaving(true)
     try {
+      const normalizedDescription = normalizeAdminDescription(form.description)
+      const normalizedShortDesc = normalizeAdminDescription(form.shortDesc)
+
       const productData = {
         name: form.name,
         category: form.category,
         subcategory: form.subcategory,
-        description: form.description,
-        shortDesc: form.shortDesc,
+        description: normalizedDescription,
+        shortDesc: normalizedShortDesc,
         price: Number(form.price),
         oldPrice: form.oldPrice ? Number(form.oldPrice) : undefined,
         stock: Number(form.stock) || 0,
         sku: form.sku || undefined,
-        material: form.material,
+        material: ['PLA'],
         colors: form.colors,
         badge: form.badge || undefined,
         featured: form.featured,
@@ -264,9 +333,13 @@ const AdminProducts = () => {
       setShowForm(false)
       setEditProduct(null)
       setForm(emptyForm)
-      fetchProducts()
+      setFormErrors({})
+      setSubmitError('')
+      fetchProducts({ page: currentPage, category: catFilter, searchTerm: debouncedSearch })
     } catch (err) {
-      console.log('Kaydetme hatası:', err.response?.data?.message || err.message)
+      const backendError = err.response?.data?.message || 'Kaydetme sırasında bir hata oluştu.'
+      setSubmitError(backendError)
+      console.log('Kaydetme hatası:', backendError)
     } finally {
       setSaving(false)
     }
@@ -280,6 +353,22 @@ const AdminProducts = () => {
     { id: 'details', label: 'Teknik' },
     { id: 'seo', label: 'SEO' },
   ]
+
+  const closeProductModal = () => {
+    setShowForm(false)
+    setEditProduct(null)
+    setFormErrors({})
+    setSubmitError('')
+  }
+
+  const openNewProductModal = () => {
+    setEditProduct(null)
+    setForm(emptyForm)
+    setActiveTab('basic')
+    setFormErrors({})
+    setSubmitError('')
+    setShowForm(true)
+  }
 
   return (
     <div className="admin-products">
@@ -306,7 +395,7 @@ const AdminProducts = () => {
               <FiList size={15} />
             </button>
           </div>
-          <button className="admin-add-btn" onClick={() => { setShowForm(true); setEditProduct(null); setForm(emptyForm) }}>
+          <button className="admin-add-btn" onClick={openNewProductModal}>
             <FiPlus size={16} /> Ürün Ekle
           </button>
         </div>
@@ -363,7 +452,12 @@ const AdminProducts = () => {
 
       {/* Bulk Actions */}
       <div className="products-bulk-actions">
-        <button className="bulk-btn" onClick={fetchProducts}><FiRefreshCw size={14} /> Yenile</button>
+        <button
+          className="bulk-btn"
+          onClick={() => fetchProducts({ page: currentPage, category: catFilter, searchTerm: debouncedSearch })}
+        >
+          <FiRefreshCw size={14} /> Yenile
+        </button>
         <button className="bulk-btn"><FiTag size={14} /> Toplu Fiyat</button>
         <button className="bulk-btn"><FiPackage size={14} /> Toplu Stok</button>
       </div>
@@ -409,6 +503,7 @@ const AdminProducts = () => {
                   <div className="product-admin-body">
                     <p className="product-admin-cat">{product.category}</p>
                     <h4 className="product-admin-name">{product.name}</h4>
+                    <p className="product-admin-desc">{product.shortDesc || product.description || 'Açıklama eklenmemiş.'}</p>
                     <div className="product-admin-meta">
                       <span className="product-admin-price">{product.price}₺</span>
                       <span className={`product-admin-stock ${product.stock < 10 ? 'stock-critical' : ''}`}>
@@ -469,7 +564,10 @@ const AdminProducts = () => {
                                 <img src={product.images[0]} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
                               ) : '3D'}
                             </div>
-                            <strong>{product.name}</strong>
+                            <div className="td-product-text">
+                              <strong>{product.name}</strong>
+                              <span className="td-product-desc">{product.shortDesc || product.description || 'Açıklama eklenmemiş.'}</span>
+                            </div>
                           </div>
                         </td>
                         <td><span className="category-badge">{product.category}</span></td>
@@ -557,11 +655,11 @@ const AdminProducts = () => {
 
       {/* Add/Edit Modal */}
       {showForm && (
-        <div className="admin-modal-overlay" onClick={() => setShowForm(false)}>
+        <div className="admin-modal-overlay" onClick={closeProductModal}>
           <div className="admin-modal admin-modal-lg" onClick={e => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3>{editProduct ? 'Ürün Düzenle' : 'Yeni Ürün Ekle'}</h3>
-              <button className="admin-modal-close" onClick={() => setShowForm(false)}>✕</button>
+              <button className="admin-modal-close" onClick={closeProductModal}>✕</button>
             </div>
 
             <div className="form-tabs">
@@ -580,16 +678,31 @@ const AdminProducts = () => {
 
               {activeTab === 'basic' && (
                 <div className="admin-form">
+                  <p className="admin-required-note">* işaretli alanlar zorunludur.</p>
                   <div className="admin-form-group">
                     <label>Ürün Adı *</label>
-                    <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="Ürün adı" className="admin-input" />
+                    <input
+                      value={form.name}
+                      onChange={e => updateFormField('name', e.target.value)}
+                      placeholder="Ürün adı"
+                      className={`admin-input ${formErrors.name ? 'admin-input-error' : ''}`}
+                    />
+                    {formErrors.name && <small className="admin-field-error">{formErrors.name}</small>}
                   </div>
                   <div className="admin-form-group">
-                    <label>Kategori</label>
-                    <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value, subcategory: '' }))} className="admin-input">
+                    <label>Kategori *</label>
+                    <select
+                      value={form.category}
+                      onChange={e => {
+                        updateFormField('category', e.target.value)
+                        setForm(p => ({ ...p, subcategory: '' }))
+                      }}
+                      className={`admin-input ${formErrors.category ? 'admin-input-error' : ''}`}
+                    >
                       <option value="">Seçin</option>
                       {categories.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
+                    {formErrors.category && <small className="admin-field-error">{formErrors.category}</small>}
                   </div>
                   {form.category && subcategories[form.category] && (
                     <div className="admin-form-group">
@@ -601,12 +714,28 @@ const AdminProducts = () => {
                     </div>
                   )}
                   <div className="admin-form-group">
-                    <label>Açıklama</label>
-                    <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} className="admin-textarea" rows={3} />
+                    <label>Açıklama *</label>
+                    <textarea
+                      value={form.description}
+                      onChange={e => updateFormField('description', normalizeAdminDescription(e.target.value))}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') e.preventDefault()
+                      }}
+                      className={`admin-textarea ${formErrors.description ? 'admin-textarea-error' : ''}`}
+                      rows={3}
+                    />
+                    {formErrors.description && <small className="admin-field-error">{formErrors.description}</small>}
+                    <small className="input-hint">Satır kırılması ve ikonlar otomatik temizlenir</small>
                   </div>
                   <div className="admin-form-group">
-                    <label>Kısa Açıklama</label>
-                    <input value={form.shortDesc} onChange={e => setForm(p => ({ ...p, shortDesc: e.target.value }))} className="admin-input" />
+                    <label>Kısa Açıklama *</label>
+                    <input
+                      value={form.shortDesc}
+                      onChange={e => updateFormField('shortDesc', normalizeAdminDescription(e.target.value))}
+                      className={`admin-input ${formErrors.shortDesc ? 'admin-input-error' : ''}`}
+                    />
+                    {formErrors.shortDesc && <small className="admin-field-error">{formErrors.shortDesc}</small>}
+                    <small className="input-hint">Tek satır düzeninde tutulur</small>
                   </div>
                   <div className="admin-form-group">
                     <label>Rozet</label>
@@ -675,7 +804,14 @@ const AdminProducts = () => {
                   <div className="admin-form-row">
                     <div className="admin-form-group">
                       <label>Fiyat (₺) *</label>
-                      <input type="number" value={form.price} onChange={e => setForm(p => ({ ...p, price: e.target.value }))} placeholder="299" className="admin-input" />
+                      <input
+                        type="number"
+                        value={form.price}
+                        onChange={e => updateFormField('price', e.target.value)}
+                        placeholder="299"
+                        className={`admin-input ${formErrors.price ? 'admin-input-error' : ''}`}
+                      />
+                      {formErrors.price && <small className="admin-field-error">{formErrors.price}</small>}
                     </div>
                     <div className="admin-form-group">
                       <label>Eski Fiyat (₺)</label>
@@ -684,8 +820,15 @@ const AdminProducts = () => {
                   </div>
                   <div className="admin-form-row">
                     <div className="admin-form-group">
-                      <label>Stok</label>
-                      <input type="number" value={form.stock} onChange={e => setForm(p => ({ ...p, stock: e.target.value }))} placeholder="50" className="admin-input" />
+                      <label>Stok *</label>
+                      <input
+                        type="number"
+                        value={form.stock}
+                        onChange={e => updateFormField('stock', e.target.value)}
+                        placeholder="50"
+                        className={`admin-input ${formErrors.stock ? 'admin-input-error' : ''}`}
+                      />
+                      {formErrors.stock && <small className="admin-field-error">{formErrors.stock}</small>}
                     </div>
                     <div className="admin-form-group">
                       <label>SKU</label>
@@ -698,18 +841,21 @@ const AdminProducts = () => {
               {activeTab === 'variants' && (
                 <div className="admin-form">
                   <div className="admin-form-group">
-                    <label>Malzemeler</label>
+                    <label>Malzemeler *</label>
                     <div className="material-checkboxes">
                       {materialOptions.map(m => (
                         <button
                           key={m}
                           className={`material-checkbox-btn ${form.material.includes(m) ? 'material-selected' : ''}`}
-                          onClick={() => toggleMaterial(m)}
+                          type="button"
+                          disabled
                         >
                           {form.material.includes(m) && <FiCheck size={12} />} {m}
                         </button>
                       ))}
                     </div>
+                    <small className="input-hint">Şu anda tüm ürünlerde malzeme otomatik olarak PLA seçilir.</small>
+                    {formErrors.material && <small className="admin-field-error">{formErrors.material}</small>}
                   </div>
                   <div className="admin-form-group">
                     <label>Renkler</label>
@@ -773,7 +919,8 @@ const AdminProducts = () => {
             </div>
 
             <div className="admin-modal-footer">
-              <button className="admin-cancel-btn" onClick={() => setShowForm(false)}>İptal</button>
+              {submitError && <div className="admin-form-error-summary">{submitError}</div>}
+              <button className="admin-cancel-btn" onClick={closeProductModal}>İptal</button>
               <button className="admin-save-btn" onClick={handleSubmit} disabled={saving}>
                 <FiCheck size={15} />
                 {saving ? 'Kaydediliyor...' : editProduct ? 'Güncelle' : 'Ürün Ekle'}

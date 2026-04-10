@@ -278,6 +278,20 @@
 
 .send-email-btn:hover { background: #dcfce7; }
 
+.customer-mail-error {
+  margin-top: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #e53e3e;
+}
+
+.customer-mail-success {
+  margin-top: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #16a34a;
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
   .customers-stats-row { grid-template-columns: repeat(2, 1fr); }

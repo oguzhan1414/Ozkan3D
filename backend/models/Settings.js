@@ -10,9 +10,11 @@ const settingsSchema = new mongoose.Schema({
   logo: { type: String, default: '' },
 
   // Kargo
-  freeShippingThreshold: { type: Number, default: 500 },
-  standardShippingCost: { type: Number, default: 49 },
-  expressShippingCost: { type: Number, default: 79 },
+  localShippingCost: { type: Number, default: 89 },
+  nearShippingCost: { type: Number, default: 109 },
+  standardShippingCost: { type: Number, default: 139 },
+  farShippingCost: { type: Number, default: 179 },
+  expressShippingSurcharge: { type: Number, default: 35 },
   carriers: { type: [String], default: ['Yurtiçi Kargo', 'MNG Kargo', 'Aras Kargo'] },
 
   // Bildirimler
@@ -26,8 +28,19 @@ const settingsSchema = new mongoose.Schema({
   lowStockThreshold: { type: Number, default: 10 },
 
   // Mail
-  emailFrom: { type: String, default: 'Ozkan3D <noreply@ozkan3d.design>' },
-  emailSender: { type: String, default: '' },
+  emailFrom: { type: String, default: 'Ozkan3D <ozkan3d.design@gmail.com>' },
+  emailSender: { type: String, default: 'ozkan3d.design@gmail.com' },
+
+  // Anasayfa slider
+  heroSlides: {
+    type: [{
+      imageUrl: { type: String, default: '' },
+      altText: { type: String, default: '' },
+      isActive: { type: Boolean, default: true },
+      sortOrder: { type: Number, default: 0 },
+    }],
+    default: [],
+  },
 }, { timestamps: true })
 
 export default mongoose.model('Settings', settingsSchema)

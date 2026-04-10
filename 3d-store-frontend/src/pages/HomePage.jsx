@@ -1,107 +1,36 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FiArrowRight, FiStar, FiZap, FiPackage, FiTruck, FiCheck } from 'react-icons/fi'
 import { getProductsApi, getFeaturedProductsApi } from '../api/productApi'
-import { getDashboardStatsApi } from '../api/userApi'
-import { getReviewsApi } from '../api/reviweApi'
+import { getPublicReviewsApi } from '../api/reviweApi'
+import { getSettingsApi } from '../api/settingsApi'
+import SEO from '../components/SEO'
+import FavoriteButton from '../components/FavoriteButton'
+import { optimizeImage } from '../utils/imageUtils'
 import './HomePage.css'
-import { useAuth } from '../context/AuthContext'
-/* ── Typewriter Hook ── */
-const useTypewriter = (words, speed = 80, pause = 2000) => {
-  const [text, setText] = useState('')
-  const [wordIndex, setWordIndex] = useState(0)
-  const [isDeleting, setIsDeleting] = useState(false)
-  useEffect(() => {
-    const current = words[wordIndex % words.length]
-    const timeout = setTimeout(() => {
-      if (!isDeleting) {
-        setText(current.slice(0, text.length + 1))
-        if (text.length + 1 === current.length) setTimeout(() => setIsDeleting(true), pause)
-      } else {
-        setText(current.slice(0, text.length - 1))
-        if (text.length - 1 === 0) { setIsDeleting(false); setWordIndex(i => i + 1) }
-      }
-    }, isDeleting ? speed / 2 : speed)
-    return () => clearTimeout(timeout)
-  }, [text, isDeleting, wordIndex, words, speed, pause])
-  return text
+import siteLogo from '../images/logo-wordmark.png'
+
+const resolveAssetUrl = (url) => {
+  if (!url) return ''
+  if (/^https?:\/\//i.test(url)) return url
+
+  const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+  const origin = apiBase.replace(/\/api\/?$/, '')
+
+  if (url.startsWith('/')) return `${origin}${url}`
+  return `${origin}/${url}`
 }
 
-/* ── Count Up Hook ── */
-const useCountUp = (target, duration = 2000, start = false) => {
-  const [count, setCount] = useState(0)
-  useEffect(() => {
-    if (!start) return
-    let startTime = null
-    const step = (timestamp) => {
-      if (!startTime) startTime = timestamp
-      const progress = Math.min((timestamp - startTime) / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3)
-      setCount(Math.floor(eased * target))
-      if (progress < 1) requestAnimationFrame(step)
-    }
-    requestAnimationFrame(step)
-  }, [target, duration, start])
-  return count
-}
+const normalizeHeroSlides = (slides) => {
+  if (!Array.isArray(slides)) return []
 
-/* ── Animated Canvas ── */
-const AnimatedCanvas = () => {
-  const canvasRef = useRef(null)
-  useEffect(() => {
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')
-    let animId
-    let W = canvas.offsetWidth
-    let H = canvas.offsetHeight
-    canvas.width = W
-    canvas.height = H
-    const shapes = Array.from({ length: 22 }, (_, i) => ({
-      x: Math.random() * W, y: Math.random() * H,
-      size: Math.random() * 55 + 15,
-      speedX: (Math.random() - 0.5) * 0.35,
-      speedY: (Math.random() - 0.5) * 0.35,
-      rotation: Math.random() * Math.PI * 2,
-      rotSpeed: (Math.random() - 0.5) * 0.007,
-      type: i % 3,
-      opacity: Math.random() * 0.1 + 0.03,
-      color: i % 4 === 0 ? '#2563eb' : i % 4 === 1 ? '#93c5fd' : i % 4 === 2 ? '#1d4ed8' : '#dbeafe',
+  return slides
+    .filter((slide) => slide && slide.isActive !== false && String(slide.imageUrl || '').trim())
+    .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0))
+    .map((slide, index) => ({
+      src: resolveAssetUrl(slide.imageUrl),
+      alt: slide.altText || `Anasayfa slider ${index + 1}`,
     }))
-    const drawShape = (s) => {
-      ctx.save(); ctx.translate(s.x, s.y); ctx.rotate(s.rotation)
-      ctx.globalAlpha = s.opacity; ctx.strokeStyle = s.color; ctx.lineWidth = 1.5
-      if (s.type === 0) {
-        ctx.beginPath()
-        for (let i = 0; i < 6; i++) {
-          const a = (i * Math.PI * 2) / 6
-          i === 0 ? ctx.moveTo(Math.cos(a) * s.size, Math.sin(a) * s.size) : ctx.lineTo(Math.cos(a) * s.size, Math.sin(a) * s.size)
-        }
-        ctx.closePath(); ctx.stroke()
-      } else if (s.type === 1) {
-        ctx.strokeRect(-s.size / 2, -s.size / 2, s.size, s.size)
-      } else {
-        ctx.beginPath(); ctx.moveTo(0, -s.size)
-        ctx.lineTo(s.size * 0.866, s.size * 0.5); ctx.lineTo(-s.size * 0.866, s.size * 0.5)
-        ctx.closePath(); ctx.stroke()
-      }
-      ctx.restore()
-    }
-    const animate = () => {
-      ctx.clearRect(0, 0, W, H)
-      shapes.forEach(s => {
-        s.x += s.speedX; s.y += s.speedY; s.rotation += s.rotSpeed
-        if (s.x < -100) s.x = W + 100; if (s.x > W + 100) s.x = -100
-        if (s.y < -100) s.y = H + 100; if (s.y > H + 100) s.y = -100
-        drawShape(s)
-      })
-      animId = requestAnimationFrame(animate)
-    }
-    animate()
-    const onResize = () => { W = canvas.offsetWidth; H = canvas.offsetHeight; canvas.width = W; canvas.height = H }
-    window.addEventListener('resize', onResize)
-    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', onResize) }
-  }, [])
-  return <canvas ref={canvasRef} className="hero-canvas" />
 }
 
 /* ── 3D Tilt Card ── */
@@ -138,25 +67,15 @@ const useParallax = (speed = 0.3) => {
   return ref
 }
 
-/* ── InView ── */
-const useInView = () => {
-  const ref = useRef(null)
-  const [inView, setInView] = useState(false)
-  useEffect(() => {
-    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setInView(true); obs.disconnect() } }, { threshold: 0.3 })
-    if (ref.current) obs.observe(ref.current)
-    return () => obs.disconnect()
-  }, [])
-  return [ref, inView]
-}
 
 /* ── Product Card ── */
 const ProductCard = ({ product }) => (
   <TiltCard className="product-card">
     <Link to={`/product/${product.slug || product._id}`} style={{ textDecoration: 'none', display: 'contents' }}>
       <div className="product-card-image">
+        <FavoriteButton productId={product._id} className="absolute-top-right" />
         {product.images?.[0] ? (
-          <img src={product.images[0]} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={optimizeImage(product.images[0])} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <div className="product-card-placeholder">3D</div>
         )}
@@ -190,23 +109,6 @@ const ProductCard = ({ product }) => (
   </TiltCard>
 )
 
-/* ── Stat Counter ── */
-const StatCounter = ({ target, suffix, label, start }) => {
-  const count = useCountUp(target, 2200, start)
-  return (
-    <div className="hero-stat">
-      <strong>{count.toLocaleString('tr-TR')}{suffix}</strong>
-      <span>{label}</span>
-    </div>
-  )
-}
-
-const materials = [
-  { name: 'PLA', color: '#27ae60', bg: '#f0fdf4', border: '#bbf7d0', desc: 'En yaygın kullanılan filament. Çevre dostu, kolay baskı, canlı renkler.', props: ['Biyobozunur', 'Kolay işlem', 'Canlı renk', 'Ekonomik'], best: 'Figürler, Dekorasyon' },
-  { name: 'ABS', color: '#2980b9', bg: '#eff6ff', border: '#bfdbfe', desc: 'Yüksek dayanıklılık ve ısı direnci. Fonksiyonel parçalar için ideal.', props: ['Isıya dayanıklı', 'Sert yapı', 'Uzun ömür', 'İşlenebilir'], best: 'Fonksiyonel parçalar' },
-  { name: 'PETG', color: '#8e44ad', bg: '#faf5ff', border: '#e9d5ff', desc: 'PLA\'nın kolaylığı, ABS\'in dayanıklılığı. Su geçirmez, esnek yapı.', props: ['Su geçirmez', 'Esnek', 'Şeffaf seçenek', 'Dayanıklı'], best: 'Kaplar, Mekanik parça' },
-  { name: 'Reçine', color: '#e67e22', bg: '#fff7ed', border: '#fed7aa', desc: 'Ultra yüksek detay ve pürüzsüz yüzey. Koleksiyon figürleri için mükemmel.', props: ['Ultra detay', 'Pürüzsüz yüzey', 'Hassas baskı', 'Profesyonel'], best: 'Koleksiyon, Minyatür' },
-]
 
 const features = [
   { icon: '🎯', title: 'Hassas Baskı', desc: '0.1mm katman kalınlığıyla pürüzsüz yüzey ve ultra detay.' },
@@ -218,11 +120,32 @@ const features = [
 ]
 
 const HomePage = () => {
-  const typeText = useTypewriter(['Hayal Et.', 'Tasarla.', 'Dokunuş Al.', 'Üret.'], 90, 1800)
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
-  const heroRef = useRef(null)
-  const cubeRef = useRef(null)
-  const [statsRef, statsInView] = useInView()
+  const [currentSlide, setCurrentSlide] = useState(0)
+  const [heroSlides, setHeroSlides] = useState([])
+
+  useEffect(() => {
+    if (heroSlides.length <= 1) return undefined
+
+    const timer = setInterval(() => {
+      setCurrentSlide(prev => (prev + 1) % heroSlides.length)
+    }, 5000)
+    return () => clearInterval(timer)
+  }, [heroSlides.length])
+
+  useEffect(() => {
+    if (currentSlide >= heroSlides.length) {
+      setCurrentSlide(0)
+    }
+  }, [currentSlide, heroSlides.length])
+
+  useEffect(() => {
+    if (heroSlides.length <= 1) return
+
+    const nextSlideIndex = (currentSlide + 1) % heroSlides.length
+    const preloader = new Image()
+    preloader.src = heroSlides[nextSlideIndex].src
+  }, [currentSlide, heroSlides])
+
   const [reviewIndex, setReviewIndex] = useState(0)
   const parallaxRef = useParallax(0.15)
 
@@ -230,9 +153,8 @@ const HomePage = () => {
   const [featuredProducts, setFeaturedProducts] = useState([])
   const [allProducts, setAllProducts] = useState([])
   const [reviews, setReviews] = useState([])
-  const [stats, setStats] = useState(null)
   const [dataLoading, setDataLoading] = useState(true)
-  const { isAuthenticated, isAdmin } = useAuth()
+
   useEffect(() => {
     fetchData()
   }, [])
@@ -240,23 +162,19 @@ const HomePage = () => {
 const fetchData = async () => {
   setDataLoading(true)
   try {
-    const promises = [
+    const results = await Promise.all([
       getFeaturedProductsApi(),
       getProductsApi({ limit: 20 }),
-    ]
-
-    // Stats sadece admin ise çek
-    if (isAuthenticated && isAdmin) {
-      promises.push(getDashboardStatsApi())
-    }
-
-    const results = await Promise.all(promises)
+      getSettingsApi(),
+    ])
     setFeaturedProducts(results[0].data || [])
     setAllProducts(results[1].data || [])
-    if (results[2]) setStats(results[2].data)
+
+    const dynamicSlides = normalizeHeroSlides(results[2]?.data?.heroSlides)
+    setHeroSlides(dynamicSlides)
 
     try {
-      const reviewRes = await getReviewsApi({ status: 'approved', limit: 6 })
+      const reviewRes = await getPublicReviewsApi({ status: 'approved', limit: 6 })
       setReviews(reviewRes.data || [])
     } catch {
       setReviews([])
@@ -282,22 +200,6 @@ const fetchData = async () => {
   const totalPages = Math.ceil(displayReviews.length / reviewsPerPage)
   const visibleReviews = displayReviews.slice(reviewIndex * reviewsPerPage, reviewIndex * reviewsPerPage + reviewsPerPage)
 
-  // Stats — backend veya fallback
-  const totalOrders = stats?.totalOrders || 0
-  const totalUsers = stats?.totalUsers || 0
-  const productCount = allProducts.length || 0
-
-  const handleMouseMove = useCallback((e) => {
-    if (!heroRef.current) return
-    const rect = heroRef.current.getBoundingClientRect()
-    const x = (e.clientX - rect.left) / rect.width
-    const y = (e.clientY - rect.top) / rect.height
-    setMousePos({ x, y })
-    if (cubeRef.current) {
-      cubeRef.current.style.transform = `rotateX(${(y - 0.5) * -40}deg) rotateY(${(x - 0.5) * 40}deg)`
-    }
-  }, [])
-
   const getTimeAgo = (date) => {
     const diff = Date.now() - new Date(date).getTime()
     const days = Math.floor(diff / 86400000)
@@ -313,100 +215,46 @@ const fetchData = async () => {
 
   return (
     <div className="home">
+      <SEO 
+        title="Ana Sayfa" 
+        description="PLA'dan reçineye, figürden dekorasyona — her fikir burada hayat bulur. Yüksek kaliteli 3D baskı ürünleri, hızlı kargo, sınırsız renk seçeneği." 
+      />
 
-      {/* ── Hero ── */}
-      <section className="hero" ref={heroRef} onMouseMove={handleMouseMove}>
-        <AnimatedCanvas />
-        <div className="hero-mouse-glow" style={{ left: `${mousePos.x * 100}%`, top: `${mousePos.y * 100}%` }} />
+      {/* ── Hero Slider ── */}
+      <section className="hero-slider">
+        {heroSlides.length > 0 ? (
+          <>
+            <div className="hero-slide active" key={currentSlide}>
+              <img
+                src={heroSlides[currentSlide]?.src}
+                alt={heroSlides[currentSlide]?.alt}
+                fetchPriority="high"
+                loading="eager"
+                decoding="async"
+              />
+            </div>
 
-        <div className="hero-inner">
-          <div className="hero-content">
-            <div className="hero-tag-wrap">
-              <span className="hero-tag">
-                <span className="hero-tag-dot" />
-                🇹🇷 Türkiye'nin 3D Baskı Mağazası
-              </span>
-            </div>
-            <h1 className="hero-title">
-              <span className="hero-title-line">Hayal Et.</span>
-              <span className="hero-title-line hero-accent">
-                <span className="typewriter">{typeText}</span>
-                <span className="typewriter-cursor">|</span>
-              </span>
-            </h1>
-            <p className="hero-desc">
-              PLA'dan reçineye, figürden dekorasyona — her fikir burada hayat bulur.
-              Yüksek kaliteli 3D baskı ürünleri, hızlı kargo, sınırsız renk seçeneği.
-            </p>
-            <div className="hero-btns">
-              <Link to="/shop" className="btn-primary hero-btn-primary">
-                Alışverişe Başla <FiArrowRight size={16} />
-              </Link>
-              <Link to="/custom" className="btn-outline hero-btn-outline">
-                Özel Tasarım
-              </Link>
-            </div>
-            <div className="hero-badges">
-              {['Ücretsiz Kargo', '%99 Memnuniyet', 'Hızlı Üretim'].map((b, i) => (
-                <span key={i} className="hero-badge"><FiCheck size={12} /> {b}</span>
-              ))}
-            </div>
-          </div>
-
-          {/* 3D Visual */}
-          <div className="hero-visual">
-            <div className="hero-visual-rings">
-              <div className="hvr hvr-1" /><div className="hvr hvr-2" /><div className="hvr hvr-3" />
-            </div>
-            <div className="hero-cube-wrap" style={{ perspective: '800px' }}>
-              <div className="hero-cube" ref={cubeRef}>
-                <div className="cube-face cube-front">3D</div>
-                <div className="cube-face cube-back">OK</div>
-                <div className="cube-face cube-left">🖨</div>
-                <div className="cube-face cube-right">✨</div>
-                <div className="cube-face cube-top" />
-                <div className="cube-face cube-bottom" />
+            {heroSlides.length > 1 && (
+              <div className="hero-slider-dots">
+                {heroSlides.map((_, index) => (
+                  <button
+                    key={index}
+                    className={`slider-dot ${index === currentSlide ? 'active' : ''}`}
+                    onClick={() => setCurrentSlide(index)}
+                    aria-label={`Go to slide ${index + 1}`}
+                  />
+                ))}
               </div>
-            </div>
-            <div className="hero-float-card hero-float-1">
-              <span>⭐</span>
-              <div><strong>4.9/5</strong><span>Puan</span></div>
-            </div>
-            <div className="hero-float-card hero-float-2">
-              <span>🚀</span>
-              <div><strong>2 Gün</strong><span>Teslimat</span></div>
-            </div>
-            <div className="hero-float-card hero-float-3">
-              <span>🎨</span>
-              <div><strong>50+</strong><span>Renk</span></div>
-            </div>
+            )}
+          </>
+        ) : (
+          <div className="hero-slide-placeholder">
+            <p>Anasayfa slider gorselleri admin panelinden yonetilir.</p>
           </div>
-        </div>
-
-        {/* Stats — gerçek backend verisi */}
-        <div className="hero-stats-bar" ref={statsRef}>
-          <div className="hero-stats-inner">
-            <StatCounter target={Math.max(totalUsers, 100)} suffix="+" label="Mutlu Müşteri" start={statsInView} />
-            <div className="hero-stat-sep" />
-            <StatCounter target={Math.max(productCount, 50)} suffix="+" label="Ürün Çeşidi" start={statsInView} />
-            <div className="hero-stat-sep" />
-            <StatCounter target={99} suffix="%" label="Memnuniyet" start={statsInView} />
-            <div className="hero-stat-sep" />
-            <StatCounter target={Math.max(totalOrders, 100)} suffix="+" label="Tamamlanan Proje" start={statsInView} />
-          </div>
-        </div>
-
-        {/* Feature Strip */}
-        <div className="hero-features">
-          <div className="hero-feature"><FiTruck size={16} /><span>500₺ Üzeri Ücretsiz Kargo</span></div>
-          <div className="hero-feature-sep" />
-          <div className="hero-feature"><FiPackage size={16} /><span>Güvenli Paketleme</span></div>
-          <div className="hero-feature-sep" />
-          <div className="hero-feature"><FiZap size={16} /><span>2-3 Gün Üretim</span></div>
-          <div className="hero-feature-sep" />
-          <div className="hero-feature"><FiStar size={16} /><span>%99 Memnuniyet</span></div>
-        </div>
+        )}
       </section>
+
+
 
       {/* ── Marquee — Gerçek ürünler ── */}
       {marqueeProducts.length > 0 && (
@@ -417,7 +265,7 @@ const fetchData = async () => {
                 <Link to={`/product/${p.slug || p._id}`} key={i} className="marquee-card">
                   <div className="marquee-card-img">
                     {p.images?.[0] ? (
-                      <img src={p.images[0]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'var(--radius-md)' }} />
+                      <img src={optimizeImage(p.images[0])} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'var(--radius-md)' }} />
                     ) : (
                       <div className="marquee-placeholder">3D</div>
                     )}
@@ -459,34 +307,33 @@ const fetchData = async () => {
         </div>
       </section>
 
-      {/* ── Malzemeler ── */}
+      {/* ── Kategoriler ── */}
       <section className="section section-gray">
         <div className="section-inner">
           <div className="section-header">
             <div>
-              <p className="section-sup">Üretim Kalitesi</p>
-              <h2 className="section-title">Malzemelerimiz</h2>
+              <p className="section-sup">Ürün Kategorileri</p>
+              <h2 className="section-title">Ne Arıyorsunuz?</h2>
             </div>
-            <Link to="/shop" className="section-link">Ürünleri Keşfet <FiArrowRight size={14} /></Link>
+            <Link to="/shop" className="section-link">Tüm Ürünler <FiArrowRight size={14} /></Link>
           </div>
-          <div className="materials-grid">
-            {materials.map((m, i) => (
-              <TiltCard key={i} className="material-card" style={{ '--m-color': m.color, '--m-bg': m.bg, '--m-border': m.border }}>
-                <div className="material-card-top">
-                  <div className="material-badge" style={{ background: m.bg, border: `1.5px solid ${m.border}`, color: m.color }}>{m.name}</div>
-                  <div className="material-dot-big" style={{ background: m.color }} />
+          <div className="categories-grid">
+            {[
+              { icon: '🐉', label: 'Figürler', sub: 'Ejderha, Katana & Daha Fazlası', color: '#7c3aed', bg: 'linear-gradient(135deg,#f5f3ff,#ede9fe)', path: '/shop?category=figurler' },
+              { icon: '🎧', label: 'Kulaklık Tutucular', sub: 'Ağaç, Modern & Özel Tasarım', color: '#0ea5e9', bg: 'linear-gradient(135deg,#f0f9ff,#e0f2fe)', path: '/shop?category=elektronik-aksesuar' },
+              { icon: '🗂️', label: 'Masa Düzenleyiciler', sub: 'Kalemlik, Stand & Organizer', color: '#16a34a', bg: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', path: '/shop?category=masa-duzenleyici' },
+              { icon: '🔑', label: 'Anahtarlıklar', sub: 'Kişiye Özel İsimli & Temalı', color: '#ea580c', bg: 'linear-gradient(135deg,#fff7ed,#ffedd5)', path: '/shop?category=anahtarlik' },
+              { icon: '🎨', label: 'Özel Tasarım', sub: 'Fikrini Getir, Biz Üretelim', color: '#db2777', bg: 'linear-gradient(135deg,#fdf2f8,#fce7f3)', path: '/custom' },
+              { icon: '🖨️', label: 'Tarama İşlemi', sub: 'Nesnenizin 3D Modelini Çıkarın', color: '#2563eb', bg: 'linear-gradient(135deg,#eff6ff,#dbeafe)', path: '/scan' },
+            ].map((cat, i) => (
+              <Link to={cat.path} key={i} className="cat-card" style={{ '--cat-color': cat.color, background: cat.bg }}>
+                <div className="cat-icon">{cat.icon}</div>
+                <div className="cat-info">
+                  <strong className="cat-label">{cat.label}</strong>
+                  <span className="cat-sub">{cat.sub}</span>
                 </div>
-                <p className="material-card-desc">{m.desc}</p>
-                <div className="material-props">
-                  {m.props.map((p, pi) => (
-                    <span key={pi} className="material-prop">{p}</span>
-                  ))}
-                </div>
-                <div className="material-card-footer">
-                  <span className="material-best-label">En İyi:</span>
-                  <span className="material-best-value">{m.best}</span>
-                </div>
-              </TiltCard>
+                <div className="cat-arrow"><FiArrowRight size={18} /></div>
+              </Link>
             ))}
           </div>
         </div>
@@ -549,9 +396,8 @@ const fetchData = async () => {
 
           <div className="reviews-score-card">
             <div className="score-logo">
-              <div className="score-logo-icon"><span>O</span></div>
+              <img src={siteLogo} alt="Ozkan3D logo" className="score-logo-image" />
               <div>
-                <p className="score-brand">Ozkan3D.design</p>
                 <div className="score-stars-row">
                   {[1,2,3,4,5].map(s => <FiStar key={s} size={14} fill="currentColor" className="star-filled" />)}
                   <span className="score-number">4.8</span>
@@ -604,31 +450,47 @@ const fetchData = async () => {
         </div>
       </section>
 
-      {/* ── Banner ── */}
-      <section className="section">
+      {/* ── Nasıl Sipariş Verilir? ── */}
+      <section className="section how-section">
         <div className="section-inner">
-          <div className="banner">
-            <div className="banner-bg-shapes">
-              <div className="banner-shape banner-shape-1" />
-              <div className="banner-shape banner-shape-2" />
-              <div className="banner-shape banner-shape-3" />
+          <div className="section-header" style={{ justifyContent: 'center', textAlign: 'center' }}>
+            <div>
+              <p className="section-sup">Kolay & Hızlı</p>
+              <h2 className="section-title">Nasıl Sipariş Verilir?</h2>
             </div>
-            <div className="banner-content">
-              <span className="banner-tag">⚡ Özel Tasarım Hizmeti</span>
-              <h2 className="banner-title">Kendi modelini mi getirmek istiyorsun?</h2>
-              <p className="banner-desc">STL dosyanı yükle, biz senin için basalım. Prototipten seri üretime kadar yanındayız.</p>
-              <Link to="/custom" className="btn-white">Teklif Al <FiArrowRight size={16} /></Link>
-            </div>
-            <div className="banner-visual">
-              <div className="banner-cube">
-                <div className="bcube-face bcube-front">STL</div>
-                <div className="bcube-face bcube-back" />
-                <div className="bcube-face bcube-left" />
-                <div className="bcube-face bcube-right" />
-                <div className="bcube-face bcube-top" />
-                <div className="bcube-face bcube-bottom" />
+          </div>
+          <div className="how-steps">
+            {[
+              {
+                num: '01',
+                icon: '🛒',
+                title: 'Ürünü Seç',
+                desc: 'Mağazamızdaki yüzlerce 3D baskı ürünü arasından beğenini seç. Renk, boyut ve kişiselleştirme seçeneklerini belirle.',
+                color: '#2563eb',
+              },
+              {
+                num: '02',
+                icon: '🖨️',
+                title: 'Biz Üretelim',
+                desc: 'Siparişin onaylandıktan sonra yüksek kaliteli PLA filament ile 2-3 iş günü içinde üretim tamamlanır.',
+                color: '#7c3aed',
+              },
+              {
+                num: '03',
+                icon: '📦',
+                title: 'Kapında',
+                desc: 'Özenle paketlenen ürünün anlaşmalı kargo şirketiyle adresine teslim edilir. Bolu\'dan Türkiye\'nin her yerine!',
+                color: '#16a34a',
+              },
+            ].map((step, i) => (
+              <div key={i} className="how-step" style={{ '--step-color': step.color }}>
+                <div className="how-step-num">{step.num}</div>
+                <div className="how-step-icon">{step.icon}</div>
+                <h3 className="how-step-title">{step.title}</h3>
+                <p className="how-step-desc">{step.desc}</p>
+                {i < 2 && <div className="how-step-arrow">→</div>}
               </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>

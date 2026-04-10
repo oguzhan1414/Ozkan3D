@@ -1,6 +1,36 @@
 import Product from '../models/Product.js'
+import User from '../models/User.js'
 import { createSlug } from '../utils/createSlug.js'
 import { uploadImage, deleteImage, getPublicId } from '../utils/imageUpload.js'
+import { sendPriceDropEmail } from '../utils/sendEmail.js'
+
+const normalizeDescriptionText = (value) => {
+  if (typeof value !== 'string') return value
+
+  const sanitized = value
+    // Remove emoji/icon-like symbols that break visual consistency in cards.
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
+    .replace(/[•●◦▪▫►▶]/g, '')
+    .replace(/\r?\n+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return sanitized
+}
+
+const normalizeDescriptionPayload = (payload = {}) => {
+  const normalized = { ...payload }
+
+  if (typeof payload.description === 'string') {
+    normalized.description = normalizeDescriptionText(payload.description)
+  }
+
+  if (typeof payload.shortDesc === 'string') {
+    normalized.shortDesc = normalizeDescriptionText(payload.shortDesc)
+  }
+
+  return normalized
+}
 
 // @desc    Tüm ürünleri getir
 // @route   GET /api/products
@@ -87,9 +117,12 @@ export const getProduct = async (req, res) => {
 // @route   POST /api/products
 // @access  Admin
 export const createProduct = async (req, res) => {
-  if (!req.body.sku) req.body.sku = undefined;
-  const slug = await createSlug(req.body.name)
-  const product = await Product.create({ ...req.body, slug })
+  const payload = normalizeDescriptionPayload(req.body)
+
+  if (!payload.sku) payload.sku = undefined
+
+  const slug = await createSlug(payload.name)
+  const product = await Product.create({ ...payload, slug })
   res.status(201).json({ success: true, data: product })
 }
 
@@ -104,15 +137,31 @@ export const updateProduct = async (req, res) => {
     throw new Error('Ürün bulunamadı.')
   }
 
-  if (req.body.name && req.body.name !== product.name) {
-    req.body.slug = await createSlug(req.body.name)
+  const payload = normalizeDescriptionPayload(req.body)
+
+  const priceDropped = payload.price && Number(payload.price) < product.price
+  const oldPrice = product.price
+
+  if (payload.name && payload.name !== product.name) {
+    payload.slug = await createSlug(payload.name)
   }
 
   product = await Product.findByIdAndUpdate(
     req.params.id,
-    req.body,
+    payload,
     { new: true, runValidators: true }
   )
+
+  if (priceDropped) {
+    try {
+      const usersWithFavorite = await User.find({ favorites: product._id });
+      for (const u of usersWithFavorite) {
+        await sendPriceDropEmail(u, product, oldPrice).catch(err => console.log('Mail error:', err))
+      }
+    } catch (err) {
+      console.log('Fiyat düşüşü bildirim hatası:', err.message)
+    }
+  }
 
   res.status(200).json({ success: true, data: product })
 }

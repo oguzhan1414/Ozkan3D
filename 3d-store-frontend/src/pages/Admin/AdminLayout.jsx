@@ -6,6 +6,7 @@ import {
 } from 'react-icons/fi'
 import { useAuth } from '../../context/AuthContext'
 import NotificationPanel from '../../components/NotificationPanel/NotificationPanel'
+import siteLogo from '../../images/logo-cropped.png'
 import './Admin.css'
 
 
@@ -60,7 +61,7 @@ const AdminLayout = () => {
         {/* Logo */}
         <div className="admin-logo">
           <Link to="/" className="admin-logo-link">
-            <div className="admin-logo-icon"><span>O</span></div>
+            <img src={siteLogo} alt="Ozkan3D logo" className="admin-logo-image" />
             {sidebarOpen && (
               <div className="admin-logo-text">
                 <span className="admin-logo-brand">Ozkan3D</span>

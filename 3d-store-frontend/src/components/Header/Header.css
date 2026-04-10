@@ -122,16 +122,21 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-xl);
+  gap: clamp(22px, 2.2vw, 36px);
 }
 
 /* ── Logo ── */
 .header-logo {
   display: flex;
   align-items: center;
-  gap: 12px;
   text-decoration: none;
   flex-shrink: 0;
+}
+
+.header-logo-image {
+  height: 64px;
+  width: auto;
+  display: block;
 }
 
 .logo-icon {
@@ -152,6 +157,22 @@
   position: absolute;
   inset: 0;
   background: linear-gradient(135deg, rgba(255,255,255,0.25) 0%, transparent 60%);
+}
+
+.logo-icon.logo-icon-img::before {
+  display: none;
+}
+
+.logo-icon.logo-icon-img {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+}
+
+.logo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 4px;
 }
 
 .logo-icon span {
@@ -191,6 +212,7 @@
 .search-form {
   flex: 1;
   max-width: 600px;
+  margin-left: clamp(8px, 1.2vw, 20px);
   display: flex;
   align-items: center;
   gap: var(--space-sm);
@@ -1010,6 +1032,10 @@
   .midbar-container {
     gap: var(--space-lg);
   }
+
+  .search-form {
+    margin-left: 4px;
+  }
   
   .dropdown-inner {
     grid-template-columns: repeat(2, 1fr);
@@ -1036,6 +1062,7 @@
   .search-form {
     max-width: none;
     flex: 1;
+    margin-left: 0;
   }
   
   .search-btn {
@@ -1079,9 +1106,7 @@
 }
 
 @media (max-width: 480px) {
-  .logo-domain {
-    display: none;
-  }
+  .header-logo-image { height: 46px; }
   
   .midbar-icon-label {
     display: none;
@@ -1092,16 +1117,4 @@
     padding: 8px;
   }
   
-  .logo-brand {
-    font-size: 1.4rem;
-  }
-  
-  .logo-icon {
-    width: 44px;
-    height: 44px;
-  }
-  
-  .logo-icon span {
-    font-size: 1.3rem;
-  }
 }

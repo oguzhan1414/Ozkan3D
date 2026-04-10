@@ -37,6 +37,14 @@ const orderSchema = new mongoose.Schema({
     enum: ['card', 'transfer'],
     required: true,
   },
+  shippingMethod: {
+    type: String,
+    enum: ['standard', 'express'],
+    default: 'standard',
+  },
+  shippingDetails: {
+    type: mongoose.Schema.Types.Mixed,
+  },
   // Siparişin aşama geçmişi (Örn: Müşteri siparişi ne zaman verdi, biz ne zaman basıma aldık)
   statusHistory: [{
     status: { type: String },
@@ -47,6 +55,11 @@ const orderSchema = new mongoose.Schema({
     id: String,
     status: String,
     paidAt: Date,
+    paymentTransactionId: String,
+    itemTransactions: [{
+      paymentTransactionId: String,
+      paidPrice: String,
+    }],
   },
   shippingCost: { type: Number, default: 0 },
   subtotal: { type: Number, required: true },

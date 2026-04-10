@@ -375,19 +375,19 @@
   padding: 0 24px 60px;
 }
 
-.how-section,
-.use-cases-section,
-.info-section,
-.faq-section {
+.scan-how-section,
+.scan-use-cases-section,
+.scan-info-section,
+.scan-faq-section {
   margin: 60px 0;
 }
 
-.section-header-center {
+.scan-section-header {
   text-align: center;
   margin-bottom: 40px;
 }
 
-.section-sup {
+.scan-section-sup {
   font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -396,20 +396,20 @@
   margin-bottom: 8px;
 }
 
-.section-title-center {
+.scan-section-title {
   font-size: 2rem;
   font-weight: 800;
   color: #0a0a0a;
 }
 
 /* Steps Grid */
-.steps-grid {
+.scan-steps-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 24px;
 }
 
-.step-card {
+.scan-step-card {
   text-align: center;
   padding: 24px;
   background: white;
@@ -418,12 +418,12 @@
   transition: all 0.3s ease;
 }
 
-.step-card:hover {
+.scan-step-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 24px rgba(0,0,0,0.08);
 }
 
-.step-card-num {
+.scan-step-card-num {
   width: 36px;
   height: 36px;
   background: #3b82f6;
@@ -436,31 +436,31 @@
   margin: 0 auto 16px;
 }
 
-.step-card-icon {
+.scan-step-card-icon {
   font-size: 2rem;
   margin-bottom: 12px;
 }
 
-.step-card-title {
+.scan-step-card-title {
   font-weight: 700;
   margin-bottom: 8px;
   color: #0a0a0a;
 }
 
-.step-card-desc {
+.scan-step-card-desc {
   font-size: 0.85rem;
   color: #6b7280;
   line-height: 1.5;
 }
 
 /* Use Cases Grid */
-.use-cases-grid {
+.scan-use-cases-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
 }
 
-.use-case-card {
+.scan-use-case-card {
   text-align: center;
   padding: 24px;
   background: #f9fafb;
@@ -468,60 +468,60 @@
   transition: all 0.3s ease;
 }
 
-.use-case-card:hover {
+.scan-use-case-card:hover {
   transform: translateY(-4px);
   background: white;
   box-shadow: 0 8px 20px rgba(0,0,0,0.08);
 }
 
-.use-case-icon {
+.scan-use-case-icon {
   font-size: 2rem;
   margin-bottom: 12px;
 }
 
-.use-case-card h4 {
+.scan-use-case-card h4 {
   font-weight: 700;
   margin-bottom: 6px;
 }
 
-.use-case-card p {
+.scan-use-case-card p {
   font-size: 0.85rem;
   color: #6b7280;
 }
 
 /* Info Section */
-.info-section {
+.scan-info-section {
   background: #f9fafb;
   padding: 48px;
   border-radius: 24px;
 }
 
-.info-section-inner {
+.scan-info-section-inner {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 48px;
 }
 
-.info-title {
+.scan-info-title {
   font-size: 1.5rem;
   font-weight: 800;
   margin-bottom: 16px;
 }
 
-.info-desc {
+.scan-info-desc {
   color: #6b7280;
   line-height: 1.7;
   margin-bottom: 20px;
 }
 
-.info-tags {
+.scan-info-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 24px;
 }
 
-.info-tag {
+.scan-info-tag {
   padding: 5px 12px;
   background: white;
   border-radius: 20px;
@@ -530,13 +530,13 @@
   border: 1px solid #e5e7eb;
 }
 
-.info-features {
+.scan-info-features {
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
-.info-feature-card {
+.scan-info-feature-card {
   display: flex;
   align-items: center;
   gap: 16px;
@@ -546,39 +546,39 @@
   transition: all 0.3s ease;
 }
 
-.info-feature-card:hover {
+.scan-info-feature-card:hover {
   transform: translateX(4px);
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
 
-.info-feature-icon {
+.scan-info-feature-icon {
   font-size: 1.5rem;
 }
 
-.info-feature-card strong {
+.scan-info-feature-card strong {
   display: block;
   margin-bottom: 4px;
 }
 
-.info-feature-card p {
+.scan-info-feature-card p {
   font-size: 0.8rem;
   color: #6b7280;
 }
 
 /* FAQ */
-.faq-list {
+.scan-faq-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.faq-item {
+.scan-faq-item {
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   overflow: hidden;
 }
 
-.faq-question {
+.scan-faq-question {
   width: 100%;
   padding: 20px;
   background: white;
@@ -593,11 +593,11 @@
   transition: all 0.2s ease;
 }
 
-.faq-question:hover {
+.scan-faq-question:hover {
   background: #f9fafb;
 }
 
-.faq-answer {
+.scan-faq-answer {
   padding: 0 20px 20px;
   color: #6b7280;
   line-height: 1.6;
@@ -633,12 +633,12 @@
     text-align: center;
   }
   
-  .steps-grid,
-  .use-cases-grid {
+  .scan-steps-grid,
+  .scan-use-cases-grid {
     grid-template-columns: repeat(2, 1fr);
   }
   
-  .info-section-inner {
+  .scan-info-section-inner {
     grid-template-columns: 1fr;
     gap: 32px;
   }
@@ -653,8 +653,8 @@
     min-width: auto;
   }
   
-  .steps-grid,
-  .use-cases-grid {
+  .scan-steps-grid,
+  .scan-use-cases-grid {
     grid-template-columns: 1fr;
   }
   
@@ -854,4 +854,173 @@
   font-family: inherit;
   transition: background 0.2s;
 }
-.scan-modal-done-btn:hover { background: #2563eb; }
+.scan-modal-done-btn:hover { background: #2563eb; }
+
+/* Dark Theme */
+[data-theme="dark"] .scan-page {
+  background: #0f1115;
+}
+
+[data-theme="dark"] .scan-how-section {
+  background: transparent;
+}
+
+[data-theme="dark"] .device-showcase {
+  background: #1b1f27;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .device-content h3,
+[data-theme="dark"] .object-question-title,
+[data-theme="dark"] .scan-section-title,
+[data-theme="dark"] .scan-use-case-card h4,
+[data-theme="dark"] .scan-info-title,
+[data-theme="dark"] .scan-modal-header h3,
+[data-theme="dark"] .scan-modal-success h4 {
+  color: #f3f4f6;
+}
+
+[data-theme="dark"] .device-content p,
+[data-theme="dark"] .object-question-desc,
+[data-theme="dark"] .scan-step-card-desc,
+[data-theme="dark"] .scan-use-case-card p,
+[data-theme="dark"] .scan-info-desc,
+[data-theme="dark"] .scan-faq-answer,
+[data-theme="dark"] .scan-cta-desc,
+[data-theme="dark"] .scan-modal-success p {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .device-specs span {
+  background: #2a2f39;
+  color: #dbe3f0;
+}
+
+[data-theme="dark"] .object-question-card {
+  background: #1b1f27;
+}
+
+[data-theme="dark"] .object-btn {
+  background: #242a34;
+  border-color: #3a4453;
+}
+
+[data-theme="dark"] .object-btn span,
+[data-theme="dark"] .scan-step-card-title,
+[data-theme="dark"] .scan-faq-question,
+[data-theme="dark"] .scan-info-feature-card strong {
+  color: #f3f4f6;
+}
+
+[data-theme="dark"] .object-btn p,
+[data-theme="dark"] .scan-info-feature-card p {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .object-btn-active-yes {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.16);
+}
+
+[data-theme="dark"] .object-btn-active-no {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.16);
+}
+
+[data-theme="dark"] .answer-card {
+  background: #1b1f27;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .shipping-info {
+  background: #242a34;
+}
+
+[data-theme="dark"] .shipping-info strong {
+  color: #e5e7eb;
+}
+
+[data-theme="dark"] .scan-step-card {
+  background: #1f2430;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .scan-step-card:hover {
+  background: #252b38;
+}
+
+[data-theme="dark"] .scan-use-case-card {
+  background: #1f2430;
+}
+
+[data-theme="dark"] .scan-use-case-card:hover {
+  background: #252b38;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .scan-info-section {
+  background: #1b1f27;
+}
+
+[data-theme="dark"] .scan-info-tag,
+[data-theme="dark"] .scan-info-feature-card,
+[data-theme="dark"] .scan-faq-question {
+  background: #242a34;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .scan-info-tag {
+  color: #dbe3f0;
+}
+
+[data-theme="dark"] .scan-faq-item {
+  border-color: #334155;
+}
+
+[data-theme="dark"] .scan-faq-question:hover {
+  background: #2b3240;
+}
+
+[data-theme="dark"] .scan-faq-answer {
+  background: #1f2430;
+  border-top-color: #334155;
+}
+
+[data-theme="dark"] .scan-modal {
+  background: #1b1f27;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="dark"] .scan-modal-header {
+  border-bottom-color: #334155;
+}
+
+[data-theme="dark"] .scan-modal-close {
+  background: #2b3240;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .scan-modal-close:hover {
+  background: #374151;
+}
+
+[data-theme="dark"] .scan-modal-subject-label {
+  color: #cbd5e1;
+  background: #242a34;
+}
+
+[data-theme="dark"] .scan-form-group label {
+  color: #d1d5db;
+}
+
+[data-theme="dark"] .scan-form-input,
+[data-theme="dark"] .scan-form-textarea {
+  background: #242a34;
+  border-color: #334155;
+  color: #f3f4f6;
+}
+
+[data-theme="dark"] .scan-form-input:focus,
+[data-theme="dark"] .scan-form-textarea:focus {
+  background: #2b3240;
+}

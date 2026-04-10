@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom'
 import {
   FiPhone, FiMail, FiMapPin, FiInstagram,
-  FiTwitter, FiYoutube, FiArrowRight
+  FiArrowRight
 } from 'react-icons/fi'
+import siteLogo from '../../images/logo-wordmark.png'
 import './Footer.css'
 
 const Footer = () => {
@@ -13,34 +14,34 @@ const Footer = () => {
       <div className="footer-top-banner">
         <div className="footer-banner-inner">
           <div className="footer-banner-item">
-            <span className="footer-banner-icon">🚚</span>
+            <span className="footer-banner-icon">📦</span>
             <div>
-              <strong>Ücretsiz Kargo</strong>
-              <span>500₺ ve üzeri siparişlerde</span>
+              <strong>Hızlı Üretim</strong>
+              <span>2-3 iş günü içinde hazırlanır</span>
             </div>
           </div>
           <div className="footer-banner-sep" />
           <div className="footer-banner-item">
-            <span className="footer-banner-icon">🔒</span>
+            <span className="footer-banner-icon">🎨</span>
             <div>
-              <strong>Güvenli Ödeme</strong>
-              <span>256-bit SSL şifreleme</span>
+              <strong>50+ Renk Seçeneği</strong>
+              <span>Zevkine uygun filament seçenekleri</span>
             </div>
           </div>
           <div className="footer-banner-sep" />
           <div className="footer-banner-item">
-            <span className="footer-banner-icon">↩️</span>
+            <span className="footer-banner-icon">📍</span>
             <div>
-              <strong>Kolay İade</strong>
-              <span>14 gün içinde ücretsiz iade</span>
+              <strong>Türkiye Geneli Teslimat</strong>
+              <span>Bolu'dan tüm şehirlere gönderim</span>
             </div>
           </div>
           <div className="footer-banner-sep" />
           <div className="footer-banner-item">
-            <span className="footer-banner-icon">🎯</span>
+            <span className="footer-banner-icon">💬</span>
             <div>
-              <strong>Özel Tasarım</strong>
-              <span>STL dosyanı getir, biz basalım</span>
+              <strong>WhatsApp Destek</strong>
+              <span>Sorun mu var? Hemen yazın</span>
             </div>
           </div>
         </div>
@@ -53,11 +54,7 @@ const Footer = () => {
           {/* Brand */}
           <div className="footer-brand">
             <Link to="/" className="footer-logo">
-              <div className="footer-logo-icon"><span>O</span></div>
-              <div className="footer-logo-text">
-                <span className="footer-logo-brand">Ozkan3D</span>
-                <span className="footer-logo-domain">.design</span>
-              </div>
+              <img src={siteLogo} alt="Ozkan3D logo" className="footer-logo-image" />
             </Link>
             <p className="footer-tagline">
               Türkiye'nin en yenilikçi 3D baskı mağazası.
@@ -66,11 +63,11 @@ const Footer = () => {
             <div className="footer-contact">
               <a href="tel:02165213840" className="footer-contact-item">
                 <FiPhone size={14} />
-                <span>0530 440 28 42</span>
+                <span>+90 541 119 06 26</span>
               </a>
-              <a href="mailto:bilgi@ozkan3d.design" className="footer-contact-item">
+              <a href="mailto:ozkan3d.design@gmail.com" className="footer-contact-item">
                 <FiMail size={14} />
-                <span>bilgi@ozkan3d.design</span>
+                <span>ozkan3d.design@gmail.com</span>
               </a>
               <div className="footer-contact-item">
                 <FiMapPin size={14} />
@@ -78,14 +75,9 @@ const Footer = () => {
               </div>
             </div>
             <div className="footer-social">
-              <a href="https://www.instagram.com/ozkan3d.design/" target="_blank" rel="noreferrer" className="social-btn" aria-label="Instagram">
+              <a href="https://www.instagram.com/ozkan3d.design/" target="_blank" rel="noreferrer" className="footer-instagram-btn" aria-label="Instagram">
                 <FiInstagram size={17} />
-              </a>
-              <a href="https://twitter.com" target="_blank" rel="noreferrer" className="social-btn" aria-label="Twitter">
-                <FiTwitter size={17} />
-              </a>
-              <a href="https://youtube.com" target="_blank" rel="noreferrer" className="social-btn" aria-label="YouTube">
-                <FiYoutube size={17} />
+                <span>Instagram'da Takip Et</span>
               </a>
             </div>
           </div>

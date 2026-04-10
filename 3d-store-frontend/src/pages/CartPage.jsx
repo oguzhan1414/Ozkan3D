@@ -17,11 +17,10 @@ const CartPage = () => {
   const [couponData, setCouponData] = useState(null)
   const [couponError, setCouponError] = useState('')
 
-  const shippingThreshold = 500
-  const shippingCost = couponData?.freeShipping ? 0 : totalPrice >= shippingThreshold ? 0 : 49
+  const hasCouponFreeShipping = Boolean(couponData?.freeShipping)
+  const shippingCost = hasCouponFreeShipping ? 0 : null
   const discount = couponData?.discount || 0
-  const grandTotal = totalPrice - discount + shippingCost
-  const remaining = shippingThreshold - totalPrice
+  const grandTotal = totalPrice - discount + (shippingCost || 0)
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return
@@ -97,27 +96,21 @@ const CartPage = () => {
           <div className="cart-items">
 
             {/* Kargo Bildirimi */}
-            {totalPrice < shippingThreshold && (
+            {!hasCouponFreeShipping && (
               <div className="cart-shipping-notice">
                 <FiTruck size={16} />
                 <div className="shipping-notice-content">
                   <span>
-                    Ücretsiz kargo için <strong>{remaining.toFixed(0)}₺</strong> daha ekleyin!
+                    Kargo ücreti teslimat iline ve kargo seçiminize göre ödeme adımında netleşir.
                   </span>
-                  <div className="shipping-progress">
-                    <div
-                      className="shipping-progress-bar"
-                      style={{ width: `${Math.min((totalPrice / shippingThreshold) * 100, 100)}%` }}
-                    />
-                  </div>
                 </div>
               </div>
             )}
 
-            {totalPrice >= shippingThreshold && (
+            {hasCouponFreeShipping && (
               <div className="cart-shipping-notice cart-shipping-success">
                 <FiTruck size={16} />
-                <span>🎉 Tebrikler! Ücretsiz kargo kazandınız!</span>
+                <span>Bu siparişte kupon avantajı ile ücretsiz kargo uygulanacak.</span>
               </div>
             )}
 
@@ -261,12 +254,12 @@ const CartPage = () => {
                 <div className="summary-row">
                   <span>Kargo</span>
                   <span className={shippingCost === 0 ? 'summary-free' : ''}>
-                    {shippingCost === 0 ? 'Ücretsiz' : `${shippingCost}₺`}
+                    {shippingCost === 0 ? 'Ücretsiz' : 'Adrese göre hesaplanır'}
                   </span>
                 </div>
                 <div className="summary-divider" />
                 <div className="summary-row summary-total">
-                  <span>Toplam</span>
+                  <span>{shippingCost === null ? 'Kargo Hariç Toplam' : 'Toplam'}</span>
                   <span>{grandTotal.toFixed(0)}₺</span>
                 </div>
               </div>
@@ -277,7 +270,7 @@ const CartPage = () => {
                   state: {
                     couponCode: couponData?.code,
                     discount,
-                    shippingCost,
+                    shippingCost: shippingCost ?? undefined,
                     grandTotal,
                   }
                 })}

@@ -7,6 +7,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 let transporter
 
+const getAdminNotifyEmail = () => process.env.EMAIL_ADMIN_TO || process.env.EMAIL_USER
+
 const getTransporter = () => {
   if (!transporter) {
     transporter = nodemailer.createTransport({
@@ -32,14 +34,15 @@ const loadTemplate = (templateName, variables) => {
   return template
 }
 
-export const sendEmail = async ({ to, subject, templateName, variables }) => {
-  const html = loadTemplate(templateName, variables)
+export const sendEmail = async ({ to, subject, templateName, variables, html, attachments = [] }) => {
+  const mailHtml = html || loadTemplate(templateName, variables)
 
   await getTransporter().sendMail({
     from: process.env.EMAIL_FROM,
     to,
     subject,
-    html,
+    html: mailHtml,
+    attachments,
   })
 }
 
@@ -101,10 +104,23 @@ export const sendWelcomeEmail = async (user) => {
   })
 }
 
+export const sendEmailVerificationEmail = async (user, verifyUrl) => {
+  await sendEmail({
+    to: user.email,
+    subject: 'E-posta Adresini Doğrula',
+    templateName: 'verifyEmail',
+    variables: {
+      firstName: user.firstName,
+      verifyUrl,
+      year: new Date().getFullYear(),
+    },
+  })
+}
+
 // Yeni üye bildirimi — admin'e
 export const sendNewUserNotifyAdmin = async (user) => {
   await sendEmail({
-    to: process.env.EMAIL_USER,
+    to: getAdminNotifyEmail(),
     subject: `👤 Yeni Üye: ${user.firstName} ${user.lastName}`,
     templateName: 'newUserAdmin',
     variables: {
@@ -125,7 +141,7 @@ export const sendNewUserNotifyAdmin = async (user) => {
 // İletişim Formu (Contact) -> admin'e
 export const sendContactEmailToAdmin = async (data) => {
   await sendEmail({
-    to: process.env.EMAIL_USER,
+    to: getAdminNotifyEmail(),
     subject: `Yeni İletişim Mesajı: ${data.subject}`,
     templateName: 'contactMsgAdmin',
     variables: {
@@ -137,6 +153,44 @@ export const sendContactEmailToAdmin = async (data) => {
         day: '2-digit', month: 'long', year: 'numeric',
         hour: '2-digit', minute: '2-digit'
       }),
+    },
+  })
+}
+
+// Fiyat Düşüşü Bildirimi
+export const sendPriceDropEmail = async (user, product, oldPrice) => {
+  await sendEmail({
+    to: user.email,
+    subject: `🔥 Favorilerindeki ${product.name} İndirime Girdi!`,
+    templateName: 'priceDrop',
+    variables: {
+      firstName: user.firstName,
+      productName: product.name,
+      oldPrice,
+      newPrice: product.price,
+      productUrl: `${process.env.CLIENT_URL}/product/${product.slug || product._id}`,
+      year: new Date().getFullYear(),
+    },
+  })
+}
+
+export const sendSupportRequestToAdmin = async (data) => {
+  const fileUrl = data.attachmentUrl
+    ? `${process.env.SERVER_URL || 'http://localhost:5000'}${data.attachmentUrl}`
+    : 'Yok'
+
+  await sendEmail({
+    to: getAdminNotifyEmail(),
+    subject: `Yeni Destek Talebi: ${data.subject}`,
+    templateName: 'supportRequestAdmin',
+    variables: {
+      requestId: data.requestId,
+      email: data.email,
+      subject: data.subject,
+      message: data.message,
+      submittedAt: data.submittedAt,
+      attachmentName: data.attachmentName || 'Yok',
+      attachmentUrl: fileUrl,
     },
   })
 }

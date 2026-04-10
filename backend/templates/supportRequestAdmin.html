@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yeni Destek Talebi</title>
+</head>
+<body style="margin:0;padding:0;background:#f7f7f7;font-family:Arial,sans-serif;color:#111;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:20px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:92%;background:#fff;border:1px solid #e8e8e8;border-radius:12px;overflow:hidden;">
+          <tr>
+            <td style="background:#111827;color:#fff;padding:18px 22px;">
+              <h1 style="margin:0;font-size:18px;">Yeni Destek Talebi</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 22px;">
+              <p style="margin:0 0 12px 0;font-size:14px;"><strong>Talep No:</strong> {{requestId}}</p>
+              <p style="margin:0 0 12px 0;font-size:14px;"><strong>Gönderen E-posta:</strong> {{email}}</p>
+              <p style="margin:0 0 12px 0;font-size:14px;"><strong>Konu:</strong> {{subject}}</p>
+              <p style="margin:0 0 12px 0;font-size:14px;"><strong>Gönderim Tarihi:</strong> {{submittedAt}}</p>
+              <p style="margin:0 0 8px 0;font-size:14px;"><strong>Detay:</strong></p>
+              <div style="background:#f9fafb;border:1px solid #ececec;border-radius:8px;padding:12px;font-size:14px;line-height:1.55;white-space:pre-wrap;">{{message}}</div>
+              <p style="margin:14px 0 0 0;font-size:14px;"><strong>Ek Dosya:</strong> {{attachmentName}}</p>
+              <p style="margin:6px 0 0 0;font-size:14px;"><strong>Dosya Yolu:</strong> {{attachmentUrl}}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

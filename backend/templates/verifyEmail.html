@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      body {
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        background-color: #f3f4f6;
+        margin: 0;
+        padding: 0;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrapper {
+        background-color: #f3f4f6;
+        padding: 40px 20px;
+      }
+      .container {
+        max-width: 600px;
+        width: 100%;
+        background: #ffffff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        margin: 0 auto;
+      }
+      .header {
+        background: #0f172a;
+        padding: 30px 40px;
+        text-align: center;
+        border-bottom: 4px solid #22c55e;
+      }
+      .header-logo {
+        color: #ffffff;
+        font-size: 28px;
+        font-weight: 800;
+        margin: 0;
+        letter-spacing: -0.5px;
+      }
+      .header-sub {
+        color: #86efac;
+        font-size: 14px;
+        margin-top: 5px;
+        font-weight: 500;
+      }
+      .content {
+        padding: 40px;
+        color: #334155;
+        line-height: 1.6;
+      }
+      .content h2 {
+        color: #0f172a;
+        font-size: 22px;
+        margin-top: 0;
+      }
+      .content p {
+        font-size: 16px;
+        margin-bottom: 20px;
+      }
+      .btn {
+        display: inline-block;
+        background: #16a34a;
+        color: #ffffff !important;
+        text-decoration: none;
+        padding: 14px 28px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 16px;
+        text-align: center;
+        margin-top: 10px;
+      }
+      .note {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 30px;
+        font-size: 14px;
+        color: #475569;
+      }
+      .footer {
+        background: #f8fafc;
+        padding: 30px 40px;
+        text-align: center;
+        color: #64748b;
+        font-size: 13px;
+        border-top: 1px solid #e2e8f0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div class="container">
+        <div class="header">
+          <h1 class="header-logo">Ozkan3D.design</h1>
+          <div class="header-sub">Hesap Doğrulama</div>
+        </div>
+        <div class="content">
+          <h2>Merhaba {{firstName}}, hesabını doğrula</h2>
+          <p>
+            Kayıt işlemini tamamlamak için e-posta adresini doğrulaman
+            gerekiyor.
+          </p>
+          <p>
+            Aşağıdaki butona tıklayarak hesabını güvenli şekilde
+            aktifleştirebilirsin.
+          </p>
+
+          <div style="text-align: center; margin-top: 25px">
+            <a href="{{verifyUrl}}" class="btn">E-posta Adresimi Doğrula</a>
+          </div>
+
+          <div class="note">
+            Bu bağlantı 24 saat boyunca geçerlidir. Eğer bu kaydı sen
+            oluşturmadıysan bu e-postayı güvenle yok sayabilirsin.
+          </div>
+        </div>
+        <div class="footer">
+          &copy; {{year}} Ozkan3D.design - Tum haklari saklidir.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell
@@ -42,18 +42,14 @@ const AdminReports = () => {
   const [products, setProducts] = useState([])
   const [users, setUsers] = useState([])
 
-  useEffect(() => {
-    fetchData()
-  }, [])
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async (selectedPeriod = period) => {
     setLoading(true)
     try {
       const [statsRes, ordersRes, productsRes, usersRes] = await Promise.all([
-        getDashboardStatsApi(),
-        getOrdersApi({ limit: 100, sort: 'createdAt', order: 'asc' }),
+        getDashboardStatsApi({ period: selectedPeriod }),
+        getOrdersApi({ limit: 1000, sort: 'createdAt', order: 'asc' }),
         getProductsApi({ limit: 50 }),
-        getUsersApi({ limit: 100 }),
+        getUsersApi({ limit: 1000 }),
       ])
 
       setStats(statsRes.data)
@@ -67,17 +63,44 @@ const AdminReports = () => {
     } finally {
       setLoading(false)
     }
+  }, [period])
+
+  useEffect(() => {
+    fetchData(period)
+  }, [period, fetchData])
+
+  const getPeriodStartDate = (selectedPeriod) => {
+    const now = new Date()
+    const start = new Date(now)
+
+    if (selectedPeriod === 'month') {
+      start.setDate(now.getDate() - 29)
+      start.setHours(0, 0, 0, 0)
+    } else if (selectedPeriod === 'quarter') {
+      start.setMonth(now.getMonth() - 2, 1)
+      start.setHours(0, 0, 0, 0)
+    } else if (selectedPeriod === 'year') {
+      start.setMonth(now.getMonth() - 11, 1)
+      start.setHours(0, 0, 0, 0)
+    }
+
+    return start
   }
+
+  const periodStartDate = getPeriodStartDate(period)
+  const periodOrders = allOrders.filter(o => new Date(o.createdAt) >= periodStartDate)
+  const periodUsers = users.filter(u => new Date(u.createdAt) >= periodStartDate)
+  const periodLabel = stats?.periodLabel || (period === 'quarter' ? 'Bu Çeyrek' : period === 'year' ? 'Bu Yıl' : 'Bu Ay')
 
   // Satış grafiği
   const salesChartData = stats?.recentSales?.map(s => ({
-    day: s._id,
+    label: s._id,
     Ciro: s.revenue,
     Sipariş: s.orders,
   })) || []
 
   // Sipariş durumu dağılımı
-  const statusCounts = allOrders.reduce((acc, o) => {
+  const statusCounts = periodOrders.reduce((acc, o) => {
     acc[o.status] = (acc[o.status] || 0) + 1
     return acc
   }, {})
@@ -97,7 +120,7 @@ const AdminReports = () => {
 
   // Top ürünler
   const productSales = {}
-  allOrders.forEach(order => {
+  periodOrders.forEach(order => {
     order.items?.forEach(item => {
       if (!productSales[item.name]) {
         productSales[item.name] = { name: item.name, sales: 0, revenue: 0 }
@@ -122,12 +145,12 @@ const AdminReports = () => {
   const paymentData = [
     {
       name: 'Kredi Kartı',
-      value: allOrders.filter(o => o.paymentMethod === 'card').length,
+      value: periodOrders.filter(o => o.paymentMethod === 'card').length,
       color: '#2563eb'
     },
     {
       name: 'Havale/EFT',
-      value: allOrders.filter(o => o.paymentMethod === 'transfer').length,
+      value: periodOrders.filter(o => o.paymentMethod === 'transfer').length,
       color: '#16a34a'
     },
   ]
@@ -135,7 +158,7 @@ const AdminReports = () => {
   // Aylık yeni üye
   const monthlyUsers = (() => {
     const months = {}
-    users.forEach(u => {
+    periodUsers.forEach(u => {
       const d = new Date(u.createdAt)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
       months[key] = (months[key] || 0) + 1
@@ -146,21 +169,17 @@ const AdminReports = () => {
       .map(([month, count]) => ({ month, Üye: count }))
   })()
 
-  const now = new Date()
-  const newUsersThisMonth = users.filter(u => {
-    const d = new Date(u.createdAt)
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-  }).length
+  const newUsersInPeriod = periodUsers.length
 
   const totalRevenue = stats?.totalRevenue || 0
   const totalOrders = stats?.totalOrders || 0
   const avgOrder = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0
 
   const kpis = [
-    { label: 'Toplam Ciro', value: `${totalRevenue.toLocaleString('tr-TR')}₺`, icon: FiDollarSign, color: '#2563eb', bg: '#eff6ff', trend: '+18%' },
-    { label: 'Toplam Sipariş', value: totalOrders.toLocaleString('tr-TR'), icon: FiShoppingBag, color: '#16a34a', bg: '#f0fdf4', trend: '+12%' },
+    { label: `${periodLabel} Ciro`, value: `${totalRevenue.toLocaleString('tr-TR')}₺`, icon: FiDollarSign, color: '#2563eb', bg: '#eff6ff', trend: '+18%' },
+    { label: `${periodLabel} Sipariş`, value: totalOrders.toLocaleString('tr-TR'), icon: FiShoppingBag, color: '#16a34a', bg: '#f0fdf4', trend: '+12%' },
     { label: 'Toplam Müşteri', value: users.length.toString(), icon: FiUsers, color: '#8b5cf6', bg: '#f5f3ff', trend: '+8%' },
-    { label: 'Ortalama Sipariş', value: `${avgOrder.toLocaleString('tr-TR')}₺`, icon: FiTrendingUp, color: '#f59e0b', bg: '#fffbeb', trend: '+5%' },
+    { label: `${periodLabel} Ortalama`, value: `${avgOrder.toLocaleString('tr-TR')}₺`, icon: FiTrendingUp, color: '#f59e0b', bg: '#fffbeb', trend: '+5%' },
   ]
 
   const reportTabs = [
@@ -203,7 +222,7 @@ const AdminReports = () => {
               </button>
             ))}
           </div>
-          <button className="export-btn" onClick={fetchData}>
+          <button className="export-btn" onClick={() => fetchData(period)}>
             <FiRefreshCw size={15} /> Yenile
           </button>
         </div>
@@ -247,7 +266,7 @@ const AdminReports = () => {
               <div className="admin-card-header">
                 <div className="report-chart-title">
                   <FiTrendingUp size={16} />
-                  <h3>Son 30 Gün Satış</h3>
+                  <h3>{stats?.salesTitle || `${periodLabel} Satış`}</h3>
                 </div>
               </div>
               <div className="report-chart-body">
@@ -261,7 +280,7 @@ const AdminReports = () => {
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#aaaaaa' }} axisLine={false} tickLine={false} />
+                      <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#aaaaaa' }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fontSize: 10, fill: '#aaaaaa' }} axisLine={false} tickLine={false} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
                       <Tooltip content={<CustomTooltip />} />
                       <Area type="monotone" dataKey="Ciro" stroke="#2563eb" strokeWidth={2.5} fill="url(#ciroGrad)" dot={false} />
@@ -327,7 +346,7 @@ const AdminReports = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {allOrders.slice(-10).reverse().map((o, i) => (
+                  {periodOrders.slice(-10).reverse().map((o, i) => (
                     <tr key={i}>
                       <td><span className="order-id-badge">{o.orderNo}</span></td>
                       <td className="td-name">{o.user?.firstName} {o.user?.lastName}</td>
@@ -564,9 +583,9 @@ const AdminReports = () => {
           <div className="customer-analysis-cards">
             {[
               { icon: '👥', label: 'Toplam Müşteri', value: users.length },
-              { icon: '🆕', label: 'Bu Ay Yeni', value: newUsersThisMonth },
+              { icon: '🆕', label: `${periodLabel} Yeni`, value: newUsersInPeriod },
               { icon: '💳', label: 'Ort. Sipariş', value: `${avgOrder.toLocaleString('tr-TR')}₺` },
-              { icon: '📦', label: 'Toplam Sipariş', value: totalOrders },
+              { icon: '📦', label: `${periodLabel} Sipariş`, value: totalOrders },
             ].map((c, i) => (
               <div key={i} className="analysis-card">
                 <span className="analysis-icon">{c.icon}</span>

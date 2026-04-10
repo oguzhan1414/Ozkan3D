@@ -36,6 +36,7 @@ export const CartProvider = ({ children }) => {
   const [syncing, setSyncing] = useState(false)
   const isSyncingRef = useRef(false)
   const { isAuthenticated, user } = useAuth()
+  const userId = user?._id?.toString() || ''
 
   // items değişince localStorage'a kaydet
   useEffect(() => {
@@ -44,26 +45,8 @@ export const CartProvider = ({ children }) => {
     }
   }, [items])
 
-  // Auth değişince
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      const alreadySynced = localStorage.getItem(SYNC_KEY) === user._id?.toString()
-      if (!alreadySynced) {
-        syncWithBackend()
-      } else {
-        fetchBackendCart()
-      }
-    }
-    if (!isAuthenticated) {
-      isSyncingRef.current = false
-      localStorage.removeItem(SYNC_KEY)
-      setItems([])
-      localStorage.removeItem(CART_KEY)
-    }
-  }, [isAuthenticated, user?._id])
-
   // Backend'den sepeti çek — sadece göster, merge etme
-  const fetchBackendCart = async () => {
+  const fetchBackendCart = useCallback(async () => {
     try {
       const res = await api.get('/cart')
       const backendCart = res.data.data?.items || []
@@ -79,10 +62,10 @@ export const CartProvider = ({ children }) => {
     } catch (err) {
       console.log('Backend cart çekme hatası:', err.message)
     }
-  }
+  }, [])
 
   // İlk giriş — local + backend merge
-  const syncWithBackend = async () => {
+  const syncWithBackend = useCallback(async () => {
     if (isSyncingRef.current) return
     isSyncingRef.current = true
     setSyncing(true)
@@ -123,7 +106,9 @@ export const CartProvider = ({ children }) => {
       }
 
       // Sync tamamlandı — işaretle
-      localStorage.setItem(SYNC_KEY, user?._id?.toString())
+      if (userId) {
+        localStorage.setItem(SYNC_KEY, userId)
+      }
 
     } catch (err) {
       console.log('❌ Sync hatası:', err.response?.data?.message || err.message)
@@ -131,7 +116,26 @@ export const CartProvider = ({ children }) => {
       isSyncingRef.current = false
       setSyncing(false)
     }
-  }
+  }, [userId])
+
+  // Auth değişince
+  useEffect(() => {
+    if (isAuthenticated && userId) {
+      const alreadySynced = localStorage.getItem(SYNC_KEY) === userId
+      if (!alreadySynced) {
+        syncWithBackend()
+      } else {
+        fetchBackendCart()
+      }
+    }
+
+    if (!isAuthenticated) {
+      isSyncingRef.current = false
+      localStorage.removeItem(SYNC_KEY)
+      setItems([])
+      localStorage.removeItem(CART_KEY)
+    }
+  }, [isAuthenticated, userId, syncWithBackend, fetchBackendCart])
 
   // Sepete ekle
   const addToCart = useCallback(async (product, quantity = 1, material = null, color = null) => {

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FiMail, FiPhone, FiMapPin, FiSend, FiCheck, FiInstagram, FiTwitter, FiYoutube } from 'react-icons/fi'
+import { FiMail, FiPhone, FiMapPin, FiSend, FiCheck, FiInstagram } from 'react-icons/fi'
 import { sendContactMessageApi } from '../api/contactApi'
 import './ContactPage.css'
 
@@ -53,62 +53,36 @@ const ContactPage = () => {
           <div className="contact-info-card">
             <h3 className="contact-info-title">İletişim Bilgileri</h3>
             <div className="contact-info-items">
-              <a href="tel:02165213840" className="contact-info-item">
+              <a href="tel:+905411190626" className="contact-info-item">
                 <div className="contact-info-icon"><FiPhone size={18} /></div>
                 <div>
                   <span className="contact-info-label">Telefon</span>
-                  <span className="contact-info-value">0216 521 38 40</span>
+                  <span className="contact-info-value">+90 541 119 06 26</span>
                 </div>
               </a>
-              <a href="mailto:bilgi@ozkan3d.design" className="contact-info-item">
+              <a href="mailto:ozkan3d.design@gmail.com" className="contact-info-item">
                 <div className="contact-info-icon"><FiMail size={18} /></div>
                 <div>
                   <span className="contact-info-label">E-posta</span>
-                  <span className="contact-info-value">bilgi@ozkan3d.design</span>
+                  <span className="contact-info-value">ozkan3d.design@gmail.com</span>
                 </div>
               </a>
               <div className="contact-info-item">
                 <div className="contact-info-icon"><FiMapPin size={18} /></div>
                 <div>
                   <span className="contact-info-label">Adres</span>
-                  <span className="contact-info-value">İstanbul, Türkiye</span>
+                  <span className="contact-info-value">Bolu, Türkiye</span>
                 </div>
               </div>
             </div>
           </div>
-
-          <div className="contact-info-card">
-            <h3 className="contact-info-title">Çalışma Saatleri</h3>
-            <div className="contact-hours">
-              <div className="contact-hour-row">
-                <span>Pazartesi — Cuma</span>
-                <span className="hour-value">09:00 — 18:00</span>
-              </div>
-              <div className="contact-hour-row">
-                <span>Cumartesi</span>
-                <span className="hour-value">10:00 — 15:00</span>
-              </div>
-              <div className="contact-hour-row">
-                <span>Pazar</span>
-                <span className="hour-value closed">Kapalı</span>
-              </div>
-            </div>
-          </div>
-
+          
           <div className="contact-info-card">
             <h3 className="contact-info-title">Sosyal Medya</h3>
             <div className="contact-social">
-              <a href="https://instagram.com" target="_blank" rel="noreferrer" className="contact-social-btn">
+              <a href="https://www.instagram.com/ozkan3d.design/" target="_blank" rel="noreferrer" className="contact-social-btn">
                 <FiInstagram size={18} />
                 <span>Instagram</span>
-              </a>
-              <a href="https://twitter.com" target="_blank" rel="noreferrer" className="contact-social-btn">
-                <FiTwitter size={18} />
-                <span>Twitter / X</span>
-              </a>
-              <a href="https://youtube.com" target="_blank" rel="noreferrer" className="contact-social-btn">
-                <FiYoutube size={18} />
-                <span>YouTube</span>
               </a>
             </div>
           </div>

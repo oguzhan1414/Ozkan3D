@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   FiSearch, FiEye, FiMail, FiShoppingBag,
   FiUser, FiMapPin, FiMessageSquare,
   FiTrendingUp, FiRefreshCw, FiTrash2
 } from 'react-icons/fi'
-import { getUsersApi, getUserApi, deleteUserApi, updateUserApi } from '../../api/userApi'
+import { getUsersApi, getUserApi, deleteUserApi, sendUserEmailApi } from '../../api/userApi'
 import { getOrdersApi } from '../../api/orderApi'
 import './AdminCustomers.css'
 
@@ -37,42 +37,100 @@ const AdminCustomers = () => {
   const [currentPage, setCurrentPage] = useState(1)
 
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [customerDetail, setCustomerDetail] = useState(null)
   const [customerOrders, setCustomerOrders] = useState([])
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailTab, setDetailTab] = useState('profile')
   const [emailModal, setEmailModal] = useState(false)
+  const [emailTarget, setEmailTarget] = useState(null)
+  const [emailSubject, setEmailSubject] = useState('')
+  const [emailMessage, setEmailMessage] = useState('')
+  const [emailSending, setEmailSending] = useState(false)
+  const [emailError, setEmailError] = useState('')
+  const [emailSuccess, setEmailSuccess] = useState('')
   const [note, setNote] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState(null)
 
   useEffect(() => {
-    fetchCustomers()
-  }, [currentPage])
-
-  useEffect(() => {
-    const timer = setTimeout(() => fetchCustomers(), 500)
+    const timer = setTimeout(() => setDebouncedSearch(search), 500)
     return () => clearTimeout(timer)
   }, [search])
 
-const fetchCustomers = async () => {
-  setLoading(true)
-  try {
-    const params = { page: currentPage, limit: 15 }
-    if (search) params.search = search
+  const fetchCustomers = useCallback(async ({ page = 1, searchTerm = '' } = {}) => {
+    setLoading(true)
+    try {
+      const params = { page, limit: 15 }
+      if (searchTerm) params.search = searchTerm
 
-    const res = await getUsersApi(params)
-    // Admin kullanıcıları filtrele
-    const normalUsers = (res.data || []).filter(u => u.role !== 'admin')
-    setCustomers(normalUsers)
-    setTotal(res.total || 0)
-    setPages(res.pages || 1)
-  } catch (err) {
-    console.log('Müşteriler yüklenemedi:', err.message)
-  } finally {
-    setLoading(false)
+      const res = await getUsersApi(params)
+      // Admin kullanıcıları filtrele
+      const normalUsers = (res.data || []).filter(u => u.role !== 'admin')
+      setCustomers(normalUsers)
+      setTotal(res.total || 0)
+      setPages(res.pages || 1)
+    } catch (err) {
+      console.log('Müşteriler yüklenemedi:', err.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchCustomers({ page: currentPage, searchTerm: debouncedSearch })
+  }, [currentPage, debouncedSearch, fetchCustomers])
+
+  const openEmailModal = (customer) => {
+    if (!customer?.email) return
+
+    setEmailTarget(customer)
+    setEmailSubject('Ozkan3D Bilgilendirme')
+    setEmailMessage('Merhaba,')
+    setEmailError('')
+    setEmailSuccess('')
+    setEmailModal(true)
   }
-}
+
+  const closeEmailModal = () => {
+    setEmailModal(false)
+    setEmailTarget(null)
+    setEmailSubject('')
+    setEmailMessage('')
+    setEmailError('')
+    setEmailSuccess('')
+  }
+
+  const handleSendEmail = async () => {
+    if (!emailTarget?._id) return
+
+    const subject = emailSubject.trim()
+    const message = emailMessage.trim()
+
+    if (!subject) {
+      setEmailError('Konu zorunludur.')
+      return
+    }
+
+    if (!message) {
+      setEmailError('Mesaj zorunludur.')
+      return
+    }
+
+    setEmailSending(true)
+    setEmailError('')
+    setEmailSuccess('')
+
+    try {
+      const res = await sendUserEmailApi(emailTarget._id, { subject, message })
+      setEmailSuccess(res.message || 'E-posta gönderildi.')
+      setTimeout(() => closeEmailModal(), 900)
+    } catch (err) {
+      setEmailError(err.response?.data?.message || 'E-posta gönderilemedi.')
+    } finally {
+      setEmailSending(false)
+    }
+  }
 
   const handleViewCustomer = async (customer) => {
     setSelectedCustomer(customer)
@@ -121,7 +179,10 @@ const fetchCustomers = async () => {
           <h1 className="admin-page-title">Müşteriler</h1>
           <p className="admin-page-sub">{total} kayıtlı kullanıcı</p>
         </div>
-        <button className="admin-add-btn" onClick={fetchCustomers}>
+        <button
+          className="admin-add-btn"
+          onClick={() => fetchCustomers({ page: currentPage, searchTerm: debouncedSearch })}
+        >
           <FiRefreshCw size={15} /> Yenile
         </button>
       </div>
@@ -201,11 +262,11 @@ const fetchCustomers = async () => {
                       </td>
                       <td>
                         <span className="segment-badge" style={{
-                          color: segmentColors['Yeni']?.color,
-                          background: segmentColors['Yeni']?.bg,
-                          border: `1px solid ${segmentColors['Yeni']?.border}`
+                          color: segmentColors[segment]?.color,
+                          background: segmentColors[segment]?.bg,
+                          border: `1px solid ${segmentColors[segment]?.border}`
                         }}>
-                          Yeni
+                          {segment}
                         </span>
                       </td>
                       <td>
@@ -218,9 +279,9 @@ const fetchCustomers = async () => {
                           <button className="td-action-btn" onClick={() => handleViewCustomer(c)}>
                             <FiEye size={14} />
                           </button>
-                          <a href={`mailto:${c.email}`} className="td-action-btn">
+                          <button className="td-action-btn" onClick={() => openEmailModal(c)}>
                             <FiMail size={14} />
-                          </a>
+                          </button>
                           {c.role !== 'admin' && (
                             <button className="td-action-btn td-delete-btn" onClick={() => setDeleteConfirm(c._id)}>
                               <FiTrash2 size={14} />
@@ -427,9 +488,53 @@ const fetchCustomers = async () => {
 
             <div className="admin-modal-footer">
               <button className="admin-cancel-btn" onClick={() => setSelectedCustomer(null)}>Kapat</button>
-              <a href={`mailto:${selectedCustomer.email}`} className="send-email-btn">
+              <button className="send-email-btn" onClick={() => openEmailModal(selectedCustomer)}>
                 <FiMail size={14} /> E-posta Gönder
-              </a>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {emailModal && emailTarget && (
+        <div className="admin-modal-overlay" onClick={closeEmailModal}>
+          <div className="admin-modal admin-modal-sm" onClick={e => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3>E-posta Gönder</h3>
+              <button className="admin-modal-close" onClick={closeEmailModal}>✕</button>
+            </div>
+            <div className="admin-modal-body">
+              <div className="admin-form-group">
+                <label>Alıcı</label>
+                <input className="admin-input" value={`${emailTarget.firstName || ''} ${emailTarget.lastName || ''} <${emailTarget.email}>`} readOnly />
+              </div>
+              <div className="admin-form-group">
+                <label>Konu</label>
+                <input
+                  className="admin-input"
+                  value={emailSubject}
+                  onChange={e => setEmailSubject(e.target.value)}
+                  placeholder="E-posta konusu"
+                />
+              </div>
+              <div className="admin-form-group">
+                <label>Mesaj</label>
+                <textarea
+                  className="admin-textarea"
+                  rows={6}
+                  value={emailMessage}
+                  onChange={e => setEmailMessage(e.target.value)}
+                  placeholder="Müşteriye iletmek istediğiniz mesaj"
+                />
+              </div>
+              {emailError && <p className="customer-mail-error">{emailError}</p>}
+              {emailSuccess && <p className="customer-mail-success">{emailSuccess}</p>}
+            </div>
+            <div className="admin-modal-footer">
+              <button className="admin-cancel-btn" onClick={closeEmailModal} disabled={emailSending}>İptal</button>
+              <button className="admin-save-btn" onClick={handleSendEmail} disabled={emailSending}>
+                <FiMail size={14} /> {emailSending ? 'Gönderiliyor...' : 'Gönder'}
+              </button>
             </div>
           </div>
         </div>

@@ -19,7 +19,7 @@ const KvkkPage = () => {
 
         <h2>4. Kullanıcı Hakları</h2>
         <p>Kanun kapsamında; kişisel veri işlenip işlenmediğini öğrenme, işlenmişse buna ilişkin bilgi talep etme, eksik veya yanlış işlenmişse düzeltilmesini isteme haklarına sahipsiniz.</p>
-        <p>Veri işleme politikamız hakkında sorularınız için bilgi@ozkan3d.design adresi üzerinden bizimle iletişime geçebilirsiniz.</p>
+        <p>Veri işleme politikamız hakkında sorularınız için ozkan3d.design@gmail.com adresi üzerinden bizimle iletişime geçebilirsiniz.</p>
       </div>
     </div>
   )

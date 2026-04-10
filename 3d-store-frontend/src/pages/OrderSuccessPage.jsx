@@ -56,7 +56,7 @@ const OrderSuccessPage = () => {
     if (!order?.orderNo) {
       navigate('/')
     }
-  }, [])
+  }, [navigate, order?.orderNo])
 
   if (!order?.orderNo) return null
 

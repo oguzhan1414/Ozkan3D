@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { loginApi, registerApi, logoutApi, getMeApi } from '../api/authApi'
+import { loginApi, registerApi, logoutApi, getMeApi, googleLoginApi } from '../api/authApi'
 
 const AuthContext = createContext()
 
@@ -11,6 +11,20 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(() => localStorage.getItem('token') || null)
   const [loading, setLoading] = useState(true)
 
+  const logout = useCallback(async () => {
+    try {
+      await logoutApi()
+    } catch {
+      // Session may already be invalid on server.
+    }
+    setUser(null)
+    setToken(null)
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    localStorage.removeItem('ozkan3d_cart')
+    localStorage.removeItem('ozkan3d_cart_synced')
+  }, [])
+
   // Kullanıcı bilgilerini yükle
   useEffect(() => {
     const loadUser = async () => {
@@ -19,14 +33,14 @@ export const AuthProvider = ({ children }) => {
           const res = await getMeApi()
           setUser(res.data)
           localStorage.setItem('user', JSON.stringify(res.data))
-        } catch (err) {
+        } catch {
           logout()
         }
       }
       setLoading(false)
     }
     loadUser()
-  }, [token])
+  }, [token, logout])
 
   const login = async (email, password) => {
     const res = await loginApi({ email, password })
@@ -37,8 +51,8 @@ export const AuthProvider = ({ children }) => {
     return res
   }
 
-  const register = async (data) => {
-    const res = await registerApi(data)
+  const googleLoginUser = async (credential) => {
+    const res = await googleLoginApi(credential)
     setUser(res.user)
     setToken(res.token)
     localStorage.setItem('token', res.token)
@@ -46,15 +60,10 @@ export const AuthProvider = ({ children }) => {
     return res
   }
 
-  const logout = useCallback(async () => {
-    try { await logoutApi() } catch (err) {}
-    setUser(null)
-    setToken(null)
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    localStorage.removeItem('ozkan3d_cart')
-    localStorage.removeItem('ozkan3d_cart_synced')
-  }, [])
+  const register = async (data) => {
+    const res = await registerApi(data)
+    return res
+  }
 
   const isAdmin = user?.role === 'admin'
   const isAuthenticated = !!user && !!token
@@ -62,7 +71,7 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={{
       user, token, loading,
-      login, register, logout,
+      login, googleLoginUser, register, logout,
       isAdmin, isAuthenticated,
       setUser,
     }}>

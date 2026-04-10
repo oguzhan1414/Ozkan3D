@@ -26,3 +26,19 @@ export const updateSettings = async (req, res) => {
   }
   res.status(200).json({ success: true, data: settings })
 }
+
+// @desc    Anasayfa slider görseli yükle
+// @route   POST /api/settings/hero-image
+// @access  Admin
+export const uploadHeroImage = async (req, res) => {
+  if (!req.file) {
+    res.status(400)
+    throw new Error('Yüklenecek görsel bulunamadı.')
+  }
+
+  const imageUrl = `/uploads/home-hero/${req.file.filename}`
+  res.status(200).json({
+    success: true,
+    url: imageUrl,
+  })
+}

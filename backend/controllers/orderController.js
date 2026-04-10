@@ -6,6 +6,81 @@ import { sendOrderConfirmEmail, sendShippingEmail } from '../utils/sendEmail.js'
 import { generateInvoicePDF } from '../utils/pdfGenerator.js'
 import User from '../models/User.js'
 import {io} from '../server.js'
+import { calculateShippingQuote } from '../utils/shippingCalculator.js'
+import Settings from '../models/Settings.js'
+
+const SHIPPING_SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000
+let shippingConfigCache = {
+  value: null,
+  expiresAt: 0,
+}
+
+const formatOrderDateForTR = (dateValue) => {
+  if (!dateValue) return ''
+
+  return new Intl.DateTimeFormat('tr-TR', {
+    timeZone: 'Europe/Istanbul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(dateValue))
+}
+
+const rollbackCouponUsage = async (couponId) => {
+  if (!couponId) return
+
+  const coupon = await Coupon.findById(couponId)
+  if (!coupon) return
+
+  coupon.used = Math.max(0, (coupon.used || 0) - 1)
+  await coupon.save()
+}
+
+const bulkAdjustStock = async (items = [], direction = 'decrease') => {
+  if (!Array.isArray(items) || items.length === 0) return
+
+  const sign = direction === 'increase' ? 1 : -1
+  const ops = items
+    .filter((item) => item?.product && Number(item.quantity) > 0)
+    .map((item) => ({
+      updateOne: {
+        filter: { _id: item.product },
+        update: { $inc: { stock: sign * Number(item.quantity) } },
+      },
+    }))
+
+  if (ops.length > 0) {
+    await Product.bulkWrite(ops, { ordered: false })
+  }
+}
+
+const getShippingConfigFromSettings = async () => {
+  const now = Date.now()
+  if (shippingConfigCache.value && shippingConfigCache.expiresAt > now) {
+    return shippingConfigCache.value
+  }
+
+  const settings = await Settings.findOne().lean()
+
+  const config = {
+    baseCostByZone: {
+      local: Number(settings?.localShippingCost ?? 89),
+      near: Number(settings?.nearShippingCost ?? 109),
+      standard: Number(settings?.standardShippingCost ?? 139),
+      far: Number(settings?.farShippingCost ?? 179),
+    },
+    expressSurcharge: Number(settings?.expressShippingSurcharge ?? 35),
+  }
+
+  shippingConfigCache = {
+    value: config,
+    expiresAt: now + SHIPPING_SETTINGS_CACHE_TTL_MS,
+  }
+
+  return config
+}
 
 // @desc    Sipariş oluştur
 // @route   POST /api/orders
@@ -14,7 +89,7 @@ import {io} from '../server.js'
 export const createOrder = async (req, res) => {
   const {
     items, shippingAddress, paymentMethod,
-    couponCode, customerNote
+    shippingMethod, couponCode, customerNote
   } = req.body
 
   if (!items || items.length === 0) {
@@ -22,19 +97,49 @@ export const createOrder = async (req, res) => {
     throw new Error('Sipariş öğeleri zorunludur.')
   }
 
+  if (!shippingAddress?.fullName || !shippingAddress?.phone || !shippingAddress?.city || !shippingAddress?.district || !shippingAddress?.address) {
+    res.status(400)
+    throw new Error('Teslimat adresindeki zorunlu alanlar eksik.')
+  }
+
   // Ürünleri DB'den doğrula ve fiyatları kontrol et
   let subtotal = 0
   const orderItems = []
 
+  const productIds = [...new Set(items.map((item) => item?.product?.toString()).filter(Boolean))]
+  if (productIds.length === 0) {
+    res.status(400)
+    throw new Error('Sipariş ürün bilgisi eksik.')
+  }
+
+  const products = await Product.find({ _id: { $in: productIds } })
+    .select('_id name images price stock')
+    .lean()
+
+  const productMap = new Map(products.map((product) => [product._id.toString(), product]))
+
   for (const item of items) {
-    const product = await Product.findById(item.product)
+    const productId = item?.product?.toString()
+    const quantity = Number(item?.quantity)
+
+    if (!productId) {
+      res.status(400)
+      throw new Error('Ürün kimliği eksik.')
+    }
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      res.status(400)
+      throw new Error('Ürün adedi 1 veya daha büyük olmalıdır.')
+    }
+
+    const product = productMap.get(productId)
 
     if (!product) {
       res.status(404)
-      throw new Error(`Ürün bulunamadı: ${item.product}`)
+      throw new Error(`Ürün bulunamadı: ${productId}`)
     }
 
-    if (product.stock < item.quantity) {
+    if (product.stock < quantity) {
       res.status(400)
       throw new Error(`${product.name} için yeterli stok yok. Mevcut stok: ${product.stock}`)
     }
@@ -44,20 +149,27 @@ export const createOrder = async (req, res) => {
       name: product.name,
       image: product.images[0] || '',
       price: product.price,
-      quantity: item.quantity,
+      quantity,
       material: item.material,
       color: item.color,
     })
 
-    subtotal += product.price * item.quantity
+    subtotal += product.price * quantity
   }
 
-  // Kargo ücreti
-  let shippingCost = subtotal >= 500 ? 0 : 49
+  const selectedShippingMethod = shippingMethod === 'express' ? 'express' : 'standard'
+  const shippingConfig = await getShippingConfigFromSettings()
+  let shippingQuote = calculateShippingQuote({
+    items: orderItems,
+    shippingAddress,
+    shippingMethod: selectedShippingMethod,
+  }, shippingConfig)
+  let shippingCost = shippingQuote.totalCost
 
   // Kupon
   let discount = 0
   let couponId = null
+  let couponToUpdate = null
 
   if (couponCode) {
     const coupon = await Coupon.findOne({ code: couponCode.toUpperCase() })
@@ -70,12 +182,16 @@ export const createOrder = async (req, res) => {
       }
 
       discount = coupon.calcDiscount(subtotal)
-      if (coupon.type === 'shipping') shippingCost = 0
+      if (coupon.type === 'shipping') {
+        shippingCost = 0
+        shippingQuote = {
+          ...shippingQuote,
+          totalCost: 0,
+          couponFreeShipping: true,
+        }
+      }
       couponId = coupon._id
-
-      // Kullanım sayısını artır
-      coupon.used += 1
-      await coupon.save()
+      couponToUpdate = coupon
     }
   }
 
@@ -89,6 +205,8 @@ export const createOrder = async (req, res) => {
     items: orderItems,
     shippingAddress,
     paymentMethod,
+    shippingMethod: selectedShippingMethod,
+    shippingDetails: shippingQuote,
     subtotal,
     discount,
     shippingCost,
@@ -100,10 +218,12 @@ export const createOrder = async (req, res) => {
   })
 
   // Stokları düş
-  for (const item of orderItems) {
-    await Product.findByIdAndUpdate(item.product, {
-      $inc: { stock: -item.quantity },
-    })
+  await bulkAdjustStock(orderItems, 'decrease')
+
+  // Sipariş başarıyla oluşturulduktan sonra kupon kullanımını artır
+  if (couponToUpdate) {
+    couponToUpdate.used += 1
+    await couponToUpdate.save()
   }
 
   // Onay maili gönder
@@ -140,6 +260,39 @@ export const createOrder = async (req, res) => {
 
   res.status(201).json({ success: true, data: order })
 }
+
+// @desc    Kargo ucreti on hesaplama
+// @route   POST /api/orders/shipping-quote
+// @access  Private
+export const getShippingQuote = async (req, res) => {
+  const { items, shippingAddress, shippingMethod } = req.body
+
+  if (!Array.isArray(items) || items.length === 0) {
+    res.status(400)
+    throw new Error('Kargo hesabi icin urun listesi zorunludur.')
+  }
+
+  if (!shippingAddress?.city) {
+    res.status(400)
+    throw new Error('Kargo hesabi icin sehir bilgisi zorunludur.')
+  }
+
+  const sanitizedItems = items.map((item) => ({
+    name: item.name || '',
+    material: item.material || '',
+    quantity: Number(item.quantity) || 1,
+  }))
+
+  const shippingConfig = await getShippingConfigFromSettings()
+
+  const quote = calculateShippingQuote({
+    items: sanitizedItems,
+    shippingAddress,
+    shippingMethod,
+  }, shippingConfig)
+
+  res.status(200).json({ success: true, data: quote })
+}
 // @desc    Ürünün kullanıcı tarafından satın alınıp alınmadığını kontrol et
 // @route   GET /api/orders/check-purchase/:productId
 // @access  Private
@@ -149,7 +302,16 @@ export const checkPurchase = async (req, res) => {
   const hasPurchased = await Order.findOne({
     user: req.user._id,
     'items.product': productId,
-    status: { $in: ['Onaylandı', 'Hazırlanıyor', 'Kargoya Verildi', 'Teslim Edildi'] },
+    status: {
+      $in: [
+        'Onaylandı',
+        'Basımda',
+        'Hazırlanıyor',
+        'Kargoya Verildi',
+        'Kargoda',
+        'Teslim Edildi',
+      ],
+    },
   })
   
   res.status(200).json({ success: true, hasPurchased: !!hasPurchased })
@@ -163,7 +325,16 @@ export const getMyOrders = async (req, res) => {
     .sort({ createdAt: -1 })
     .populate('items.product', 'name images slug')
 
-  res.status(200).json({ success: true, count: orders.length, data: orders })
+  const preparedOrders = orders.map((order) => {
+    const orderObj = order.toObject()
+
+    return {
+      ...orderObj,
+      createdAtDisplay: formatOrderDateForTR(orderObj.createdAt),
+    }
+  })
+
+  res.status(200).json({ success: true, count: preparedOrders.length, data: preparedOrders })
 }
 
 // @desc    Tek sipariş getir
@@ -235,6 +406,7 @@ export const updateOrderStatus = async (req, res) => {
     throw new Error('Sipariş bulunamadı.')
   }
 
+  const previousStatus = order.status
   order.status = status
   order.statusHistory.push({ status, note })
 
@@ -245,10 +417,10 @@ export const updateOrderStatus = async (req, res) => {
 
   if (status === 'İptal') {
     // Stokları geri yükle
-    for (const item of order.items) {
-      await Product.findByIdAndUpdate(item.product, {
-        $inc: { stock: item.quantity },
-      })
+    await bulkAdjustStock(order.items, 'increase')
+
+    if (previousStatus !== 'İptal') {
+      await rollbackCouponUsage(order.coupon)
     }
   }
 
@@ -314,11 +486,9 @@ export const cancelOrder = async (req, res) => {
   order.statusHistory.push({ status: 'İptal', note: 'Müşteri tarafından iptal edildi.' })
 
   // Stokları geri yükle
-  for (const item of order.items) {
-    await Product.findByIdAndUpdate(item.product, {
-      $inc: { stock: item.quantity },
-    })
-  }
+  await bulkAdjustStock(order.items, 'increase')
+
+  await rollbackCouponUsage(order.coupon)
 
   await order.save()
 
@@ -363,8 +533,7 @@ export const updateOrderToPaid = async (req, res) => {
     paidAt: Date.now(),
   }
 
-  order.statusHistory.push({ status: 'Basımda', note: 'Ödeme alındı, baskı başlıyor' })
-  order.status = 'Basımda'
+  order.statusHistory.push({ status: order.status, note: 'Odeme alindi, uretim planlama asamasinda.' })
 
   await order.save()
 
