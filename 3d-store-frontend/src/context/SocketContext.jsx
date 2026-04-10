@@ -10,6 +10,21 @@ const SocketContext = createContext({
   clearAll: () => {},
 })
 
+const resolveSocketUrl = () => {
+  const fallback = 'http://localhost:5000'
+  const apiBase = (import.meta.env.VITE_API_URL || '').trim()
+
+  if (!apiBase) return fallback
+
+  try {
+    const parsedUrl = new URL(apiBase)
+    parsedUrl.pathname = parsedUrl.pathname.replace(/\/api\/?$/, '') || '/'
+    return parsedUrl.toString().replace(/\/+$/, '')
+  } catch {
+    return fallback
+  }
+}
+
 export const SocketProvider = ({ children }) => {
   const socketRef = useRef(null)
   const [notifications, setNotifications] = useState([])
@@ -24,8 +39,10 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     if (!isAuthenticated) return
 
+    const socketUrl = resolveSocketUrl()
+
     socketRef.current = io(
-      import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000',
+      socketUrl,
       { withCredentials: true }
     )
 
