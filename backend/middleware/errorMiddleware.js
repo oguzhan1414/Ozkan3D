@@ -5,7 +5,15 @@ const notFound = (req, res, next) => {
 }
 
 const errorHandler = (err, req, res, next) => {
-  const statusCode = res.statusCode === 200 ? 500 : res.statusCode
+  const explicitStatus = err.statusCode || err.status
+  const statusCode = explicitStatus || (res.statusCode === 200 ? 500 : res.statusCode)
+
+  if (statusCode >= 500) {
+    console.error(`[ERROR] ${req.method} ${req.originalUrl} -> ${err.message}`)
+    if (err.stack) {
+      console.error(err.stack)
+    }
+  }
 
   res.status(statusCode).json({
     success: false,

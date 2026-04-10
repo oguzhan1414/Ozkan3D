@@ -50,6 +50,13 @@ const httpServer = createServer(app)
 
 const normalizeOrigin = (origin = '') => origin.trim().replace(/\/+$/, '').toLowerCase()
 const normalizeOriginWithoutWww = (origin = '') => normalizeOrigin(origin).replace('://www.', '://')
+const parseUrlSafe = (value = '') => {
+  try {
+    return new URL(value)
+  } catch {
+    return null
+  }
+}
 
 const rawClientOrigins = process.env.CLIENT_URLS || process.env.CLIENT_URL || ''
 const allowedOrigins = rawClientOrigins
@@ -70,6 +77,7 @@ const isOriginAllowed = (origin) => {
 
   const normalizedOrigin = normalizeOrigin(origin)
   const normalizedOriginNoWww = normalizeOriginWithoutWww(normalizedOrigin)
+  const originUrl = parseUrlSafe(normalizedOrigin)
 
   if (normalizedAllowedOrigins.includes(normalizedOrigin)) return true
 
@@ -83,6 +91,28 @@ const isOriginAllowed = (origin) => {
 
   if (allowVercelPreviews && isVercelOrigin(normalizedOrigin)) return true
 
+  // Allow entries like "ozkan3-d.vercel.app" in CLIENT_URL(S) (without protocol).
+  if (originUrl) {
+    const originHost = originUrl.host.toLowerCase()
+    for (const configuredOrigin of normalizedAllowedOrigins) {
+      const noProto = configuredOrigin.replace(/^https?:\/\//, '')
+      const hostOnly = noProto.replace(/^www\./, '')
+
+      if (!configuredOrigin.startsWith('http://') && !configuredOrigin.startsWith('https://')) {
+        if (originHost === hostOnly || originHost === `www.${hostOnly}`) {
+          return true
+        }
+
+        if (hostOnly.startsWith('*.')) {
+          const wildcardSuffix = hostOnly.slice(1) // keep leading dot
+          if (originHost.endsWith(wildcardSuffix)) {
+            return true
+          }
+        }
+      }
+    }
+  }
+
   return false
 }
 
@@ -92,7 +122,9 @@ const corsOptions = {
       callback(null, true)
       return
     }
-    callback(new Error(`CORS engellendi: ${origin}`))
+    const corsError = new Error(`CORS engellendi: ${origin}`)
+    corsError.statusCode = 403
+    callback(corsError)
   },
   credentials: true,
 }
