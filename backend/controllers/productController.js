@@ -197,7 +197,7 @@ export const deleteProduct = async (req, res) => {
 export const uploadProductImage = async (req, res) => {
   console.log('📸 Upload isteği geldi')
   console.log('Params:', req.params)
-  console.log('File:', req.file)
+  console.log('File name:', req.file?.originalname)
   console.log('Body:', req.body)
 
   const product = await Product.findById(req.params.id)
@@ -212,7 +212,13 @@ export const uploadProductImage = async (req, res) => {
     throw new Error('Lütfen bir resim yükleyin.')
   }
 
-  const imageUrl = `/uploads/products/${req.file.filename}`
+  if (!req.file.buffer) {
+    res.status(500)
+    throw new Error('Gorsel buffer bulunamadi. Yukleme ayari kontrol edilmeli.')
+  }
+
+  const uploadResult = await uploadImage(req.file.buffer, 'products')
+  const imageUrl = uploadResult.secure_url
   console.log('Image URL:', imageUrl)
 
   product.images.push(imageUrl)
