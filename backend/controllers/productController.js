@@ -212,7 +212,7 @@ export const uploadProductImage = async (req, res) => {
     throw new Error('Lütfen bir resim yükleyin.')
   }
 
-  const imageUrl = `${req.protocol}://${req.get('host')}/uploads/products/${req.file.filename}`
+  const imageUrl = `/uploads/products/${req.file.filename}`
   console.log('Image URL:', imageUrl)
 
   product.images.push(imageUrl)
