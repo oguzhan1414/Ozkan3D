@@ -9,6 +9,7 @@ import {
   getProductsApi, createProductApi, updateProductApi,
   deleteProductApi, updateStockApi, uploadProductImageApi
 } from '../../api/productApi'
+import { optimizeImage } from '../../utils/imageUtils'
 import './AdminProducts.css'
 
 const emptyForm = {
@@ -477,7 +478,7 @@ const AdminProducts = () => {
                 <div key={product._id} className={`product-admin-card ${!product.isActive ? 'product-inactive' : ''}`}>
                   <div className="product-admin-img">
                     {product.images?.[0] ? (
-                      <img src={product.images[0]} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <img src={optimizeImage(product.images[0])} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
                       <div className="product-admin-placeholder">3D</div>
                     )}
@@ -561,7 +562,7 @@ const AdminProducts = () => {
                           <div className="td-product-cell">
                             <div className="td-product-img">
                               {product.images?.[0] ? (
-                                <img src={product.images[0]} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
+                                <img src={optimizeImage(product.images[0])} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} />
                               ) : '3D'}
                             </div>
                             <div className="td-product-text">

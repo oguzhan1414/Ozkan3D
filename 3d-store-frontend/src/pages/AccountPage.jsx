@@ -15,6 +15,7 @@ import {
 import { getMyOrdersApi } from '../api/orderApi'
 import { getProductReviewsApi } from '../api/reviweApi'
 import { createSupportRequestApi, getMySupportRequestsApi } from '../api/supportApi'
+import { optimizeImage } from '../utils/imageUtils'
 import './AccountPage.css'
 
 const menuItems = [
@@ -970,7 +971,7 @@ const AccountPage = () => {
                     <div key={product._id} className="favorite-card">
                       <Link to={`/product/${product.slug || product._id}`} className="favorite-card-img">
                         {product.images?.[0] ? (
-                          <img src={product.images[0]} alt={product.name}
+                          <img src={optimizeImage(product.images[0])} alt={product.name}
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
                           <div className="favorite-placeholder">3D</div>

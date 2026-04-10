@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link, useSearchParams, useLocation } from 'react-router-dom'
 import { FiStar, FiFilter, FiX, FiChevronDown, FiGrid, FiList, FiLoader } from 'react-icons/fi'
 import { getProductsApi } from '../api/productApi'
+import { optimizeImage } from '../utils/imageUtils'
 import './ShopPage.css'
 
 const categoryData = [
@@ -37,7 +38,7 @@ const ProductCard = ({ product, view }) => (
   >
     <div className="shop-card-image">
       {product.images?.[0] ? (
-        <img src={product.images[0]} alt={product.name} className="shop-product-image" />
+        <img src={optimizeImage(product.images[0])} alt={product.name} className="shop-product-image" />
       ) : (
         <div className="shop-card-placeholder">3D</div>
       )}

@@ -16,14 +16,16 @@ import './ProductDetailPage.css'
 
 const getRelatedImageUrl = (url) => {
   if (!url || typeof url !== 'string') return url
-  if (!url.includes('cloudinary.com')) return url
 
-  if (url.includes('/upload/f_auto,q_auto:best,dpr_auto/')) return url
-  if (url.includes('/upload/f_auto,q_auto/')) {
-    return url.replace('/upload/f_auto,q_auto/', '/upload/f_auto,q_auto:best,dpr_auto/')
+  const optimizedUrl = optimizeImage(url)
+  if (!optimizedUrl.includes('cloudinary.com')) return optimizedUrl
+
+  if (optimizedUrl.includes('/upload/f_auto,q_auto:best,dpr_auto/')) return optimizedUrl
+  if (optimizedUrl.includes('/upload/f_auto,q_auto/')) {
+    return optimizedUrl.replace('/upload/f_auto,q_auto/', '/upload/f_auto,q_auto:best,dpr_auto/')
   }
 
-  return optimizeImage(url).replace('/upload/f_auto,q_auto/', '/upload/f_auto,q_auto:best,dpr_auto/')
+  return optimizedUrl.replace('/upload/f_auto,q_auto/', '/upload/f_auto,q_auto:best,dpr_auto/')
 }
 
 const ProductDetailPage = () => {
