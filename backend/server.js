@@ -3,6 +3,7 @@ import dotenv from 'dotenv'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
 import helmet from 'helmet'
+import mongoose from 'mongoose'
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import { fileURLToPath } from 'url'
@@ -194,7 +195,21 @@ app.use('/api/settings', settingsRoutes)
 app.use('/api/contact', contactRoutes)
 app.use('/api/support', supportRoutes)
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Ozkan3D API çalışıyor 🚀' })
+  const stateMap = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting',
+  }
+
+  const dbStateCode = mongoose.connection.readyState
+  const dbState = stateMap[dbStateCode] || 'unknown'
+
+  res.json({
+    status: dbStateCode === 1 ? 'OK' : 'DEGRADED',
+    message: 'Ozkan3D API çalışıyor 🚀',
+    dbState,
+  })
 })
 
 app.use(notFound)
