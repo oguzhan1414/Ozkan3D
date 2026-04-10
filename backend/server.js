@@ -48,17 +48,47 @@ if (!fs.existsSync(supportDir)) {
 const app = express()
 const httpServer = createServer(app)
 
+const normalizeOrigin = (origin = '') => origin.trim().replace(/\/+$/, '').toLowerCase()
+const normalizeOriginWithoutWww = (origin = '') => normalizeOrigin(origin).replace('://www.', '://')
+
 const rawClientOrigins = process.env.CLIENT_URLS || process.env.CLIENT_URL || ''
 const allowedOrigins = rawClientOrigins
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean)
 
-const normalizedAllowedOrigins = allowedOrigins.length > 0 ? allowedOrigins : ['http://localhost:5173']
+const normalizedAllowedOrigins = (allowedOrigins.length > 0
+  ? allowedOrigins
+  : ['http://localhost:5173', 'http://127.0.0.1:5173'])
+  .map(normalizeOrigin)
+
+const allowVercelPreviews = process.env.ALLOW_VERCEL_PREVIEWS === 'true'
+const isVercelOrigin = (origin = '') => /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)
+
+const isOriginAllowed = (origin) => {
+  if (!origin) return true
+
+  const normalizedOrigin = normalizeOrigin(origin)
+  const normalizedOriginNoWww = normalizeOriginWithoutWww(normalizedOrigin)
+
+  if (normalizedAllowedOrigins.includes(normalizedOrigin)) return true
+
+  if (
+    normalizedAllowedOrigins.some(
+      (allowedOrigin) => normalizeOriginWithoutWww(allowedOrigin) === normalizedOriginNoWww
+    )
+  ) {
+    return true
+  }
+
+  if (allowVercelPreviews && isVercelOrigin(normalizedOrigin)) return true
+
+  return false
+}
 
 const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin || normalizedAllowedOrigins.includes(origin)) {
+    if (isOriginAllowed(origin)) {
       callback(null, true)
       return
     }
@@ -70,7 +100,7 @@ const corsOptions = {
 // Socket.io
 const io = new Server(httpServer, {
   cors: {
-    origin: normalizedAllowedOrigins,
+    origin: corsOptions.origin,
     methods: ['GET', 'POST'],
     credentials: true,
   },
