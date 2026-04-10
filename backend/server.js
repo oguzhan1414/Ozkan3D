@@ -68,8 +68,8 @@ const defaultFrontendOrigins = [
 
 const rawClientOrigins = process.env.CLIENT_URLS || process.env.CLIENT_URL || ''
 const allowedOrigins = rawClientOrigins
-  .split(',')
-  .map((origin) => origin.trim())
+  .split(/[\n,;]+/)
+  .map((origin) => origin.trim().replace(/^['"]+|['"]+$/g, ''))
   .filter(Boolean)
 
 const normalizedAllowedOrigins = (allowedOrigins.length > 0
@@ -77,11 +77,15 @@ const normalizedAllowedOrigins = (allowedOrigins.length > 0
   : defaultFrontendOrigins)
   .map(normalizeOrigin)
 
+const allowAllOrigins = normalizedAllowedOrigins.includes('*')
+console.log(`🌐 CORS izinli originler: ${normalizedAllowedOrigins.join(', ')}`)
+
 const allowVercelPreviews = process.env.ALLOW_VERCEL_PREVIEWS === 'true'
 const isVercelOrigin = (origin = '') => /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)
 
 const isOriginAllowed = (origin) => {
   if (!origin) return true
+  if (allowAllOrigins) return true
 
   const normalizedOrigin = normalizeOrigin(origin)
   const normalizedOriginNoWww = normalizeOriginWithoutWww(normalizedOrigin)
