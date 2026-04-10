@@ -31,9 +31,7 @@ export const deleteProductApi = async (id) => {
 }
 
 export const uploadProductImageApi = async (id, formData) => {
-  const res = await api.post(`/products/${id}/image`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  })
+  const res = await api.post(`/products/${id}/image`, formData)
   return res.data
 }
 

@@ -268,6 +268,8 @@ const AdminProducts = () => {
   }
 
   const handleSubmit = async () => {
+    let savedProduct
+
     const validationErrors = validateProductForm(form)
 
     if (Object.keys(validationErrors).length) {
@@ -307,7 +309,6 @@ const AdminProducts = () => {
         tags: form.tags ? form.tags.split(',').map(t => t.trim()) : [],
       }
 
-      let savedProduct
       if (editProduct) {
         const res = await updateProductApi(editProduct._id, productData)
         savedProduct = res.data
@@ -321,13 +322,9 @@ const AdminProducts = () => {
       // Yeni resimler varsa yükle
       if (form.images.some(img => img.file)) {
         for (const img of form.images.filter(i => i.file)) {
-          try {
-            const formData = new FormData()
-            formData.append('image', img.file)
-            await uploadProductImageApi(savedProduct._id, formData)
-          } catch (err) {
-            console.log('Resim yüklenemedi:', err.message)
-          }
+          const formData = new FormData()
+          formData.append('image', img.file)
+          await uploadProductImageApi(savedProduct._id, formData)
         }
       }
 
@@ -340,6 +337,11 @@ const AdminProducts = () => {
     } catch (err) {
       const backendError = err.response?.data?.message || 'Kaydetme sırasında bir hata oluştu.'
       setSubmitError(backendError)
+
+      if (savedProduct && !editProduct) {
+        setEditProduct(savedProduct)
+      }
+
       console.log('Kaydetme hatası:', backendError)
     } finally {
       setSaving(false)
@@ -718,7 +720,7 @@ const AdminProducts = () => {
                     <label>Açıklama *</label>
                     <textarea
                       value={form.description}
-                      onChange={e => updateFormField('description', normalizeAdminDescription(e.target.value))}
+                      onChange={e => updateFormField('description', e.target.value)}
                       onKeyDown={e => {
                         if (e.key === 'Enter') e.preventDefault()
                       }}
@@ -732,7 +734,7 @@ const AdminProducts = () => {
                     <label>Kısa Açıklama *</label>
                     <input
                       value={form.shortDesc}
-                      onChange={e => updateFormField('shortDesc', normalizeAdminDescription(e.target.value))}
+                      onChange={e => updateFormField('shortDesc', e.target.value)}
                       className={`admin-input ${formErrors.shortDesc ? 'admin-input-error' : ''}`}
                     />
                     {formErrors.shortDesc && <small className="admin-field-error">{formErrors.shortDesc}</small>}
