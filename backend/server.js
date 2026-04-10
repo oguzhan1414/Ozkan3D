@@ -58,6 +58,13 @@ const parseUrlSafe = (value = '') => {
   }
 }
 
+const defaultFrontendOrigins = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'https://ozkan3-d.vercel.app',
+  'https://www.ozkan3-d.vercel.app',
+]
+
 const rawClientOrigins = process.env.CLIENT_URLS || process.env.CLIENT_URL || ''
 const allowedOrigins = rawClientOrigins
   .split(',')
@@ -66,7 +73,7 @@ const allowedOrigins = rawClientOrigins
 
 const normalizedAllowedOrigins = (allowedOrigins.length > 0
   ? allowedOrigins
-  : ['http://localhost:5173', 'http://127.0.0.1:5173'])
+  : defaultFrontendOrigins)
   .map(normalizeOrigin)
 
 const allowVercelPreviews = process.env.ALLOW_VERCEL_PREVIEWS === 'true'
