@@ -18,8 +18,9 @@ const navLinks = [
     label: '3D Baskı Ürünleri', path: '/shop',
     dropdown: [
       { title: 'Figürler', items: ['Katana', 'Ejderha Koleksiyonu', 'Fantastik Yaratıklar', 'Diğer Figürler'] },
-      { title: 'Hediyelik / Dekor', items: ['Masa Dekorasyonu', 'Ev Dekorasyon', 'Ev Aletleri', 'Anahtarlıklar'] },
+      { title: 'Hediyelik / Dekor', items: ['Masa Dekorasyonu', 'Ev Dekorasyon', 'Anahtarlıklar'] },
       { title: 'Konsol & Oyun', items: ['PS5 & Xbox Aksesuarları', 'Kulaklık Tutucular', 'Joystick Tutucular', 'Kablo Düzenleyici'] },
+      { title: 'Ev Aletleri', items: ['Mutfak Yardımcıları', 'Temizlik Yardımcıları', 'Banyo Düzenleyiciler', 'Pratik Ev Aparatları'] },
     ]
   },
   { label: 'Tarama işlemi', path: '/scan', dropdown: null },
@@ -315,7 +316,7 @@ const Header = () => {
             </Link>
           )}
           <div className="mobile-contact">
-            <a href="tel:02165213840" className="topbar-link"><FiPhone size={13} /> 0216 521 38 40</a>
+              <a href="tel:+905411190626" className="topbar-link"><FiPhone size={13} /> +90 541 119 06 26</a>
             <a href="mailto:ozkan3d.design@gmail.com" className="topbar-link"><FiMail size={13} /> ozkan3d.design@gmail.com</a>
           </div>
         </div>

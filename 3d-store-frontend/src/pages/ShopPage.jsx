@@ -12,11 +12,15 @@ const categoryData = [
   },
   {
     title: 'Hediyelik / Dekor',
-    items: ['Masa Dekorasyonu', 'Ev Dekorasyon', 'Ev Aletleri', 'Anahtarlıklar']
+    items: ['Masa Dekorasyonu', 'Ev Dekorasyon', 'Anahtarlıklar']
   },
   {
     title: 'Konsol & Oyun',
     items: ['PS5 & Xbox Aksesuarları', 'Kulaklık Tutucular', 'Joystick Tutucular', 'Kablo Düzenleyici']
+  },
+  {
+    title: 'Ev Aletleri',
+    items: ['Mutfak Yardımcıları', 'Temizlik Yardımcıları', 'Banyo Düzenleyiciler', 'Pratik Ev Aparatları']
   }
 ]
 

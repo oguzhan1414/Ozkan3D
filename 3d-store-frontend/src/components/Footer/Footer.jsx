@@ -61,7 +61,7 @@ const Footer = () => {
               Hayalini tasarla, biz gerçeğe dönüştürelim.
             </p>
             <div className="footer-contact">
-              <a href="tel:02165213840" className="footer-contact-item">
+              <a href="tel:+905411190626" className="footer-contact-item">
                 <FiPhone size={14} />
                 <span>+90 541 119 06 26</span>
               </a>

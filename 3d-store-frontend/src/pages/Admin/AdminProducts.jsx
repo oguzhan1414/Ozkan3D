@@ -23,11 +23,12 @@ const emptyForm = {
   images: [],
 }
 
-const categories = ['Figürler', 'Hediyelik / Dekor', 'Konsol & Oyun']
+const categories = ['Figürler', 'Hediyelik / Dekor', 'Konsol & Oyun', 'Ev Aletleri']
 const subcategories = {
   'Figürler': ['Katana', 'Ejderha Koleksiyonu', 'Fantastik Yaratıklar', 'Diğer Figürler'],
-  'Hediyelik / Dekor': ['Masa Dekorasyonu', 'Ev Dekorasyon', 'Ev Aletleri', 'Anahtarlıklar'],
-  'Konsol & Oyun': ['PS5 & Xbox Aksesuarları', 'Kulaklık Tutucular', 'Joystick Tutucular', 'Kablo Düzenleyici']
+  'Hediyelik / Dekor': ['Masa Dekorasyonu', 'Ev Dekorasyon', 'Anahtarlıklar'],
+  'Konsol & Oyun': ['PS5 & Xbox Aksesuarları', 'Kulaklık Tutucular', 'Joystick Tutucular', 'Kablo Düzenleyici'],
+  'Ev Aletleri': ['Mutfak Yardımcıları', 'Temizlik Yardımcıları', 'Banyo Düzenleyiciler', 'Pratik Ev Aparatları']
 }
 const materialOptions = ['PLA']
 const difficultyOptions = ['Kolay', 'Orta', 'Zor']

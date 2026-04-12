@@ -19,7 +19,7 @@ export const generateInvoicePDF = (order, user) => {
       .fontSize(10)
       .font('Helvetica')
       .text('ozkan3d.design@gmail.com', 50, 80)
-      .text('0216 521 38 40', 50, 95)
+      .text('+90 541 119 06 26', 50, 95)
 
     // Fatura Başlık
     doc
