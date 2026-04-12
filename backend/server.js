@@ -64,18 +64,19 @@ const defaultFrontendOrigins = [
   'http://127.0.0.1:5173',
   'https://ozkan3-d.vercel.app',
   'https://www.ozkan3-d.vercel.app',
+  'https://ozkan3d.com.tr',
+  'https://www.ozkan3d.com.tr',
 ]
 
 const rawClientOrigins = process.env.CLIENT_URLS || process.env.CLIENT_URL || ''
-const allowedOrigins = rawClientOrigins
+const configuredOrigins = rawClientOrigins
   .split(/[\n,;]+/)
   .map((origin) => origin.trim().replace(/^['"]+|['"]+$/g, ''))
   .filter(Boolean)
 
-const normalizedAllowedOrigins = (allowedOrigins.length > 0
-  ? allowedOrigins
-  : defaultFrontendOrigins)
-  .map(normalizeOrigin)
+const normalizedAllowedOrigins = Array.from(
+  new Set([...defaultFrontendOrigins, ...configuredOrigins].map(normalizeOrigin))
+)
 
 const allowAllOrigins = normalizedAllowedOrigins.includes('*')
 console.log(`🌐 CORS izinli originler: ${normalizedAllowedOrigins.join(', ')}`)
