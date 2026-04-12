@@ -1036,6 +1036,24 @@
 
   .search-form {
     margin-left: 4px;
+    max-width: none;
+  }
+
+  .midbar-icon-label {
+    display: none;
+  }
+
+  .midbar-icon-btn {
+    min-width: auto;
+    padding: 8px;
+  }
+
+  .user-menu-name {
+    display: none;
+  }
+
+  .user-menu-trigger {
+    padding: 6px 8px;
   }
   
   .dropdown-inner {

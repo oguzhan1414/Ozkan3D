@@ -60,3 +60,37 @@
   --shadow-md: 0 4px 16px rgba(0,0,0,0.3);
   --shadow-lg: 0 12px 32px rgba(0,0,0,0.4);
 }
+
+@media (max-width: 1200px) {
+  :root {
+    --space-xl: 28px;
+    --space-2xl: 40px;
+    --space-3xl: 52px;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --font-size-lg: 1.05rem;
+    --font-size-xl: 1.3rem;
+    --font-size-2xl: 1.7rem;
+    --font-size-3xl: 2.2rem;
+
+    --space-md: 14px;
+    --space-lg: 18px;
+    --space-xl: 22px;
+    --space-2xl: 30px;
+    --space-3xl: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --space-sm: 6px;
+    --space-md: 12px;
+    --space-lg: 16px;
+    --space-xl: 18px;
+    --space-2xl: 24px;
+    --space-3xl: 32px;
+  }
+}

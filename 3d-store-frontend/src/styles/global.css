@@ -11,6 +11,14 @@ html {
   scroll-behavior: smooth;
 }
 
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 body {
   font-family: var(--font-primary);
   background-color: var(--color-bg-primary);
@@ -37,8 +45,20 @@ img {
   display: block;
 }
 
+main {
+  width: 100%;
+}
+
 ul, ol {
   list-style: none;
+}
+
+@media (max-width: 768px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
 
 

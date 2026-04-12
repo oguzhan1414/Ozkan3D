@@ -439,6 +439,26 @@
   .footer-payments { flex-wrap: wrap; }
 }
 
+@media (max-width: 640px) {
+  .footer-banner-item {
+    min-width: 100%;
+    padding: 0;
+  }
+
+  .footer-main {
+    padding: var(--space-xl) var(--space-md);
+  }
+
+  .footer-inner {
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+  }
+
+  .footer-col {
+    gap: var(--space-md);
+  }
+}
+
 @media (max-width: 480px) {
   .footer-inner { grid-template-columns: 1fr; }
   .payment-icons { flex-wrap: wrap; }
