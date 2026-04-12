@@ -1,12 +1,21 @@
 import nodemailer from 'nodemailer'
 import fs from 'fs'
 import path from 'path'
+import dns from 'node:dns'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 let transporter
 let transporterVerified = false
+
+try {
+  // Railway ortamında IPv6 route yoksa SMTP bağlantısı ENETUNREACH verebilir.
+  // DNS sıralamasını IPv4 öncelikli yaparak gmail host çözümlemesinde IPv4 tercih edilir.
+  dns.setDefaultResultOrder('ipv4first')
+} catch {
+  // Node sürümü bu API'yi desteklemiyorsa sessizce varsayılana devam eder.
+}
 
 const getAdminNotifyEmail = () => process.env.EMAIL_ADMIN_TO || process.env.EMAIL_USER
 
@@ -45,6 +54,7 @@ const getSmtpConfig = () => {
     host,
     port,
     secure,
+    family: 4,
     auth: { user, pass },
   }
 }
