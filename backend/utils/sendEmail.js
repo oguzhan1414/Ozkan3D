@@ -8,6 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 let transporter
 let transporterVerified = false
+let transporterConfigKey = ''
 
 try {
   // Railway ortamında IPv6 route yoksa SMTP bağlantısı ENETUNREACH verebilir.
@@ -26,6 +27,17 @@ const toBoolean = (value, fallback = false) => {
   if (['false', '0', 'no', 'n'].includes(normalized)) return false
   return fallback
 }
+
+const NETWORK_SMTP_ERROR_CODES = new Set([
+  'ESOCKET',
+  'ETIMEDOUT',
+  'ECONNECTION',
+  'ECONNREFUSED',
+  'ENETUNREACH',
+  'EHOSTUNREACH',
+])
+
+const isNetworkSmtpError = (error) => NETWORK_SMTP_ERROR_CODES.has(error?.code)
 
 const getSmtpConfig = () => {
   const host = process.env.EMAIL_HOST?.trim()
@@ -55,15 +67,31 @@ const getSmtpConfig = () => {
     port,
     secure,
     family: 4,
+    connectionTimeout: Number(process.env.EMAIL_CONNECTION_TIMEOUT || 15000),
+    greetingTimeout: Number(process.env.EMAIL_GREETING_TIMEOUT || 10000),
+    socketTimeout: Number(process.env.EMAIL_SOCKET_TIMEOUT || 20000),
+    lookup: (hostname, options, callback) => {
+      dns.lookup(hostname, { ...options, family: 4, all: false }, callback)
+    },
+    tls: {
+      servername: host,
+    },
     auth: { user, pass },
   }
 }
 
+const createTransporter = (smtpConfig) => nodemailer.createTransport(smtpConfig)
+
 const getTransporter = () => {
-  if (!transporter) {
-    const smtpConfig = getSmtpConfig()
-    transporter = nodemailer.createTransport(smtpConfig)
+  const smtpConfig = getSmtpConfig()
+  const configKey = `${smtpConfig.host}:${smtpConfig.port}:${smtpConfig.secure}`
+
+  if (!transporter || transporterConfigKey !== configKey) {
+    transporter = createTransporter(smtpConfig)
+    transporterVerified = false
+    transporterConfigKey = configKey
   }
+
   return transporter
 }
 
@@ -76,6 +104,29 @@ const verifyTransporter = async () => {
   console.log(
     `📧 SMTP doğrulandı: host=${smtpConfig.host}, port=${smtpConfig.port}, secure=${smtpConfig.secure}`
   )
+}
+
+const attemptFallbackSend = async (mailPayload, originalConfig) => {
+  const allowPortFallback = process.env.EMAIL_ALLOW_PORT_FALLBACK !== 'false'
+  if (!allowPortFallback) return false
+  if (originalConfig.port !== 587) return false
+
+  const fallbackConfig = {
+    ...originalConfig,
+    port: 465,
+    secure: true,
+  }
+
+  console.warn('⚠️ SMTP 587 başarısız oldu, 465 fallback deneniyor...')
+  const fallbackTransporter = createTransporter(fallbackConfig)
+  await fallbackTransporter.verify()
+  await fallbackTransporter.sendMail(mailPayload)
+
+  transporter = fallbackTransporter
+  transporterVerified = true
+  transporterConfigKey = `${fallbackConfig.host}:${fallbackConfig.port}:${fallbackConfig.secure}`
+  console.log('✅ SMTP fallback başarılı: 465/secure')
+  return true
 }
 
 const loadTemplate = (templateName, variables) => {
@@ -92,18 +143,35 @@ const loadTemplate = (templateName, variables) => {
 export const sendEmail = async ({ to, subject, templateName, variables, html, attachments = [] }) => {
   const mailHtml = html || loadTemplate(templateName, variables)
   const from = process.env.EMAIL_FROM || process.env.EMAIL_USER
+  const mailPayload = {
+    from,
+    to,
+    subject,
+    html: mailHtml,
+    attachments,
+  }
 
   try {
     await verifyTransporter()
 
-    await getTransporter().sendMail({
-      from,
-      to,
-      subject,
-      html: mailHtml,
-      attachments,
-    })
+    await getTransporter().sendMail(mailPayload)
   } catch (error) {
+    try {
+      const smtpConfig = getSmtpConfig()
+      if (isNetworkSmtpError(error)) {
+        const fallbackWorked = await attemptFallbackSend(mailPayload, smtpConfig)
+        if (fallbackWorked) return
+      }
+    } catch (fallbackError) {
+      console.error('❌ SMTP fallback hatası:', {
+        message: fallbackError.message,
+        code: fallbackError.code,
+        command: fallbackError.command,
+        responseCode: fallbackError.responseCode,
+        response: fallbackError.response,
+      })
+    }
+
     console.error('❌ Mail gönderim hatası:', {
       message: error.message,
       code: error.code,
