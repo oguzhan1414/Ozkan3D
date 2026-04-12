@@ -6,21 +6,64 @@ import { fileURLToPath } from 'url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 let transporter
+let transporterVerified = false
 
 const getAdminNotifyEmail = () => process.env.EMAIL_ADMIN_TO || process.env.EMAIL_USER
 
+const toBoolean = (value, fallback = false) => {
+  if (typeof value !== 'string') return fallback
+  const normalized = value.trim().toLowerCase()
+  if (['true', '1', 'yes', 'y'].includes(normalized)) return true
+  if (['false', '0', 'no', 'n'].includes(normalized)) return false
+  return fallback
+}
+
+const getSmtpConfig = () => {
+  const host = process.env.EMAIL_HOST?.trim()
+  const port = Number(process.env.EMAIL_PORT || 587)
+  const user = process.env.EMAIL_USER?.trim()
+  let pass = process.env.EMAIL_PASS?.trim()
+
+  if (!host || !port || !user || !pass) {
+    throw new Error('EMAIL_HOST, EMAIL_PORT, EMAIL_USER ve EMAIL_PASS zorunludur.')
+  }
+
+  // Gmail app password değeri bazen "xxxx xxxx xxxx xxxx" formatında giriliyor.
+  // SMTP doğrulamasında tek parça olması daha güvenli olduğu için boşlukları temizliyoruz.
+  if (/gmail\.com$/i.test(host) || /@gmail\.com$/i.test(user)) {
+    pass = pass.replace(/\s+/g, '')
+  }
+
+  const secure =
+    process.env.EMAIL_SECURE !== undefined
+      ? toBoolean(process.env.EMAIL_SECURE, false)
+      : port === 465
+
+  return {
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+  }
+}
+
 const getTransporter = () => {
   if (!transporter) {
-    transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: process.env.EMAIL_PORT,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    })
+    const smtpConfig = getSmtpConfig()
+    transporter = nodemailer.createTransport(smtpConfig)
   }
   return transporter
+}
+
+const verifyTransporter = async () => {
+  if (transporterVerified) return
+
+  const smtpConfig = getSmtpConfig()
+  await getTransporter().verify()
+  transporterVerified = true
+  console.log(
+    `📧 SMTP doğrulandı: host=${smtpConfig.host}, port=${smtpConfig.port}, secure=${smtpConfig.secure}`
+  )
 }
 
 const loadTemplate = (templateName, variables) => {
@@ -37,13 +80,26 @@ const loadTemplate = (templateName, variables) => {
 export const sendEmail = async ({ to, subject, templateName, variables, html, attachments = [] }) => {
   const mailHtml = html || loadTemplate(templateName, variables)
 
-  await getTransporter().sendMail({
-    from: process.env.EMAIL_FROM,
-    to,
-    subject,
-    html: mailHtml,
-    attachments,
-  })
+  try {
+    await verifyTransporter()
+
+    await getTransporter().sendMail({
+      from: process.env.EMAIL_FROM,
+      to,
+      subject,
+      html: mailHtml,
+      attachments,
+    })
+  } catch (error) {
+    console.error('❌ Mail gönderim hatası:', {
+      message: error.message,
+      code: error.code,
+      command: error.command,
+      responseCode: error.responseCode,
+      response: error.response,
+    })
+    throw error
+  }
 }
 
 // Hazır mail fonksiyonları
