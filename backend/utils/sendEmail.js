@@ -50,11 +50,22 @@ const getMailProvider = () => {
 }
 
 const getResendConfig = () => {
-  const apiKey = process.env.RESEND_API_KEY?.trim()
+  let apiKey = process.env.RESEND_API_KEY?.trim()
   const from = process.env.RESEND_FROM?.trim() || process.env.EMAIL_FROM || process.env.EMAIL_USER
+
+  if (apiKey) {
+    apiKey = apiKey
+      .replace(/^['"]+|['"]+$/g, '')
+      .replace(/^Bearer\s+/i, '')
+      .replace(/\s+/g, '')
+  }
 
   if (!apiKey) {
     throw new Error('RESEND_API_KEY tanımlı değil.')
+  }
+
+  if (!apiKey.startsWith('re_')) {
+    throw new Error('RESEND_API_KEY formatı geçersiz. Anahtar re_ ile başlamalıdır.')
   }
 
   if (!from) {

@@ -35,6 +35,13 @@ export const uploadProductImageApi = async (id, formData) => {
   return res.data
 }
 
+export const deleteProductImageApi = async (id, imageUrl) => {
+  const res = await api.delete(`/products/${id}/image`, {
+    data: { imageUrl },
+  })
+  return res.data
+}
+
 export const updateStockApi = async (id, stock) => {
   const res = await api.put(`/products/${id}/stock`, { stock })
   return res.data

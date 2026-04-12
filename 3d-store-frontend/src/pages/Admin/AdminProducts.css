@@ -461,6 +461,11 @@
 
 .image-remove-btn:hover { background: #ef4444; }
 
+.image-remove-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Material Checkboxes */
 .material-checkboxes { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
 
@@ -558,6 +563,35 @@
 }
 
 .add-color-btn:hover { border-color: var(--color-accent); color: var(--color-accent); }
+
+.seo-tools-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.seo-auto-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid #dbe1ea;
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  color: #374151;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--font-primary);
+  transition: all 0.2s ease;
+}
+
+.seo-auto-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
 
 /* Product Options */
 .product-options-grid {

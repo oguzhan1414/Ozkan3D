@@ -7,7 +7,7 @@ import {
 } from 'react-icons/fi'
 import {
   getProductsApi, createProductApi, updateProductApi,
-  deleteProductApi, updateStockApi, uploadProductImageApi
+  deleteProductApi, updateStockApi, uploadProductImageApi, deleteProductImageApi
 } from '../../api/productApi'
 import { optimizeImage } from '../../utils/imageUtils'
 import './AdminProducts.css'
@@ -127,6 +127,47 @@ const buildExistingImageVariants = (product, fallbackColors = ['#ffffff']) => {
     }))
 }
 
+const cleanTextForSeo = (value = '') => String(value).replace(/\s+/g, ' ').trim()
+
+const clampText = (value = '', maxLength = 160) => {
+  const text = cleanTextForSeo(value)
+  if (text.length <= maxLength) return text
+  return `${text.slice(0, maxLength - 1).trimEnd()}…`
+}
+
+const buildSeoDraft = (form) => {
+  const name = cleanTextForSeo(form.name)
+  const category = cleanTextForSeo(form.category)
+  const subcategory = cleanTextForSeo(form.subcategory)
+  const shortDesc = cleanTextForSeo(form.shortDesc || form.description)
+
+  const metaTitleBase = [name, category].filter(Boolean).join(' | ')
+  const metaTitle = clampText(metaTitleBase || 'Ozkan3D | 3D Baskı Ürünleri', 60)
+
+  const descriptionParts = [
+    shortDesc,
+    subcategory ? `${subcategory} kategorisinde 3D baskı çözümleri.` : '',
+    category ? `${category} koleksiyonunu keşfedin.` : '',
+  ].filter(Boolean)
+  const metaDesc = clampText(descriptionParts.join(' '), 160)
+
+  const rawTags = [
+    ...name.split(' ').filter((word) => word.length > 2).slice(0, 4),
+    category,
+    subcategory,
+    '3d baskı',
+    'ozkan3d',
+  ]
+
+  const uniqueTags = Array.from(new Set(rawTags.map((tag) => cleanTextForSeo(tag).toLowerCase()).filter(Boolean)))
+
+  return {
+    metaTitle,
+    metaDesc,
+    tags: uniqueTags.join(', '),
+  }
+}
+
 const AdminProducts = () => {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -153,6 +194,7 @@ const AdminProducts = () => {
   const [formErrors, setFormErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
   const [existingImageVariants, setExistingImageVariants] = useState([])
+  const [deletingImageUrls, setDeletingImageUrls] = useState([])
 
   const colorOptions = buildColorOptions(form.colors)
   const resolveImageColor = (color) => {
@@ -326,6 +368,68 @@ const AdminProducts = () => {
     )
   }
 
+  const setImageDeletingState = (imageUrl, isDeleting) => {
+    setDeletingImageUrls((prev) => {
+      if (isDeleting) {
+        if (prev.includes(imageUrl)) return prev
+        return [...prev, imageUrl]
+      }
+      return prev.filter((url) => url !== imageUrl)
+    })
+  }
+
+  const isImageDeleting = (imageUrl) => deletingImageUrls.includes(imageUrl)
+
+  const handleRemoveExistingImage = async (imageUrl) => {
+    if (!editProduct?._id || !imageUrl || isImageDeleting(imageUrl)) return
+
+    const confirmed = window.confirm('Bu görseli üründen kaldırmak istiyor musunuz?')
+    if (!confirmed) return
+
+    setImageDeletingState(imageUrl, true)
+    try {
+      const res = await deleteProductImageApi(editProduct._id, imageUrl)
+      const updatedImages = res?.data?.images || (editProduct.images || []).filter((img) => img !== imageUrl)
+      const updatedVariants = Array.isArray(res?.data?.imageVariants)
+        ? res.data.imageVariants
+        : existingImageVariants.filter((img) => img.url !== imageUrl)
+
+      setExistingImageVariants(updatedVariants)
+      setEditProduct((prev) => (prev ? { ...prev, images: updatedImages, imageVariants: updatedVariants } : prev))
+      setProducts((prev) => prev.map((p) => (
+        p._id === editProduct._id
+          ? { ...p, images: updatedImages, imageVariants: updatedVariants }
+          : p
+      )))
+    } catch (err) {
+      const message = err.response?.data?.message || 'Görsel silinemedi.'
+      setSubmitError(message)
+      console.log('Görsel silme hatası:', message)
+    } finally {
+      setImageDeletingState(imageUrl, false)
+    }
+  }
+
+  const autoFillSeo = (overwriteAll = false) => {
+    const seoDraft = buildSeoDraft(form)
+
+    setForm((prev) => ({
+      ...prev,
+      metaTitle:
+        overwriteAll || !cleanTextForSeo(prev.metaTitle)
+          ? seoDraft.metaTitle
+          : prev.metaTitle,
+      metaDesc:
+        overwriteAll || !cleanTextForSeo(prev.metaDesc)
+          ? seoDraft.metaDesc
+          : prev.metaDesc,
+      tags:
+        overwriteAll || !cleanTextForSeo(prev.tags)
+          ? seoDraft.tags
+          : prev.tags,
+    }))
+  }
+
   const handleImageDrop = (e) => {
     e.preventDefault()
     setDragOver(false)
@@ -373,6 +477,14 @@ const AdminProducts = () => {
     try {
       const normalizedDescription = normalizeAdminDescription(form.description)
       const normalizedShortDesc = normalizeAdminDescription(form.shortDesc)
+      const seoDraft = buildSeoDraft({
+        ...form,
+        description: normalizedDescription,
+        shortDesc: normalizedShortDesc,
+      })
+      const resolvedMetaTitle = cleanTextForSeo(form.metaTitle) || seoDraft.metaTitle
+      const resolvedMetaDesc = cleanTextForSeo(form.metaDesc) || seoDraft.metaDesc
+      const resolvedTagsText = cleanTextForSeo(form.tags) || seoDraft.tags
       const normalizedColors = buildColorOptions(form.colors)
       const fallbackColor = normalizedColors[0]
 
@@ -401,9 +513,11 @@ const AdminProducts = () => {
         weight: form.weight ? Number(form.weight) : undefined,
         printTime: form.printTime ? Number(form.printTime) : undefined,
         difficulty: form.difficulty,
-        metaTitle: form.metaTitle,
-        metaDesc: form.metaDesc,
-        tags: form.tags ? form.tags.split(',').map(t => t.trim()) : [],
+        metaTitle: resolvedMetaTitle,
+        metaDesc: resolvedMetaDesc,
+        tags: resolvedTagsText
+          ? resolvedTagsText.split(',').map((t) => t.trim()).filter(Boolean)
+          : [],
       }
 
       if (editProduct) {
@@ -459,6 +573,7 @@ const AdminProducts = () => {
     setShowForm(false)
     setEditProduct(null)
     setExistingImageVariants([])
+    setDeletingImageUrls([])
     setFormErrors({})
     setSubmitError('')
   }
@@ -467,6 +582,7 @@ const AdminProducts = () => {
     setEditProduct(null)
     setForm(emptyForm)
     setExistingImageVariants([])
+    setDeletingImageUrls([])
     setActiveTab('basic')
     setFormErrors({})
     setSubmitError('')
@@ -910,6 +1026,15 @@ const AdminProducts = () => {
                         {existingImageVariants.map((img, i) => (
                           <div key={i} className="image-preview-item">
                             <img src={img.url} alt="" />
+                            <button
+                              type="button"
+                              className="image-remove-btn"
+                              disabled={isImageDeleting(img.url)}
+                              onClick={() => handleRemoveExistingImage(img.url)}
+                              title="Görseli sil"
+                            >
+                              <FiX size={12} />
+                            </button>
                             <div className="image-color-chip">
                               <span className="image-color-dot" style={{ background: resolveImageColor(img.color) }} />
                               <select
@@ -1031,6 +1156,13 @@ const AdminProducts = () => {
 
               {activeTab === 'seo' && (
                 <div className="admin-form">
+                  <div className="seo-tools-row">
+                    <strong>SEO Bilgileri</strong>
+                    <button type="button" className="seo-auto-btn" onClick={() => autoFillSeo(true)}>
+                      <FiRefreshCw size={13} /> Otomatik Doldur
+                    </button>
+                  </div>
+                  <small className="input-hint">Boş bırakılan SEO alanları kaydetme sırasında otomatik tamamlanır.</small>
                   <div className="admin-form-group">
                     <label>Meta Başlık</label>
                     <input value={form.metaTitle} onChange={e => setForm(p => ({ ...p, metaTitle: e.target.value }))} className="admin-input" />
