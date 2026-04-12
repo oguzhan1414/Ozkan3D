@@ -95,7 +95,7 @@ const CheckoutPage = () => {
     {
       id: 'garanti',
       label: 'Garanti Bankası',
-      accountOwner: 'Ozkan3D LTD. STI.',
+      accountOwner: 'Özkan Şekerci',
       currency: 'TRY',
       iban: 'TR91 0006 2000 0300 0006 1823 92',
     },

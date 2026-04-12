@@ -32,6 +32,112 @@ const normalizeDescriptionPayload = (payload = {}) => {
   return normalized
 }
 
+const normalizeHexColor = (value) => {
+  if (typeof value !== 'string') return null
+
+  const trimmed = value.trim().toLowerCase()
+  if (/^#[0-9a-f]{6}$/.test(trimmed)) return trimmed
+  if (/^#[0-9a-f]{3}$/.test(trimmed)) {
+    return `#${trimmed[1]}${trimmed[1]}${trimmed[2]}${trimmed[2]}${trimmed[3]}${trimmed[3]}`
+  }
+
+  return null
+}
+
+const uniqueColors = (colors = []) => {
+  const seen = new Set()
+  const normalized = []
+
+  for (const color of colors) {
+    const safeColor = normalizeHexColor(color)
+    if (!safeColor || seen.has(safeColor)) continue
+    seen.add(safeColor)
+    normalized.push(safeColor)
+  }
+
+  return normalized
+}
+
+const normalizeImageUrls = (images = []) => {
+  if (!Array.isArray(images)) return []
+
+  const seen = new Set()
+  const urls = []
+
+  for (const item of images) {
+    if (typeof item !== 'string') continue
+    const url = item.trim()
+    if (!url || seen.has(url)) continue
+    seen.add(url)
+    urls.push(url)
+  }
+
+  return urls
+}
+
+const buildImageVariants = ({ imageVariants, images, colors }) => {
+  const normalizedColors = uniqueColors(colors)
+  const fallbackColor = normalizedColors[0] || null
+
+  if (Array.isArray(imageVariants) && imageVariants.length > 0) {
+    const seen = new Set()
+    const normalized = []
+
+    for (const item of imageVariants) {
+      const rawUrl = typeof item?.url === 'string' ? item.url.trim() : ''
+      if (!rawUrl || seen.has(rawUrl)) continue
+
+      seen.add(rawUrl)
+      normalized.push({
+        url: rawUrl,
+        color: normalizeHexColor(item?.color) || fallbackColor,
+      })
+    }
+
+    return normalized
+  }
+
+  const normalizedImages = normalizeImageUrls(images)
+  return normalizedImages.map((url, index) => ({
+    url,
+    color: normalizeHexColor(normalizedColors[index]) || fallbackColor,
+  }))
+}
+
+const applyMediaPayload = (payload, baseProduct = null) => {
+  const hasOwn = (field) => Object.prototype.hasOwnProperty.call(payload, field)
+  const hasColorPayload = hasOwn('colors')
+  const hasImagePayload = hasOwn('images') || hasOwn('imageVariants')
+
+  if (!hasColorPayload && !hasImagePayload) {
+    return payload
+  }
+
+  const nextPayload = { ...payload }
+
+  const baseColors = hasColorPayload ? nextPayload.colors : baseProduct?.colors
+  const normalizedColors = uniqueColors(baseColors)
+  nextPayload.colors = normalizedColors
+
+  if (hasImagePayload) {
+    const imageVariants = buildImageVariants({
+      imageVariants: nextPayload.imageVariants,
+      images: nextPayload.images,
+      colors: normalizedColors.length ? normalizedColors : baseProduct?.colors,
+    })
+
+    nextPayload.imageVariants = imageVariants
+    nextPayload.images = imageVariants.map((item) => item.url)
+
+    const colorsFromVariants = uniqueColors(imageVariants.map((item) => item.color))
+    if (!normalizedColors.length && colorsFromVariants.length) {
+      nextPayload.colors = colorsFromVariants
+    }
+  }
+
+  return nextPayload
+}
+
 // @desc    Tüm ürünleri getir
 // @route   GET /api/products
 // @access  Public
@@ -117,7 +223,8 @@ export const getProduct = async (req, res) => {
 // @route   POST /api/products
 // @access  Admin
 export const createProduct = async (req, res) => {
-  const payload = normalizeDescriptionPayload(req.body)
+  let payload = normalizeDescriptionPayload(req.body)
+  payload = applyMediaPayload(payload)
 
   if (!payload.sku) payload.sku = undefined
 
@@ -137,7 +244,8 @@ export const updateProduct = async (req, res) => {
     throw new Error('Ürün bulunamadı.')
   }
 
-  const payload = normalizeDescriptionPayload(req.body)
+  let payload = normalizeDescriptionPayload(req.body)
+  payload = applyMediaPayload(payload, product)
 
   const priceDropped = payload.price && Number(payload.price) < product.price
   const oldPrice = product.price
@@ -219,12 +327,33 @@ export const uploadProductImage = async (req, res) => {
 
   const uploadResult = await uploadImage(req.file.buffer, 'products')
   const imageUrl = uploadResult.secure_url
+  const requestedColor = normalizeHexColor(req.body?.imageColor)
+  const fallbackColor = normalizeHexColor(product.colors?.[0])
+  const mappedColor = requestedColor || fallbackColor || null
   console.log('Image URL:', imageUrl)
 
   product.images.push(imageUrl)
+  product.imageVariants = [
+    ...(Array.isArray(product.imageVariants) ? product.imageVariants : []),
+    { url: imageUrl, color: mappedColor },
+  ]
+
+  if (mappedColor) {
+    const knownColors = new Set(uniqueColors(product.colors))
+    if (!knownColors.has(mappedColor)) {
+      product.colors = [...knownColors, mappedColor]
+    }
+  }
+
   await product.save()
 
-  res.status(200).json({ success: true, data: product.images })
+  res.status(200).json({
+    success: true,
+    data: {
+      images: product.images,
+      imageVariants: product.imageVariants,
+    },
+  })
 }
 // @desc    Ürün resmi sil
 // @route   DELETE /api/products/:id/image
@@ -247,9 +376,18 @@ export const deleteProductImage = async (req, res) => {
   }
 
   product.images = product.images.filter(img => img !== imageUrl)
+  if (Array.isArray(product.imageVariants)) {
+    product.imageVariants = product.imageVariants.filter((img) => img.url !== imageUrl)
+  }
   await product.save()
 
-  res.status(200).json({ success: true, data: product.images })
+  res.status(200).json({
+    success: true,
+    data: {
+      images: product.images,
+      imageVariants: product.imageVariants,
+    },
+  })
 }
 
 // @desc    Öne çıkan ürünleri getir

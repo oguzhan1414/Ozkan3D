@@ -17,9 +17,9 @@ const navLinks = [
   {
     label: '3D Baskı Ürünleri', path: '/shop',
     dropdown: [
-      { title: 'Figürler', items: ['Katana', 'Ejderha Koleksiyonu',  'Fantastik Yaratıklar'] },
-      { title: 'Hediyelik / Dekor', items: ['Kulaklık Tutucular', 'Masa Dekorasyonu', 'Ev Dekorasyon', 'Anahtarlıklar'] },
-      { title: 'Konsol & Oyun', items: ['PS5 Aksesuarlar', 'Xbox Aksesuarlar', 'Joystick Tutucular', 'Kablo Düzenleyici'] },
+      { title: 'Figürler', items: ['Katana', 'Ejderha Koleksiyonu', 'Fantastik Yaratıklar', 'Diğer Figürler'] },
+      { title: 'Hediyelik / Dekor', items: ['Masa Dekorasyonu', 'Ev Dekorasyon', 'Ev Aletleri', 'Anahtarlıklar'] },
+      { title: 'Konsol & Oyun', items: ['PS5 & Xbox Aksesuarları', 'Kulaklık Tutucular', 'Joystick Tutucular', 'Kablo Düzenleyici'] },
     ]
   },
   { label: 'Tarama işlemi', path: '/scan', dropdown: null },

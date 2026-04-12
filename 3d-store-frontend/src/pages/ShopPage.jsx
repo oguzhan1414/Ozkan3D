@@ -8,15 +8,15 @@ import './ShopPage.css'
 const categoryData = [
   {
     title: 'Figürler',
-    items: ['Katana', 'Ejderha Koleksiyonu', 'Anime Figürler', 'Fantastik Yaratıklar']
+    items: ['Katana', 'Ejderha Koleksiyonu', 'Anime Figürler', 'Fantastik Yaratıklar', 'Diğer Figürler']
   },
   {
     title: 'Hediyelik / Dekor',
-    items: ['Kulaklık Tutucular', 'Masa Dekorasyonu', 'Ev Dekorasyon', 'Anahtarlıklar']
+    items: ['Masa Dekorasyonu', 'Ev Dekorasyon', 'Ev Aletleri', 'Anahtarlıklar']
   },
   {
     title: 'Konsol & Oyun',
-    items: ['PS5 Aksesuarlar', 'Xbox Aksesuarlar', 'Joystick Tutucular', 'Kablo Düzenleyici']
+    items: ['PS5 & Xbox Aksesuarları', 'Kulaklık Tutucular', 'Joystick Tutucular', 'Kablo Düzenleyici']
   }
 ]
 

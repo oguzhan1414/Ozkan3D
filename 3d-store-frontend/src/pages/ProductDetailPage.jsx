@@ -28,6 +28,38 @@ const getRelatedImageUrl = (url) => {
   return optimizedUrl.replace('/upload/f_auto,q_auto/', '/upload/f_auto,q_auto:best,dpr_auto/')
 }
 
+const normalizeHexColor = (value) => {
+  if (typeof value !== 'string') return null
+
+  const trimmed = value.trim().toLowerCase()
+  if (/^#[0-9a-f]{6}$/.test(trimmed)) return trimmed
+  if (/^#[0-9a-f]{3}$/.test(trimmed)) {
+    return `#${trimmed[1]}${trimmed[1]}${trimmed[2]}${trimmed[2]}${trimmed[3]}${trimmed[3]}`
+  }
+
+  return null
+}
+
+const buildImageVariants = (product) => {
+  if (!product) return []
+
+  if (Array.isArray(product.imageVariants) && product.imageVariants.length > 0) {
+    return product.imageVariants
+      .map((item) => ({
+        url: getRelatedImageUrl(item?.url),
+        color: normalizeHexColor(item?.color),
+      }))
+      .filter((item) => item.url)
+  }
+
+  return (product.images || [])
+    .map((url, index) => ({
+      url: getRelatedImageUrl(url),
+      color: normalizeHexColor(product.colors?.[index]),
+    }))
+    .filter((item) => item.url)
+}
+
 const ProductDetailPage = () => {
   const { id } = useParams()
   const { addToCart } = useCart()
@@ -58,15 +90,36 @@ const ProductDetailPage = () => {
   const [hasPurchased, setHasPurchased] = useState(false)
   const REVIEWS_PER_PAGE = 5
 
+  const imageVariants = buildImageVariants(product)
+  const galleryImages = imageVariants.length
+    ? imageVariants.map((item) => item.url)
+    : (product?.images || []).map((url) => getRelatedImageUrl(url))
+
+  const colorComponents = imageVariants
+    .filter((item) => item.color)
+    .reduce((acc, item) => {
+      const existing = acc.find((entry) => entry.color === item.color)
+      if (existing) {
+        existing.count += 1
+      } else {
+        acc.push({ color: item.color, count: 1 })
+      }
+      return acc
+    }, [])
+
   const fetchProduct = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
       const res = await getProductApi(id)
       const p = res.data
+      const variants = buildImageVariants(p)
+      const firstVariantColor = variants.find((item) => item.color)?.color || null
+
       setProduct(p)
-      setSelectedColor(p.colors?.[0] || null)
+      setSelectedColor(p.colors?.[0] || firstVariantColor || null)
       setSelectedMaterial(p.material?.[0] || null)
+      setActiveImg(0)
 
       const related = await getProductsApi({ category: p.category, limit: 4 })
       setRelatedProducts(related.data.filter(rp => rp._id !== p._id).slice(0, 3))
@@ -100,7 +153,16 @@ const ProductDetailPage = () => {
 
   const handleAddToCart = async () => {
     if (!product) return
-    await addToCart(product, quantity, selectedMaterial, selectedColor)
+
+    const selectedImage = galleryImages[activeImg] || galleryImages[0] || product.images?.[0]
+    const productForCart = {
+      ...product,
+      images: selectedImage
+        ? [selectedImage, ...(galleryImages.filter((_, index) => index !== activeImg))]
+        : product.images,
+    }
+
+    await addToCart(productForCart, quantity, selectedMaterial, selectedColor)
     setAddedToCart(true)
     setTimeout(() => setAddedToCart(false), 2000)
   }
@@ -206,8 +268,8 @@ const ProductDetailPage = () => {
           <div className="detail-gallery">
             <div className="gallery-main">
               <div className="gallery-main-img">
-                {product.images?.length > 0 ? (
-                  <img src={product.images[activeImg]} alt={product.name}
+                {galleryImages.length > 0 ? (
+                  <img src={galleryImages[activeImg]} alt={product.name}
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   <div className="gallery-placeholder">3D</div>
@@ -220,15 +282,18 @@ const ProductDetailPage = () => {
                 )}
               </div>
             </div>
-            {product.images?.length > 1 && (
+            {galleryImages.length > 1 && (
               <div className="gallery-thumbs">
-                {product.images.map((img, i) => (
+                {galleryImages.map((img, i) => (
                   <div key={i}
                     className={`gallery-thumb ${activeImg === i ? 'gallery-thumb-active' : ''}`}
                     onClick={() => setActiveImg(i)}
                   >
                     <img src={img} alt={`${product.name} ${i + 1}`}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    {imageVariants[i]?.color && (
+                      <span className="gallery-thumb-color" style={{ background: imageVariants[i].color }} />
+                    )}
                   </div>
                 ))}
               </div>
@@ -290,8 +355,11 @@ const ProductDetailPage = () => {
                       style={{ background: color }}
                       onClick={() => {
                         setSelectedColor(color)
-                        if (product.images && product.images[i]) {
-                          setActiveImg(i)
+                        const matchedIndex = imageVariants.findIndex(
+                          (variant) => variant.color === normalizeHexColor(color)
+                        )
+                        if (matchedIndex >= 0) {
+                          setActiveImg(matchedIndex)
                         }
                       }}
                     >
@@ -299,6 +367,20 @@ const ProductDetailPage = () => {
                     </button>
                   ))}
                 </div>
+
+                {colorComponents.length > 0 && (
+                  <div className="detail-color-components">
+                    <span className="detail-color-components-title">Renk bileşenleri</span>
+                    <div className="detail-color-components-list">
+                      {colorComponents.map((item) => (
+                        <span key={item.color} className="detail-color-component-pill">
+                          <span className="detail-color-component-dot" style={{ background: item.color }} />
+                          {item.count} görsel
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

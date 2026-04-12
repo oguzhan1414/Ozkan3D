@@ -25,9 +25,9 @@ const emptyForm = {
 
 const categories = ['Figürler', 'Hediyelik / Dekor', 'Konsol & Oyun']
 const subcategories = {
-  'Figürler': ['Katana', 'Ejderha Koleksiyonu', 'Fantastik Yaratıklar'],
-  'Hediyelik / Dekor': ['Kulaklık Tutucular', 'Masa Dekorasyonu', 'Ev Dekorasyon', 'Anahtarlıklar'],
-  'Konsol & Oyun': ['PS5 Aksesuarlar', 'Xbox Aksesuarlar', 'Joystick Tutucular', 'Kablo Düzenleyici']
+  'Figürler': ['Katana', 'Ejderha Koleksiyonu', 'Fantastik Yaratıklar', 'Diğer Figürler'],
+  'Hediyelik / Dekor': ['Masa Dekorasyonu', 'Ev Dekorasyon', 'Ev Aletleri', 'Anahtarlıklar'],
+  'Konsol & Oyun': ['PS5 & Xbox Aksesuarları', 'Kulaklık Tutucular', 'Joystick Tutucular', 'Kablo Düzenleyici']
 }
 const materialOptions = ['PLA']
 const difficultyOptions = ['Kolay', 'Orta', 'Zor']
@@ -78,6 +78,54 @@ const validateProductForm = (form) => {
   return errors
 }
 
+const normalizeHexColor = (value) => {
+  if (typeof value !== 'string') return null
+
+  const trimmed = value.trim().toLowerCase()
+  if (/^#[0-9a-f]{6}$/.test(trimmed)) return trimmed
+  if (/^#[0-9a-f]{3}$/.test(trimmed)) {
+    return `#${trimmed[1]}${trimmed[1]}${trimmed[2]}${trimmed[2]}${trimmed[3]}${trimmed[3]}`
+  }
+
+  return null
+}
+
+const buildColorOptions = (colors = []) => {
+  const unique = []
+  const seen = new Set()
+
+  for (const color of colors) {
+    const safeColor = normalizeHexColor(color)
+    if (!safeColor || seen.has(safeColor)) continue
+    seen.add(safeColor)
+    unique.push(safeColor)
+  }
+
+  if (!unique.length) unique.push('#ffffff')
+  return unique
+}
+
+const buildExistingImageVariants = (product, fallbackColors = ['#ffffff']) => {
+  const colorOptions = buildColorOptions(fallbackColors)
+  const fallback = colorOptions[0]
+
+  if (Array.isArray(product?.imageVariants) && product.imageVariants.length > 0) {
+    return product.imageVariants
+      .map((item) => ({
+        url: item?.url,
+        color: normalizeHexColor(item?.color) || fallback,
+      }))
+      .filter((item) => typeof item.url === 'string' && item.url.trim())
+  }
+
+  return (product?.images || [])
+    .filter((url) => typeof url === 'string' && url.trim())
+    .map((url, index) => ({
+      url,
+      color: normalizeHexColor(product?.colors?.[index]) || fallback,
+    }))
+}
+
 const AdminProducts = () => {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -103,6 +151,13 @@ const AdminProducts = () => {
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [formErrors, setFormErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
+  const [existingImageVariants, setExistingImageVariants] = useState([])
+
+  const colorOptions = buildColorOptions(form.colors)
+  const resolveImageColor = (color) => {
+    const safeColor = normalizeHexColor(color)
+    return safeColor && colorOptions.includes(safeColor) ? safeColor : colorOptions[0]
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 500)
@@ -149,6 +204,8 @@ const AdminProducts = () => {
   }
 
   const handleEdit = (product) => {
+    const normalizedColors = buildColorOptions(product.colors?.length ? product.colors : ['#ffffff'])
+
     setEditProduct(product)
     setForm({
       ...emptyForm,
@@ -162,7 +219,7 @@ const AdminProducts = () => {
       stock: product.stock || '',
       sku: product.sku || '',
       material: ['PLA'],
-      colors: product.colors?.length ? product.colors : ['#ffffff'],
+      colors: normalizedColors,
       badge: product.badge || '',
       featured: product.featured || false,
       weight: product.weight || '',
@@ -171,7 +228,9 @@ const AdminProducts = () => {
       metaTitle: product.metaTitle || '',
       metaDesc: product.metaDesc || '',
       tags: product.tags?.join(', ') || '',
+      images: [],
     })
+    setExistingImageVariants(buildExistingImageVariants(product, normalizedColors))
     setFormErrors({})
     setSubmitError('')
     setActiveTab('basic')
@@ -251,18 +310,45 @@ const AdminProducts = () => {
     if (submitError) setSubmitError('')
   }
 
+  const updateNewImageColor = (index, color) => {
+    const safeColor = resolveImageColor(color)
+    setForm((prev) => ({
+      ...prev,
+      images: prev.images.map((img, i) => (i === index ? { ...img, color: safeColor } : img)),
+    }))
+  }
+
+  const updateExistingImageColor = (index, color) => {
+    const safeColor = resolveImageColor(color)
+    setExistingImageVariants((prev) =>
+      prev.map((img, i) => (i === index ? { ...img, color: safeColor } : img))
+    )
+  }
+
   const handleImageDrop = (e) => {
     e.preventDefault()
     setDragOver(false)
     const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))
-    const newImages = files.map(f => ({ name: f.name, url: URL.createObjectURL(f), file: f }))
+    const defaultColor = colorOptions[0]
+    const newImages = files.map(f => ({
+      name: f.name,
+      url: URL.createObjectURL(f),
+      file: f,
+      color: defaultColor,
+    }))
     setForm(prev => ({ ...prev, images: [...prev.images, ...newImages] }))
     if (submitError) setSubmitError('')
   }
 
   const handleImageSelect = (e) => {
     const files = Array.from(e.target.files)
-    const newImages = files.map(f => ({ name: f.name, url: URL.createObjectURL(f), file: f }))
+    const defaultColor = colorOptions[0]
+    const newImages = files.map(f => ({
+      name: f.name,
+      url: URL.createObjectURL(f),
+      file: f,
+      color: defaultColor,
+    }))
     setForm(prev => ({ ...prev, images: [...prev.images, ...newImages] }))
     if (submitError) setSubmitError('')
   }
@@ -286,6 +372,15 @@ const AdminProducts = () => {
     try {
       const normalizedDescription = normalizeAdminDescription(form.description)
       const normalizedShortDesc = normalizeAdminDescription(form.shortDesc)
+      const normalizedColors = buildColorOptions(form.colors)
+      const fallbackColor = normalizedColors[0]
+
+      const normalizedExistingVariants = existingImageVariants
+        .map((item) => ({
+          url: typeof item?.url === 'string' ? item.url.trim() : '',
+          color: normalizeHexColor(item?.color) || fallbackColor,
+        }))
+        .filter((item) => item.url)
 
       const productData = {
         name: form.name,
@@ -298,7 +393,8 @@ const AdminProducts = () => {
         stock: Number(form.stock) || 0,
         sku: form.sku || undefined,
         material: ['PLA'],
-        colors: form.colors,
+        colors: normalizedColors,
+        imageVariants: normalizedExistingVariants,
         badge: form.badge || undefined,
         featured: form.featured,
         weight: form.weight ? Number(form.weight) : undefined,
@@ -324,6 +420,7 @@ const AdminProducts = () => {
         for (const img of form.images.filter(i => i.file)) {
           const formData = new FormData()
           formData.append('image', img.file)
+          formData.append('imageColor', normalizeHexColor(img.color) || fallbackColor)
           await uploadProductImageApi(savedProduct._id, formData)
         }
       }
@@ -360,6 +457,7 @@ const AdminProducts = () => {
   const closeProductModal = () => {
     setShowForm(false)
     setEditProduct(null)
+    setExistingImageVariants([])
     setFormErrors({})
     setSubmitError('')
   }
@@ -367,6 +465,7 @@ const AdminProducts = () => {
   const openNewProductModal = () => {
     setEditProduct(null)
     setForm(emptyForm)
+    setExistingImageVariants([])
     setActiveTab('basic')
     setFormErrors({})
     setSubmitError('')
@@ -783,17 +882,47 @@ const AdminProducts = () => {
                           <button className="image-remove-btn" onClick={() => setForm(p => ({ ...p, images: p.images.filter((_, ii) => ii !== i) }))}>
                             <FiX size={12} />
                           </button>
+                          <div className="image-color-chip">
+                            <span className="image-color-dot" style={{ background: resolveImageColor(img.color) }} />
+                            <select
+                              className="image-color-select"
+                              value={resolveImageColor(img.color)}
+                              onChange={(e) => updateNewImageColor(i, e.target.value)}
+                            >
+                              {colorOptions.map((color) => (
+                                <option key={`${color}-${i}`} value={color}>
+                                  {color.toUpperCase()}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
                       ))}
                     </div>
                   )}
-                  {editProduct?.images?.length > 0 && (
+                  {existingImageVariants.length > 0 && (
                     <div>
-                      <p style={{ fontSize: '0.78rem', color: '#888', marginBottom: '8px' }}>Mevcut Görseller:</p>
+                      <p style={{ fontSize: '0.78rem', color: '#888', marginBottom: '8px' }}>
+                        Mevcut Görseller (renk bileşeni düzenlenebilir):
+                      </p>
                       <div className="image-preview-grid">
-                        {editProduct.images.map((img, i) => (
+                        {existingImageVariants.map((img, i) => (
                           <div key={i} className="image-preview-item">
-                            <img src={img} alt="" />
+                            <img src={img.url} alt="" />
+                            <div className="image-color-chip">
+                              <span className="image-color-dot" style={{ background: resolveImageColor(img.color) }} />
+                              <select
+                                className="image-color-select"
+                                value={resolveImageColor(img.color)}
+                                onChange={(e) => updateExistingImageColor(i, e.target.value)}
+                              >
+                                {colorOptions.map((color) => (
+                                  <option key={`${color}-existing-${i}`} value={color}>
+                                    {color.toUpperCase()}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           </div>
                         ))}
                       </div>

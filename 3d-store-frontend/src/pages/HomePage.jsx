@@ -320,7 +320,7 @@ const fetchData = async () => {
           <div className="categories-grid">
             {[
               { icon: '🐉', label: 'Figürler', sub: 'Ejderha, Katana & Daha Fazlası', color: '#7c3aed', bg: 'linear-gradient(135deg,#f5f3ff,#ede9fe)', path: '/shop?category=figurler' },
-              { icon: '🎧', label: 'Kulaklık Tutucular', sub: 'Ağaç, Modern & Özel Tasarım', color: '#0ea5e9', bg: 'linear-gradient(135deg,#f0f9ff,#e0f2fe)', path: '/shop?category=elektronik-aksesuar' },
+              { icon: '🏠', label: 'Ev Aletleri', sub: 'Pratik, Fonksiyonel & Günlük Kullanım', color: '#0ea5e9', bg: 'linear-gradient(135deg,#f0f9ff,#e0f2fe)', path: '/shop?sub=Ev%20Aletleri' },
               { icon: '🗂️', label: 'Masa Düzenleyiciler', sub: 'Kalemlik, Stand & Organizer', color: '#16a34a', bg: 'linear-gradient(135deg,#f0fdf4,#dcfce7)', path: '/shop?category=masa-duzenleyici' },
               { icon: '🔑', label: 'Anahtarlıklar', sub: 'Kişiye Özel İsimli & Temalı', color: '#ea580c', bg: 'linear-gradient(135deg,#fff7ed,#ffedd5)', path: '/shop?category=anahtarlik' },
               { icon: '🎨', label: 'Özel Tasarım', sub: 'Fikrini Getir, Biz Üretelim', color: '#db2777', bg: 'linear-gradient(135deg,#fdf2f8,#fce7f3)', path: '/custom' },

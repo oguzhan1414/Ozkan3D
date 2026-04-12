@@ -12,6 +12,10 @@ const productSchema = new mongoose.Schema({
   stock: { type: Number, required: [true, 'Stok zorunludur'], min: [0, 'Stok 0dan küçük olamaz'], default: 0 },
   sku: { type: String, unique: true, sparse: true },
   images: [{ type: String }],
+  imageVariants: [{
+    url: { type: String, required: true },
+    color: { type: String, default: null },
+  }],
   material: [{ type: String }],
   colors: [{ type: String }],
   badge: { type: String, enum: ['Yeni', 'İndirim', 'Çok Satan', null], default: null },
