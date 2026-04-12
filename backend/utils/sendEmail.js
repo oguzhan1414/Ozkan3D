@@ -39,6 +39,92 @@ const NETWORK_SMTP_ERROR_CODES = new Set([
 
 const isNetworkSmtpError = (error) => NETWORK_SMTP_ERROR_CODES.has(error?.code)
 
+const getMailProvider = () => {
+  const explicitProvider = process.env.MAIL_PROVIDER?.trim().toLowerCase()
+  if (explicitProvider === 'resend' || explicitProvider === 'smtp') {
+    return explicitProvider
+  }
+
+  if (process.env.RESEND_API_KEY?.trim()) return 'resend'
+  return 'smtp'
+}
+
+const getResendConfig = () => {
+  const apiKey = process.env.RESEND_API_KEY?.trim()
+  const from = process.env.RESEND_FROM?.trim() || process.env.EMAIL_FROM || process.env.EMAIL_USER
+
+  if (!apiKey) {
+    throw new Error('RESEND_API_KEY tanımlı değil.')
+  }
+
+  if (!from) {
+    throw new Error('RESEND_FROM veya EMAIL_FROM tanımlı değil.')
+  }
+
+  return { apiKey, from }
+}
+
+const normalizeResendAttachments = (attachments = []) => {
+  if (!Array.isArray(attachments) || !attachments.length) return undefined
+
+  const normalized = []
+
+  for (const item of attachments) {
+    const filename = item?.filename || item?.name || null
+    if (!filename) continue
+
+    let base64Content = null
+    if (item?.content) {
+      base64Content = Buffer.isBuffer(item.content)
+        ? item.content.toString('base64')
+        : Buffer.from(String(item.content)).toString('base64')
+    } else if (item?.path && fs.existsSync(item.path)) {
+      base64Content = fs.readFileSync(item.path).toString('base64')
+    }
+
+    if (!base64Content) continue
+
+    normalized.push({
+      filename,
+      content: base64Content,
+    })
+  }
+
+  return normalized.length ? normalized : undefined
+}
+
+const sendEmailViaResend = async ({ to, subject, html, attachments = [] }) => {
+  const { apiKey, from } = getResendConfig()
+
+  const payload = {
+    from,
+    to: Array.isArray(to) ? to : [to],
+    subject,
+    html,
+  }
+
+  const resendAttachments = normalizeResendAttachments(attachments)
+  if (resendAttachments) payload.attachments = resendAttachments
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    const resendError = new Error(`Resend API hatası: ${response.status} ${errorText}`)
+    resendError.code = `RESEND_${response.status}`
+    throw resendError
+  }
+
+  console.log('📧 Mail Resend API ile gönderildi')
+}
+
 const getSmtpConfig = () => {
   const host = process.env.EMAIL_HOST?.trim()
   const rawPort = String(process.env.EMAIL_PORT || '587').trim()
@@ -143,6 +229,18 @@ const loadTemplate = (templateName, variables) => {
 export const sendEmail = async ({ to, subject, templateName, variables, html, attachments = [] }) => {
   const mailHtml = html || loadTemplate(templateName, variables)
   const from = process.env.EMAIL_FROM || process.env.EMAIL_USER
+  const provider = getMailProvider()
+
+  if (provider === 'resend') {
+    await sendEmailViaResend({
+      to,
+      subject,
+      html: mailHtml,
+      attachments,
+    })
+    return
+  }
+
   const mailPayload = {
     from,
     to,
@@ -161,6 +259,16 @@ export const sendEmail = async ({ to, subject, templateName, variables, html, at
       if (isNetworkSmtpError(error)) {
         const fallbackWorked = await attemptFallbackSend(mailPayload, smtpConfig)
         if (fallbackWorked) return
+      }
+
+      if (isNetworkSmtpError(error) && process.env.RESEND_API_KEY?.trim()) {
+        await sendEmailViaResend({
+          to,
+          subject,
+          html: mailHtml,
+          attachments,
+        })
+        return
       }
     } catch (fallbackError) {
       console.error('❌ SMTP fallback hatası:', {
