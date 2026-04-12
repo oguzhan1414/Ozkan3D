@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+
+# Private pages
+Disallow: /admin
+Disallow: /cart
+Disallow: /checkout
+Disallow: /account
+Disallow: /login
+Disallow: /register
+Disallow: /order-success
+Disallow: /verify-pending
+Disallow: /verify-email/
+
+Sitemap: https://www.ozkan3d.com.tr/sitemap.xml
