@@ -16,7 +16,17 @@ export const submitContactForm = async (req, res) => {
     res.status(200).json({ success: true, message: 'Mesajınız başarıyla gönderildi.' })
   } catch (err) {
     console.error('İletişim maili hatası:', err)
+
+    const smtpCode = [err?.code, err?.responseCode]
+      .filter(Boolean)
+      .join('/') || 'UNKNOWN'
+
+    const userMessage =
+      process.env.NODE_ENV === 'production'
+        ? `Mesajınız gönderilemedi, lütfen daha sonra tekrar deneyin. (SMTP:${smtpCode})`
+        : `Mesajınız gönderilemedi, lütfen daha sonra tekrar deneyin. (SMTP:${smtpCode}) ${err?.message || ''}`
+
     res.status(500)
-    throw new Error('Mesajınız gönderilemedi, lütfen daha sonra tekrar deneyin.')
+    throw new Error(userMessage)
   }
 }

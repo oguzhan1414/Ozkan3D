@@ -20,7 +20,9 @@ const toBoolean = (value, fallback = false) => {
 
 const getSmtpConfig = () => {
   const host = process.env.EMAIL_HOST?.trim()
-  const port = Number(process.env.EMAIL_PORT || 587)
+  const rawPort = String(process.env.EMAIL_PORT || '587').trim()
+  const normalizedPort = Number(rawPort.replace(/[^\d]/g, ''))
+  const port = Number.isFinite(normalizedPort) && normalizedPort > 0 ? normalizedPort : 587
   const user = process.env.EMAIL_USER?.trim()
   let pass = process.env.EMAIL_PASS?.trim()
 
@@ -79,12 +81,13 @@ const loadTemplate = (templateName, variables) => {
 
 export const sendEmail = async ({ to, subject, templateName, variables, html, attachments = [] }) => {
   const mailHtml = html || loadTemplate(templateName, variables)
+  const from = process.env.EMAIL_FROM || process.env.EMAIL_USER
 
   try {
     await verifyTransporter()
 
     await getTransporter().sendMail({
-      from: process.env.EMAIL_FROM,
+      from,
       to,
       subject,
       html: mailHtml,
