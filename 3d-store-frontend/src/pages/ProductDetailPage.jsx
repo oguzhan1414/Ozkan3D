@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useFavorite } from '../context/FavoriteContext'
@@ -90,10 +90,39 @@ const ProductDetailPage = () => {
   const [hasPurchased, setHasPurchased] = useState(false)
   const REVIEWS_PER_PAGE = 5
 
-  const imageVariants = buildImageVariants(product)
-  const galleryImages = imageVariants.length
-    ? imageVariants.map((item) => item.url)
+  const imageVariants = useMemo(() => buildImageVariants(product), [product])
+
+  const colorPalette = useMemo(() => {
+    const uniqueColors = []
+    const seen = new Set()
+    const addColor = (value) => {
+      const safeColor = normalizeHexColor(value)
+      if (!safeColor || seen.has(safeColor)) return
+      seen.add(safeColor)
+      uniqueColors.push(safeColor)
+    }
+
+    ;(product?.colors || []).forEach(addColor)
+    imageVariants.forEach((item) => addColor(item.color))
+
+    return uniqueColors
+  }, [product?.colors, imageVariants])
+
+  const filteredImageVariants = useMemo(() => {
+    if (!imageVariants.length) return []
+
+    const safeSelectedColor = normalizeHexColor(selectedColor)
+    if (!safeSelectedColor) return imageVariants
+
+    const matchedVariants = imageVariants.filter((item) => item.color === safeSelectedColor)
+    return matchedVariants.length ? matchedVariants : imageVariants
+  }, [imageVariants, selectedColor])
+
+  const galleryImages = filteredImageVariants.length
+    ? filteredImageVariants.map((item) => item.url)
     : (product?.images || []).map((url) => getRelatedImageUrl(url))
+
+  const activeImageUrl = galleryImages[activeImg] || galleryImages[0] || product?.images?.[0]
 
   const colorComponents = imageVariants
     .filter((item) => item.color)
@@ -107,6 +136,27 @@ const ProductDetailPage = () => {
       return acc
     }, [])
 
+  useEffect(() => {
+    if (!colorPalette.length) {
+      setSelectedColor(null)
+      return
+    }
+
+    const safeSelectedColor = normalizeHexColor(selectedColor)
+    if (safeSelectedColor && colorPalette.includes(safeSelectedColor)) return
+
+    setSelectedColor(colorPalette[0])
+  }, [colorPalette, selectedColor])
+
+  useEffect(() => {
+    if (!galleryImages.length) {
+      setActiveImg(0)
+      return
+    }
+
+    setActiveImg((prev) => (prev < galleryImages.length ? prev : 0))
+  }, [galleryImages.length])
+
   const fetchProduct = useCallback(async () => {
     setLoading(true)
     setError('')
@@ -117,7 +167,7 @@ const ProductDetailPage = () => {
       const firstVariantColor = variants.find((item) => item.color)?.color || null
 
       setProduct(p)
-      setSelectedColor(p.colors?.[0] || firstVariantColor || null)
+      setSelectedColor(normalizeHexColor(p.colors?.[0]) || firstVariantColor || null)
       setSelectedMaterial(p.material?.[0] || null)
       setActiveImg(0)
 
@@ -154,7 +204,7 @@ const ProductDetailPage = () => {
   const handleAddToCart = async () => {
     if (!product) return
 
-    const selectedImage = galleryImages[activeImg] || galleryImages[0] || product.images?.[0]
+    const selectedImage = activeImageUrl
     const productForCart = {
       ...product,
       images: selectedImage
@@ -269,7 +319,7 @@ const ProductDetailPage = () => {
             <div className="gallery-main">
               <div className="gallery-main-img">
                 {galleryImages.length > 0 ? (
-                  <img src={galleryImages[activeImg]} alt={product.name}
+                  <img src={activeImageUrl} alt={product.name}
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   <div className="gallery-placeholder">3D</div>
@@ -291,8 +341,8 @@ const ProductDetailPage = () => {
                   >
                     <img src={img} alt={`${product.name} ${i + 1}`}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    {imageVariants[i]?.color && (
-                      <span className="gallery-thumb-color" style={{ background: imageVariants[i].color }} />
+                    {filteredImageVariants[i]?.color && (
+                      <span className="gallery-thumb-color" style={{ background: filteredImageVariants[i].color }} />
                     )}
                   </div>
                 ))}
@@ -339,28 +389,23 @@ const ProductDetailPage = () => {
             <div className="detail-divider" />
 
             {/* Renk */}
-            {product.colors?.length > 0 && (
+            {colorPalette.length > 0 && (
               <div className="detail-option">
                 <div className="detail-option-header">
                   <span className="detail-option-label">Renk</span>
                   <span className="detail-option-value" style={{
-                    background: selectedColor, width: 16, height: 16,
+                    background: selectedColor || 'transparent', width: 16, height: 16,
                     borderRadius: '50%', display: 'inline-block', border: '1px solid #eee'
                   }} />
                 </div>
                 <div className="color-options">
-                  {product.colors.map((color, i) => (
+                  {colorPalette.map((color, i) => (
                     <button key={i}
                       className={`color-option ${selectedColor === color ? 'color-option-active' : ''}`}
                       style={{ background: color }}
                       onClick={() => {
                         setSelectedColor(color)
-                        const matchedIndex = imageVariants.findIndex(
-                          (variant) => variant.color === normalizeHexColor(color)
-                        )
-                        if (matchedIndex >= 0) {
-                          setActiveImg(matchedIndex)
-                        }
+                        setActiveImg(0)
                       }}
                     >
                       {selectedColor === color && <FiCheck size={12} color="#fff" />}

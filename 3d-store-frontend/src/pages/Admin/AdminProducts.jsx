@@ -195,12 +195,45 @@ const AdminProducts = () => {
   const [submitError, setSubmitError] = useState('')
   const [existingImageVariants, setExistingImageVariants] = useState([])
   const [deletingImageUrls, setDeletingImageUrls] = useState([])
+  const [activeImageColorFilter, setActiveImageColorFilter] = useState('all')
 
   const colorOptions = buildColorOptions(form.colors)
   const resolveImageColor = (color) => {
     const safeColor = normalizeHexColor(color)
     return safeColor && colorOptions.includes(safeColor) ? safeColor : colorOptions[0]
   }
+
+  const colorImageStats = colorOptions.map((color) => {
+    const existingCount = existingImageVariants.reduce(
+      (sum, item) => sum + (resolveImageColor(item.color) === color ? 1 : 0),
+      0
+    )
+    const newCount = form.images.reduce(
+      (sum, item) => sum + (resolveImageColor(item.color) === color ? 1 : 0),
+      0
+    )
+
+    return {
+      color,
+      existingCount,
+      newCount,
+      total: existingCount + newCount,
+    }
+  })
+
+  const totalImageCount = existingImageVariants.length + form.images.length
+  const filteredExistingImageVariants = activeImageColorFilter === 'all'
+    ? existingImageVariants
+    : existingImageVariants.filter((img) => resolveImageColor(img.color) === activeImageColorFilter)
+  const filteredNewImages = activeImageColorFilter === 'all'
+    ? form.images
+    : form.images.filter((img) => resolveImageColor(img.color) === activeImageColorFilter)
+
+  useEffect(() => {
+    if (activeImageColorFilter === 'all') return
+    if (colorOptions.includes(activeImageColorFilter)) return
+    setActiveImageColorFilter('all')
+  }, [activeImageColorFilter, colorOptions])
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 500)
@@ -277,6 +310,7 @@ const AdminProducts = () => {
     setFormErrors({})
     setSubmitError('')
     setActiveTab('basic')
+    setActiveImageColorFilter('all')
     setShowForm(true)
   }
 
@@ -576,6 +610,7 @@ const AdminProducts = () => {
     setDeletingImageUrls([])
     setFormErrors({})
     setSubmitError('')
+    setActiveImageColorFilter('all')
   }
 
   const openNewProductModal = () => {
@@ -586,6 +621,7 @@ const AdminProducts = () => {
     setActiveTab('basic')
     setFormErrors({})
     setSubmitError('')
+    setActiveImageColorFilter('all')
     setShowForm(true)
   }
 
@@ -977,6 +1013,29 @@ const AdminProducts = () => {
 
               {activeTab === 'images' && (
                 <div className="admin-form">
+                  <div className="image-color-filter-bar">
+                    <button
+                      type="button"
+                      className={`image-color-filter-btn ${activeImageColorFilter === 'all' ? 'image-color-filter-btn-active' : ''}`}
+                      onClick={() => setActiveImageColorFilter('all')}
+                    >
+                      Tümü ({totalImageCount})
+                    </button>
+                    {colorImageStats.map((item) => (
+                      <button
+                        key={item.color}
+                        type="button"
+                        className={`image-color-filter-btn ${
+                          activeImageColorFilter === item.color ? 'image-color-filter-btn-active' : ''
+                        } ${item.total === 0 ? 'image-color-filter-btn-empty' : ''}`}
+                        onClick={() => setActiveImageColorFilter(item.color)}
+                        title={item.total === 0 ? 'Bu renk için görsel atanmadı' : undefined}
+                      >
+                        <span className="image-color-filter-dot" style={{ background: item.color }} />
+                        {item.color.toUpperCase()} ({item.total})
+                      </button>
+                    ))}
+                  </div>
                   <div
                     className={`image-drop-zone ${dragOver ? 'drag-over' : ''}`}
                     onDragOver={e => { e.preventDefault(); setDragOver(true) }}
@@ -990,13 +1049,15 @@ const AdminProducts = () => {
                     <small>PNG, JPG, WEBP — Maks 5MB</small>
                     <input id="product-images" type="file" multiple accept="image/*" onChange={handleImageSelect} style={{ display: 'none' }} />
                   </div>
-                  {form.images.length > 0 && (
+                  {filteredNewImages.length > 0 && (
                     <div className="image-preview-grid">
-                      {form.images.map((img, i) => (
-                        <div key={i} className="image-preview-item">
+                      {filteredNewImages.map((img) => {
+                        const sourceIndex = form.images.indexOf(img)
+                        return (
+                        <div key={`new-image-${sourceIndex}`} className="image-preview-item">
                           <img src={img.url || img} alt="" />
-                          {i === 0 && <span className="main-image-badge">Ana</span>}
-                          <button className="image-remove-btn" onClick={() => setForm(p => ({ ...p, images: p.images.filter((_, ii) => ii !== i) }))}>
+                          {sourceIndex === 0 && <span className="main-image-badge">Ana</span>}
+                          <button className="image-remove-btn" onClick={() => setForm(p => ({ ...p, images: p.images.filter((_, ii) => ii !== sourceIndex) }))}>
                             <FiX size={12} />
                           </button>
                           <div className="image-color-chip">
@@ -1004,27 +1065,30 @@ const AdminProducts = () => {
                             <select
                               className="image-color-select"
                               value={resolveImageColor(img.color)}
-                              onChange={(e) => updateNewImageColor(i, e.target.value)}
+                              onChange={(e) => updateNewImageColor(sourceIndex, e.target.value)}
                             >
                               {colorOptions.map((color) => (
-                                <option key={`${color}-${i}`} value={color}>
+                                <option key={`${color}-${sourceIndex}`} value={color}>
                                   {color.toUpperCase()}
                                 </option>
                               ))}
                             </select>
                           </div>
                         </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
-                  {existingImageVariants.length > 0 && (
+                  {filteredExistingImageVariants.length > 0 && (
                     <div>
                       <p style={{ fontSize: '0.78rem', color: '#888', marginBottom: '8px' }}>
                         Mevcut Görseller (renk bileşeni düzenlenebilir):
                       </p>
                       <div className="image-preview-grid">
-                        {existingImageVariants.map((img, i) => (
-                          <div key={i} className="image-preview-item">
+                        {filteredExistingImageVariants.map((img) => {
+                          const sourceIndex = existingImageVariants.indexOf(img)
+                          return (
+                          <div key={`existing-image-${sourceIndex}`} className="image-preview-item">
                             <img src={img.url} alt="" />
                             <button
                               type="button"
@@ -1040,19 +1104,25 @@ const AdminProducts = () => {
                               <select
                                 className="image-color-select"
                                 value={resolveImageColor(img.color)}
-                                onChange={(e) => updateExistingImageColor(i, e.target.value)}
+                                onChange={(e) => updateExistingImageColor(sourceIndex, e.target.value)}
                               >
                                 {colorOptions.map((color) => (
-                                  <option key={`${color}-existing-${i}`} value={color}>
+                                  <option key={`${color}-existing-${sourceIndex}`} value={color}>
                                     {color.toUpperCase()}
                                   </option>
                                 ))}
                               </select>
                             </div>
                           </div>
-                        ))}
+                        )
+                        })}
                       </div>
                     </div>
+                  )}
+                  {activeImageColorFilter !== 'all' && !filteredNewImages.length && !filteredExistingImageVariants.length && (
+                    <p className="image-color-empty-state">
+                      Seçili renk için henüz görsel yok. Yüklediğiniz yeni görseller bu renge atanabilir.
+                    </p>
                   )}
                 </div>
               )}
@@ -1129,6 +1199,20 @@ const AdminProducts = () => {
                       ))}
                       <button className="add-color-btn" onClick={addColor}><FiPlus size={14} /> Renk Ekle</button>
                     </div>
+                    <div className="variant-color-coverage">
+                      {colorImageStats.map((item) => (
+                        <div key={`coverage-${item.color}`} className={`variant-color-coverage-item ${item.total === 0 ? 'variant-color-coverage-item-missing' : ''}`}>
+                          <span className="variant-color-coverage-dot" style={{ background: item.color }} />
+                          <span className="variant-color-coverage-code">{item.color.toUpperCase()}</span>
+                          <span className="variant-color-coverage-count">{item.total} görsel</span>
+                        </div>
+                      ))}
+                    </div>
+                    {colorImageStats.some((item) => item.total === 0) && (
+                      <small className="admin-field-error">
+                        Bazı renklerin görseli eksik. Ürün sayfasında bu renkler tüm galeriye düşer.
+                      </small>
+                    )}
                   </div>
                 </div>
               )}
