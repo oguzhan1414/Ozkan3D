@@ -120,7 +120,7 @@ const features = [
 const HomePage = () => {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [heroSlides, setHeroSlides] = useState([])
-  const [heroImageLoaded, setHeroImageLoaded] = useState(false)
+  const [loadedHeroImages, setLoadedHeroImages] = useState(() => new Set())
 
   useEffect(() => {
     if (heroSlides.length <= 1) return undefined
@@ -143,11 +143,17 @@ const HomePage = () => {
     const nextSlideIndex = (currentSlide + 1) % heroSlides.length
     const preloader = new Image()
     preloader.src = heroSlides[nextSlideIndex].src
+    preloader.onload = () => {
+      setLoadedHeroImages((prev) => {
+        const next = new Set(prev)
+        next.add(heroSlides[nextSlideIndex].src)
+        return next
+      })
+    }
   }, [currentSlide, heroSlides])
 
-  useEffect(() => {
-    setHeroImageLoaded(false)
-  }, [currentSlide, heroSlides.length])
+  const currentSlideSrc = heroSlides[currentSlide]?.src || ''
+  const isCurrentSlideLoaded = currentSlideSrc ? loadedHeroImages.has(currentSlideSrc) : false
 
   const [reviewIndex, setReviewIndex] = useState(0)
   const parallaxRef = useParallax(0.15)
@@ -225,20 +231,34 @@ const fetchData = async () => {
         ) : heroSlides.length > 0 ? (
           <>
             <div className="hero-slide active" key={currentSlide}>
-              {!heroImageLoaded && (
+              {!isCurrentSlideLoaded && (
                 <div className="hero-image-skeleton" aria-hidden="true">
                   <div className="hero-image-skeleton-shimmer" />
                 </div>
               )}
               <img
-                src={heroSlides[currentSlide]?.src}
+                src={currentSlideSrc}
                 alt={heroSlides[currentSlide]?.alt}
                 fetchPriority="high"
                 loading="eager"
                 decoding="async"
-                onLoad={() => setHeroImageLoaded(true)}
-                onError={() => setHeroImageLoaded(true)}
-                className={heroImageLoaded ? 'hero-image-visible' : 'hero-image-hidden'}
+                onLoad={() => {
+                  if (!currentSlideSrc) return
+                  setLoadedHeroImages((prev) => {
+                    const next = new Set(prev)
+                    next.add(currentSlideSrc)
+                    return next
+                  })
+                }}
+                onError={() => {
+                  if (!currentSlideSrc) return
+                  setLoadedHeroImages((prev) => {
+                    const next = new Set(prev)
+                    next.add(currentSlideSrc)
+                    return next
+                  })
+                }}
+                className={isCurrentSlideLoaded ? 'hero-image-visible' : 'hero-image-hidden'}
               />
             </div>
 
