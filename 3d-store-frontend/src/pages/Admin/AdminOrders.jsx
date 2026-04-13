@@ -39,6 +39,7 @@ const AdminOrders = () => {
   const [trackingData, setTrackingData] = useState({ trackingNo: '', carrier: '' })
   const [adminNote, setAdminNote] = useState('')
   const [updating, setUpdating] = useState(false)
+  const [statusUpdatingOrderId, setStatusUpdatingOrderId] = useState(null)
 
   const fetchOrders = useCallback(async () => {
     setLoading(true)
@@ -67,6 +68,17 @@ const AdminOrders = () => {
   }, [fetchOrders])
 
   const handleStatusUpdate = async (orderId, newStatus) => {
+    const order = orders.find((item) => item._id === orderId)
+    const currentStatus = order?.status
+
+    if (!currentStatus || currentStatus === newStatus) return
+
+    const confirmed = window.confirm(
+      `${order?.orderNo || 'Sipariş'} durumu "${currentStatus}" -> "${newStatus}" olarak güncellensin mi?`
+    )
+    if (!confirmed) return
+
+    setStatusUpdatingOrderId(orderId)
     try {
       await updateOrderStatusApi(orderId, newStatus)
       setOrders(prev => prev.map(o =>
@@ -77,6 +89,9 @@ const AdminOrders = () => {
       }
     } catch (err) {
       console.log('Durum güncellenemedi:', err.message)
+      alert('Sipariş durumu güncellenemedi.')
+    } finally {
+      setStatusUpdatingOrderId(null)
     }
   }
 
@@ -254,6 +269,7 @@ const AdminOrders = () => {
                         className="status-select-inline"
                         value={order.status}
                         onChange={e => handleStatusUpdate(order._id, e.target.value)}
+                        disabled={statusUpdatingOrderId === order._id}
                         style={{ color: statusColors[order.status] }}
                       >
                         {statusOptions.filter(s => s !== 'Tümü').map(s => (

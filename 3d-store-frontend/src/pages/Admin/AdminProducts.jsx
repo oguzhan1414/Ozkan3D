@@ -168,6 +168,58 @@ const buildSeoDraft = (form) => {
   }
 }
 
+const buildProductFormSnapshot = ({ form, existingImageVariants, editProductId }) => {
+  const safeForm = form || {}
+
+  const images = (Array.isArray(safeForm.images) ? safeForm.images : []).map((item) => {
+    if (typeof item === 'string') {
+      return {
+        url: item.trim(),
+        name: '',
+        color: '',
+        hasFile: false,
+      }
+    }
+
+    return {
+      url: typeof item?.url === 'string' ? item.url.trim() : '',
+      name: typeof item?.name === 'string' ? item.name.trim() : '',
+      color: normalizeHexColor(item?.color) || '',
+      hasFile: Boolean(item?.file),
+    }
+  })
+
+  const variants = (Array.isArray(existingImageVariants) ? existingImageVariants : []).map((item) => ({
+    url: typeof item?.url === 'string' ? item.url.trim() : '',
+    color: normalizeHexColor(item?.color) || '',
+  }))
+
+  return JSON.stringify({
+    editProductId: editProductId || null,
+    name: safeForm.name || '',
+    category: safeForm.category || '',
+    subcategory: safeForm.subcategory || '',
+    description: normalizeAdminDescription(safeForm.description || ''),
+    shortDesc: normalizeAdminDescription(safeForm.shortDesc || ''),
+    price: safeForm.price ?? '',
+    oldPrice: safeForm.oldPrice ?? '',
+    stock: safeForm.stock ?? '',
+    sku: safeForm.sku || '',
+    material: Array.isArray(safeForm.material) ? safeForm.material : [],
+    colors: buildColorOptions(safeForm.colors),
+    badge: safeForm.badge || '',
+    featured: Boolean(safeForm.featured),
+    weight: safeForm.weight ?? '',
+    printTime: safeForm.printTime ?? '',
+    difficulty: safeForm.difficulty || 'Orta',
+    metaTitle: safeForm.metaTitle || '',
+    metaDesc: safeForm.metaDesc || '',
+    tags: safeForm.tags || '',
+    images,
+    variants,
+  })
+}
+
 const AdminProducts = () => {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -191,11 +243,14 @@ const AdminProducts = () => {
   const [newStock, setNewStock] = useState('')
   const [selectedIds, setSelectedIds] = useState([])
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [bulkPriceUpdating, setBulkPriceUpdating] = useState(false)
+  const [bulkStockUpdating, setBulkStockUpdating] = useState(false)
   const [formErrors, setFormErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
   const [existingImageVariants, setExistingImageVariants] = useState([])
   const [deletingImageUrls, setDeletingImageUrls] = useState([])
   const [activeImageColorFilter, setActiveImageColorFilter] = useState('all')
+  const [initialProductSnapshot, setInitialProductSnapshot] = useState('')
 
   const colorOptions = buildColorOptions(form.colors)
   const resolveImageColor = (color) => {
@@ -281,9 +336,7 @@ const AdminProducts = () => {
 
   const handleEdit = (product) => {
     const normalizedColors = buildColorOptions(product.colors?.length ? product.colors : ['#ffffff'])
-
-    setEditProduct(product)
-    setForm({
+    const preparedForm = {
       ...emptyForm,
       name: product.name || '',
       category: product.category || '',
@@ -305,8 +358,17 @@ const AdminProducts = () => {
       metaDesc: product.metaDesc || '',
       tags: product.tags?.join(', ') || '',
       images: [],
-    })
-    setExistingImageVariants(buildExistingImageVariants(product, normalizedColors))
+    }
+    const existingVariants = buildExistingImageVariants(product, normalizedColors)
+
+    setEditProduct(product)
+    setForm(preparedForm)
+    setExistingImageVariants(existingVariants)
+    setInitialProductSnapshot(buildProductFormSnapshot({
+      form: preparedForm,
+      existingImageVariants: existingVariants,
+      editProductId: product._id,
+    }))
     setFormErrors({})
     setSubmitError('')
     setActiveTab('basic')
@@ -345,6 +407,68 @@ const AdminProducts = () => {
       console.log('Toplu silme hatası:', err.message)
     } finally {
       setBulkDeleting(false)
+    }
+  }
+
+  const handleBulkPriceUpdate = async () => {
+    if (!selectedIds.length) {
+      alert('Toplu fiyat güncellemesi için en az bir ürün seçin.')
+      return
+    }
+
+    const input = window.prompt('Seçili ürünler için yeni fiyatı girin (₺):')
+    if (input === null) return
+
+    const nextPrice = Number(input)
+    if (Number.isNaN(nextPrice) || nextPrice <= 0) {
+      alert('Geçerli bir fiyat giriniz.')
+      return
+    }
+
+    const confirmed = window.confirm(`${selectedIds.length} ürünün fiyatı ${nextPrice}₺ olarak güncellensin mi?`)
+    if (!confirmed) return
+
+    setBulkPriceUpdating(true)
+    try {
+      await Promise.all(selectedIds.map((id) => updateProductApi(id, { price: nextPrice })))
+      await fetchProducts({ page: currentPage, category: catFilter, searchTerm: debouncedSearch })
+      setSelectedIds([])
+    } catch (err) {
+      console.log('Toplu fiyat güncelleme hatası:', err.message)
+      alert('Toplu fiyat güncellenemedi.')
+    } finally {
+      setBulkPriceUpdating(false)
+    }
+  }
+
+  const handleBulkStockUpdate = async () => {
+    if (!selectedIds.length) {
+      alert('Toplu stok güncellemesi için en az bir ürün seçin.')
+      return
+    }
+
+    const input = window.prompt('Seçili ürünler için yeni stok adedini girin:')
+    if (input === null) return
+
+    const nextStock = Number(input)
+    if (Number.isNaN(nextStock) || nextStock < 0) {
+      alert('Stok alanı 0 veya daha büyük olmalıdır.')
+      return
+    }
+
+    const confirmed = window.confirm(`${selectedIds.length} ürünün stoğu ${nextStock} olarak güncellensin mi?`)
+    if (!confirmed) return
+
+    setBulkStockUpdating(true)
+    try {
+      await Promise.all(selectedIds.map((id) => updateStockApi(id, nextStock)))
+      await fetchProducts({ page: currentPage, category: catFilter, searchTerm: debouncedSearch })
+      setSelectedIds([])
+    } catch (err) {
+      console.log('Toplu stok güncelleme hatası:', err.message)
+      alert('Toplu stok güncellenemedi.')
+    } finally {
+      setBulkStockUpdating(false)
     }
   }
 
@@ -574,11 +698,7 @@ const AdminProducts = () => {
         }
       }
 
-      setShowForm(false)
-      setEditProduct(null)
-      setForm(emptyForm)
-      setFormErrors({})
-      setSubmitError('')
+      closeProductModal()
       fetchProducts({ page: currentPage, category: catFilter, searchTerm: debouncedSearch })
     } catch (err) {
       const backendError = err.response?.data?.message || 'Kaydetme sırasında bir hata oluştu.'
@@ -606,22 +726,44 @@ const AdminProducts = () => {
   const closeProductModal = () => {
     setShowForm(false)
     setEditProduct(null)
+    setForm(emptyForm)
     setExistingImageVariants([])
     setDeletingImageUrls([])
     setFormErrors({})
     setSubmitError('')
     setActiveImageColorFilter('all')
+    setInitialProductSnapshot('')
+  }
+
+  const hasUnsavedProductChanges = showForm && initialProductSnapshot !== buildProductFormSnapshot({
+    form,
+    existingImageVariants,
+    editProductId: editProduct?._id,
+  })
+
+  const requestCloseProductModal = () => {
+    if (hasUnsavedProductChanges) {
+      const confirmed = window.confirm('Kaydedilmemiş değişiklikler var. Çıkmak istediğinize emin misiniz?')
+      if (!confirmed) return
+    }
+    closeProductModal()
   }
 
   const openNewProductModal = () => {
+    const preparedForm = { ...emptyForm }
     setEditProduct(null)
-    setForm(emptyForm)
+    setForm(preparedForm)
     setExistingImageVariants([])
     setDeletingImageUrls([])
     setActiveTab('basic')
     setFormErrors({})
     setSubmitError('')
     setActiveImageColorFilter('all')
+    setInitialProductSnapshot(buildProductFormSnapshot({
+      form: preparedForm,
+      existingImageVariants: [],
+      editProductId: null,
+    }))
     setShowForm(true)
   }
 
@@ -713,8 +855,20 @@ const AdminProducts = () => {
         >
           <FiRefreshCw size={14} /> Yenile
         </button>
-        <button className="bulk-btn"><FiTag size={14} /> Toplu Fiyat</button>
-        <button className="bulk-btn"><FiPackage size={14} /> Toplu Stok</button>
+        <button
+          className="bulk-btn"
+          onClick={handleBulkPriceUpdate}
+          disabled={bulkPriceUpdating || !selectedIds.length}
+        >
+          <FiTag size={14} /> {bulkPriceUpdating ? 'Güncelleniyor...' : 'Toplu Fiyat'}
+        </button>
+        <button
+          className="bulk-btn"
+          onClick={handleBulkStockUpdate}
+          disabled={bulkStockUpdating || !selectedIds.length}
+        >
+          <FiPackage size={14} /> {bulkStockUpdating ? 'Güncelleniyor...' : 'Toplu Stok'}
+        </button>
       </div>
 
       {/* Loading */}
@@ -910,11 +1064,11 @@ const AdminProducts = () => {
 
       {/* Add/Edit Modal */}
       {showForm && (
-        <div className="admin-modal-overlay" onClick={closeProductModal}>
+        <div className="admin-modal-overlay" onClick={requestCloseProductModal}>
           <div className="admin-modal admin-modal-lg" onClick={e => e.stopPropagation()}>
             <div className="admin-modal-header">
               <h3>{editProduct ? 'Ürün Düzenle' : 'Yeni Ürün Ekle'}</h3>
-              <button className="admin-modal-close" onClick={closeProductModal}>✕</button>
+              <button className="admin-modal-close" onClick={requestCloseProductModal}>✕</button>
             </div>
 
             <div className="form-tabs">
@@ -1269,7 +1423,7 @@ const AdminProducts = () => {
 
             <div className="admin-modal-footer">
               {submitError && <div className="admin-form-error-summary">{submitError}</div>}
-              <button className="admin-cancel-btn" onClick={closeProductModal}>İptal</button>
+              <button className="admin-cancel-btn" onClick={requestCloseProductModal}>İptal</button>
               <button className="admin-save-btn" onClick={handleSubmit} disabled={saving}>
                 <FiCheck size={15} />
                 {saving ? 'Kaydediliyor...' : editProduct ? 'Güncelle' : 'Ürün Ekle'}
