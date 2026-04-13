@@ -251,6 +251,62 @@ const AdminProducts = () => {
   const [deletingImageUrls, setDeletingImageUrls] = useState([])
   const [activeImageColorFilter, setActiveImageColorFilter] = useState('all')
   const [initialProductSnapshot, setInitialProductSnapshot] = useState('')
+  const [confirmDialog, setConfirmDialog] = useState({
+    open: false,
+    title: '',
+    message: '',
+    confirmText: 'Onayla',
+    cancelText: 'İptal',
+    variant: 'default',
+    hideCancel: false,
+    action: null,
+    payload: null,
+  })
+  const [bulkPriceModalOpen, setBulkPriceModalOpen] = useState(false)
+  const [bulkStockModalOpen, setBulkStockModalOpen] = useState(false)
+  const [bulkPriceTargetIds, setBulkPriceTargetIds] = useState([])
+  const [bulkStockTargetIds, setBulkStockTargetIds] = useState([])
+  const [bulkPriceValue, setBulkPriceValue] = useState('')
+  const [bulkStockValue, setBulkStockValue] = useState('')
+  const [bulkPriceError, setBulkPriceError] = useState('')
+  const [bulkStockError, setBulkStockError] = useState('')
+
+  const openConfirmDialog = ({
+    title,
+    message,
+    confirmText = 'Onayla',
+    cancelText = 'İptal',
+    variant = 'default',
+    hideCancel = false,
+    action = null,
+    payload = null,
+  }) => {
+    setConfirmDialog({
+      open: true,
+      title,
+      message,
+      confirmText,
+      cancelText,
+      variant,
+      hideCancel,
+      action,
+      payload,
+    })
+  }
+
+  const closeConfirmDialog = () => {
+    setConfirmDialog((prev) => ({ ...prev, open: false, action: null, payload: null }))
+  }
+
+  const openInfoDialog = (title, message) => {
+    openConfirmDialog({
+      title,
+      message,
+      confirmText: 'Tamam',
+      hideCancel: true,
+      variant: 'info',
+    })
+  }
 
   const colorOptions = buildColorOptions(form.colors)
   const resolveImageColor = (color) => {
@@ -395,78 +451,104 @@ const AdminProducts = () => {
     }
   }
 
-  const handleBulkDelete = async () => {
-    if (!selectedIds.length) return
-    if (!window.confirm(`Seçilen ${selectedIds.length} ürün silinsin mi?`)) return
+  const executeBulkDelete = async (ids) => {
+    if (!ids.length) return
     setBulkDeleting(true)
     try {
-      await Promise.all(selectedIds.map(id => deleteProductApi(id)))
-      setProducts(prev => prev.filter(p => !selectedIds.includes(p._id)))
+      await Promise.all(ids.map(id => deleteProductApi(id)))
+      setProducts(prev => prev.filter(p => !ids.includes(p._id)))
       setSelectedIds([])
     } catch (err) {
       console.log('Toplu silme hatası:', err.message)
+      openInfoDialog('İşlem Başarısız', 'Toplu silme işlemi sırasında bir hata oluştu.')
     } finally {
       setBulkDeleting(false)
     }
   }
 
-  const handleBulkPriceUpdate = async () => {
+  const handleBulkDelete = () => {
+    if (!selectedIds.length) return
+    openConfirmDialog({
+      title: 'Toplu Silme Onayı',
+      message: `Seçilen ${selectedIds.length} ürünü kalıcı olarak silmek istediğinize emin misiniz?`,
+      confirmText: 'Evet, Sil',
+      variant: 'danger',
+      action: 'bulk-delete',
+      payload: { ids: [...selectedIds] },
+    })
+  }
+
+  const handleBulkPriceUpdate = () => {
     if (!selectedIds.length) {
-      alert('Toplu fiyat güncellemesi için en az bir ürün seçin.')
+      openInfoDialog('Ürün Seçimi Gerekli', 'Toplu fiyat güncellemesi için en az bir ürün seçin.')
       return
     }
 
-    const input = window.prompt('Seçili ürünler için yeni fiyatı girin (₺):')
-    if (input === null) return
+    setBulkPriceTargetIds([...selectedIds])
+    setBulkPriceValue('')
+    setBulkPriceError('')
+    setBulkPriceModalOpen(true)
+  }
 
-    const nextPrice = Number(input)
+  const submitBulkPriceUpdate = async () => {
+    if (!bulkPriceTargetIds.length) return
+
+    const nextPrice = Number(bulkPriceValue)
     if (Number.isNaN(nextPrice) || nextPrice <= 0) {
-      alert('Geçerli bir fiyat giriniz.')
+      setBulkPriceError('Geçerli bir fiyat giriniz.')
       return
     }
-
-    const confirmed = window.confirm(`${selectedIds.length} ürünün fiyatı ${nextPrice}₺ olarak güncellensin mi?`)
-    if (!confirmed) return
 
     setBulkPriceUpdating(true)
+    setBulkPriceError('')
     try {
-      await Promise.all(selectedIds.map((id) => updateProductApi(id, { price: nextPrice })))
+      await Promise.all(bulkPriceTargetIds.map((id) => updateProductApi(id, { price: nextPrice })))
       await fetchProducts({ page: currentPage, category: catFilter, searchTerm: debouncedSearch })
       setSelectedIds([])
+      setBulkPriceModalOpen(false)
+      setBulkPriceTargetIds([])
+      setBulkPriceValue('')
     } catch (err) {
       console.log('Toplu fiyat güncelleme hatası:', err.message)
-      alert('Toplu fiyat güncellenemedi.')
+      setBulkPriceError('Toplu fiyat güncellenemedi. Lütfen tekrar deneyin.')
     } finally {
       setBulkPriceUpdating(false)
     }
   }
 
-  const handleBulkStockUpdate = async () => {
+  const handleBulkStockUpdate = () => {
     if (!selectedIds.length) {
-      alert('Toplu stok güncellemesi için en az bir ürün seçin.')
+      openInfoDialog('Ürün Seçimi Gerekli', 'Toplu stok güncellemesi için en az bir ürün seçin.')
       return
     }
 
-    const input = window.prompt('Seçili ürünler için yeni stok adedini girin:')
-    if (input === null) return
+    setBulkStockTargetIds([...selectedIds])
+    setBulkStockValue('')
+    setBulkStockError('')
+    setBulkStockModalOpen(true)
+  }
 
-    const nextStock = Number(input)
+  const submitBulkStockUpdate = async () => {
+    if (!bulkStockTargetIds.length) return
+
+    const nextStock = Number(bulkStockValue)
     if (Number.isNaN(nextStock) || nextStock < 0) {
-      alert('Stok alanı 0 veya daha büyük olmalıdır.')
+      setBulkStockError('Stok alanı 0 veya daha büyük olmalıdır.')
       return
     }
-
-    const confirmed = window.confirm(`${selectedIds.length} ürünün stoğu ${nextStock} olarak güncellensin mi?`)
-    if (!confirmed) return
 
     setBulkStockUpdating(true)
+    setBulkStockError('')
     try {
-      await Promise.all(selectedIds.map((id) => updateStockApi(id, nextStock)))
+      await Promise.all(bulkStockTargetIds.map((id) => updateStockApi(id, nextStock)))
       await fetchProducts({ page: currentPage, category: catFilter, searchTerm: debouncedSearch })
       setSelectedIds([])
+      setBulkStockModalOpen(false)
+      setBulkStockTargetIds([])
+      setBulkStockValue('')
     } catch (err) {
       console.log('Toplu stok güncelleme hatası:', err.message)
-      alert('Toplu stok güncellenemedi.')
+      setBulkStockError('Toplu stok güncellenemedi. Lütfen tekrar deneyin.')
     } finally {
       setBulkStockUpdating(false)
     }
@@ -538,11 +620,8 @@ const AdminProducts = () => {
 
   const isImageDeleting = (imageUrl) => deletingImageUrls.includes(imageUrl)
 
-  const handleRemoveExistingImage = async (imageUrl) => {
+  const performRemoveExistingImage = async (imageUrl) => {
     if (!editProduct?._id || !imageUrl || isImageDeleting(imageUrl)) return
-
-    const confirmed = window.confirm('Bu görseli üründen kaldırmak istiyor musunuz?')
-    if (!confirmed) return
 
     setImageDeletingState(imageUrl, true)
     try {
@@ -566,6 +645,19 @@ const AdminProducts = () => {
     } finally {
       setImageDeletingState(imageUrl, false)
     }
+  }
+
+  const handleRemoveExistingImage = (imageUrl) => {
+    if (!editProduct?._id || !imageUrl || isImageDeleting(imageUrl)) return
+
+    openConfirmDialog({
+      title: 'Görseli Kaldır',
+      message: 'Bu görseli üründen kaldırmak istediğinize emin misiniz?',
+      confirmText: 'Kaldır',
+      variant: 'danger',
+      action: 'remove-image',
+      payload: { imageUrl },
+    })
   }
 
   const autoFillSeo = (overwriteAll = false) => {
@@ -733,6 +825,14 @@ const AdminProducts = () => {
     setSubmitError('')
     setActiveImageColorFilter('all')
     setInitialProductSnapshot('')
+    setBulkPriceModalOpen(false)
+    setBulkStockModalOpen(false)
+    setBulkPriceError('')
+    setBulkStockError('')
+    setBulkPriceValue('')
+    setBulkStockValue('')
+    setBulkPriceTargetIds([])
+    setBulkStockTargetIds([])
   }
 
   const hasUnsavedProductChanges = showForm && initialProductSnapshot !== buildProductFormSnapshot({
@@ -743,10 +843,35 @@ const AdminProducts = () => {
 
   const requestCloseProductModal = () => {
     if (hasUnsavedProductChanges) {
-      const confirmed = window.confirm('Kaydedilmemiş değişiklikler var. Çıkmak istediğinize emin misiniz?')
-      if (!confirmed) return
+      openConfirmDialog({
+        title: 'Kaydedilmemiş Değişiklik',
+        message: 'Kaydedilmemiş değişiklikler var. Formdan çıkmak istediğinize emin misiniz?',
+        confirmText: 'Çık',
+        variant: 'danger',
+        action: 'close-product-modal',
+      })
+      return
     }
     closeProductModal()
+  }
+
+  const handleConfirmDialogApprove = async () => {
+    const { action, payload } = confirmDialog
+    closeConfirmDialog()
+
+    if (action === 'bulk-delete') {
+      await executeBulkDelete(payload?.ids || [])
+      return
+    }
+
+    if (action === 'remove-image') {
+      await performRemoveExistingImage(payload?.imageUrl)
+      return
+    }
+
+    if (action === 'close-product-modal') {
+      closeProductModal()
+    }
   }
 
   const openNewProductModal = () => {
@@ -1056,6 +1181,82 @@ const AdminProducts = () => {
               <button className="admin-cancel-btn" onClick={() => setStockModal(null)}>İptal</button>
               <button className="admin-save-btn" onClick={handleStockUpdate}>
                 <FiCheck size={14} /> Güncelle
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Price Modal */}
+      {bulkPriceModalOpen && (
+        <div className="admin-modal-overlay" onClick={() => { setBulkPriceModalOpen(false); setBulkPriceError('') }}>
+          <div className="admin-modal admin-modal-sm" onClick={e => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3>Toplu Fiyat Güncelle</h3>
+              <button className="admin-modal-close" onClick={() => { setBulkPriceModalOpen(false); setBulkPriceError('') }}>✕</button>
+            </div>
+            <div className="admin-modal-body">
+              <p className="bulk-modal-note">
+                {bulkPriceTargetIds.length} ürün için yeni fiyat belirleyin.
+              </p>
+              <div className="admin-form-group">
+                <label>Yeni Fiyat (₺)</label>
+                <input
+                  type="number"
+                  className="admin-input"
+                  value={bulkPriceValue}
+                  onChange={(e) => {
+                    setBulkPriceValue(e.target.value)
+                    if (bulkPriceError) setBulkPriceError('')
+                  }}
+                  placeholder="299"
+                  autoFocus
+                />
+                {bulkPriceError && <small className="admin-field-error">{bulkPriceError}</small>}
+              </div>
+            </div>
+            <div className="admin-modal-footer">
+              <button className="admin-cancel-btn" onClick={() => { setBulkPriceModalOpen(false); setBulkPriceError('') }}>İptal</button>
+              <button className="admin-save-btn" onClick={submitBulkPriceUpdate} disabled={bulkPriceUpdating}>
+                <FiCheck size={14} /> {bulkPriceUpdating ? 'Güncelleniyor...' : 'Fiyatı Uygula'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Stock Modal */}
+      {bulkStockModalOpen && (
+        <div className="admin-modal-overlay" onClick={() => { setBulkStockModalOpen(false); setBulkStockError('') }}>
+          <div className="admin-modal admin-modal-sm" onClick={e => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3>Toplu Stok Güncelle</h3>
+              <button className="admin-modal-close" onClick={() => { setBulkStockModalOpen(false); setBulkStockError('') }}>✕</button>
+            </div>
+            <div className="admin-modal-body">
+              <p className="bulk-modal-note">
+                {bulkStockTargetIds.length} ürün için yeni stok adedini girin.
+              </p>
+              <div className="admin-form-group">
+                <label>Yeni Stok</label>
+                <input
+                  type="number"
+                  className="admin-input"
+                  value={bulkStockValue}
+                  onChange={(e) => {
+                    setBulkStockValue(e.target.value)
+                    if (bulkStockError) setBulkStockError('')
+                  }}
+                  placeholder="50"
+                  autoFocus
+                />
+                {bulkStockError && <small className="admin-field-error">{bulkStockError}</small>}
+              </div>
+            </div>
+            <div className="admin-modal-footer">
+              <button className="admin-cancel-btn" onClick={() => { setBulkStockModalOpen(false); setBulkStockError('') }}>İptal</button>
+              <button className="admin-save-btn" onClick={submitBulkStockUpdate} disabled={bulkStockUpdating}>
+                <FiCheck size={14} /> {bulkStockUpdating ? 'Güncelleniyor...' : 'Stoğu Uygula'}
               </button>
             </div>
           </div>
@@ -1448,6 +1649,32 @@ const AdminProducts = () => {
               <button className="admin-cancel-btn" onClick={() => setDeleteConfirm(null)}>İptal</button>
               <button className="admin-delete-btn" onClick={() => handleDelete(deleteConfirm)}>
                 <FiTrash2 size={15} /> Sil
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirm Dialog */}
+      {confirmDialog.open && (
+        <div className="admin-modal-overlay" onClick={closeConfirmDialog}>
+          <div className="admin-modal admin-modal-sm admin-confirm-modal" onClick={e => e.stopPropagation()}>
+            <div className="admin-modal-body admin-confirm-body">
+              <div className={`admin-confirm-icon admin-confirm-icon-${confirmDialog.variant}`}>
+                <FiAlertTriangle size={18} />
+              </div>
+              <h4>{confirmDialog.title}</h4>
+              <p>{confirmDialog.message}</p>
+            </div>
+            <div className="admin-modal-footer">
+              {!confirmDialog.hideCancel && (
+                <button className="admin-cancel-btn" onClick={closeConfirmDialog}>{confirmDialog.cancelText}</button>
+              )}
+              <button
+                className={confirmDialog.variant === 'danger' ? 'admin-delete-btn' : 'admin-save-btn'}
+                onClick={handleConfirmDialogApprove}
+              >
+                {confirmDialog.confirmText}
               </button>
             </div>
           </div>

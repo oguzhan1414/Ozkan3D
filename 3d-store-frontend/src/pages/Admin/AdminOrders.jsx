@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   FiSearch, FiEye, FiTruck, FiX,
-  FiCheck, FiFilter, FiRefreshCw
+  FiCheck, FiFilter, FiRefreshCw, FiAlertTriangle
 } from 'react-icons/fi'
 import {
   getOrdersApi, updateOrderStatusApi,
@@ -40,6 +40,14 @@ const AdminOrders = () => {
   const [adminNote, setAdminNote] = useState('')
   const [updating, setUpdating] = useState(false)
   const [statusUpdatingOrderId, setStatusUpdatingOrderId] = useState(null)
+  const [statusChangeDialog, setStatusChangeDialog] = useState({
+    open: false,
+    orderId: null,
+    orderNo: '',
+    currentStatus: '',
+    nextStatus: '',
+  })
+  const [statusUpdateError, setStatusUpdateError] = useState('')
 
   const fetchOrders = useCallback(async () => {
     setLoading(true)
@@ -73,23 +81,44 @@ const AdminOrders = () => {
 
     if (!currentStatus || currentStatus === newStatus) return
 
-    const confirmed = window.confirm(
-      `${order?.orderNo || 'Sipariş'} durumu "${currentStatus}" -> "${newStatus}" olarak güncellensin mi?`
-    )
-    if (!confirmed) return
+    setStatusUpdateError('')
+    setStatusChangeDialog({
+      open: true,
+      orderId,
+      orderNo: order?.orderNo || 'Sipariş',
+      currentStatus,
+      nextStatus: newStatus,
+    })
+  }
+
+  const closeStatusChangeDialog = () => {
+    setStatusChangeDialog({
+      open: false,
+      orderId: null,
+      orderNo: '',
+      currentStatus: '',
+      nextStatus: '',
+    })
+  }
+
+  const confirmStatusUpdate = async () => {
+    if (!statusChangeDialog.orderId || !statusChangeDialog.nextStatus) return
+
+    const { orderId, nextStatus } = statusChangeDialog
+    closeStatusChangeDialog()
 
     setStatusUpdatingOrderId(orderId)
     try {
-      await updateOrderStatusApi(orderId, newStatus)
+      await updateOrderStatusApi(orderId, nextStatus)
       setOrders(prev => prev.map(o =>
-        o._id === orderId ? { ...o, status: newStatus } : o
+        o._id === orderId ? { ...o, status: nextStatus } : o
       ))
       if (selectedOrder?._id === orderId) {
-        setSelectedOrder(prev => ({ ...prev, status: newStatus }))
+        setSelectedOrder(prev => ({ ...prev, status: nextStatus }))
       }
     } catch (err) {
       console.log('Durum güncellenemedi:', err.message)
-      alert('Sipariş durumu güncellenemedi.')
+      setStatusUpdateError('Sipariş durumu güncellenemedi. Lütfen tekrar deneyin.')
     } finally {
       setStatusUpdatingOrderId(null)
     }
@@ -509,6 +538,51 @@ const AdminOrders = () => {
               <button className="admin-save-btn" onClick={handleSaveTracking} disabled={updating}>
                 <FiTruck size={14} /> {updating ? 'Kaydediliyor...' : 'Kaydet'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {statusChangeDialog.open && (
+        <div className="admin-modal-overlay" onClick={closeStatusChangeDialog}>
+          <div className="admin-modal admin-modal-sm admin-confirm-modal" onClick={e => e.stopPropagation()}>
+            <div className="admin-modal-body admin-confirm-body">
+              <div className="admin-confirm-icon admin-confirm-icon-danger">
+                <FiAlertTriangle size={18} />
+              </div>
+              <h4>Durum Değiştirilecek</h4>
+              <p>
+                {statusChangeDialog.orderNo} için durum
+                {' '}
+                <strong>{statusChangeDialog.currentStatus}</strong>
+                {' -> '}
+                <strong>{statusChangeDialog.nextStatus}</strong>
+                {' '}
+                olacak. Onaylıyor musunuz?
+              </p>
+            </div>
+            <div className="admin-modal-footer">
+              <button className="admin-cancel-btn" onClick={closeStatusChangeDialog}>İptal</button>
+              <button className="admin-save-btn" onClick={confirmStatusUpdate}>
+                <FiCheck size={14} /> Onayla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {statusUpdateError && (
+        <div className="admin-modal-overlay" onClick={() => setStatusUpdateError('')}>
+          <div className="admin-modal admin-modal-sm admin-confirm-modal" onClick={e => e.stopPropagation()}>
+            <div className="admin-modal-body admin-confirm-body">
+              <div className="admin-confirm-icon admin-confirm-icon-info">
+                <FiAlertTriangle size={18} />
+              </div>
+              <h4>İşlem Başarısız</h4>
+              <p>{statusUpdateError}</p>
+            </div>
+            <div className="admin-modal-footer">
+              <button className="admin-save-btn" onClick={() => setStatusUpdateError('')}>Tamam</button>
             </div>
           </div>
         </div>
