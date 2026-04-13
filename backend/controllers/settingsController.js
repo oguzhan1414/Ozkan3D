@@ -1,4 +1,5 @@
 import Settings from '../models/Settings.js'
+import { uploadImage } from '../utils/imageUpload.js'
 
 // @desc    Ayarları getir
 // @route   GET /api/settings
@@ -37,7 +38,9 @@ export const uploadHeroImage = async (req, res) => {
     throw new Error('Yüklenecek görsel bulunamadı.')
   }
 
-  const imageUrl = `/uploads/home-hero/${req.file.filename}`
+  const uploadResult = await uploadImage(req.file.buffer, 'home-hero')
+  const imageUrl = uploadResult.secure_url
+
   res.status(200).json({
     success: true,
     url: imageUrl,
