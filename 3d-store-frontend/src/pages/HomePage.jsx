@@ -120,6 +120,7 @@ const features = [
 const HomePage = () => {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [heroSlides, setHeroSlides] = useState([])
+  const [heroImageLoaded, setHeroImageLoaded] = useState(false)
 
   useEffect(() => {
     if (heroSlides.length <= 1) return undefined
@@ -143,6 +144,10 @@ const HomePage = () => {
     const preloader = new Image()
     preloader.src = heroSlides[nextSlideIndex].src
   }, [currentSlide, heroSlides])
+
+  useEffect(() => {
+    setHeroImageLoaded(false)
+  }, [currentSlide, heroSlides.length])
 
   const [reviewIndex, setReviewIndex] = useState(0)
   const parallaxRef = useParallax(0.15)
@@ -212,15 +217,28 @@ const fetchData = async () => {
 
       {/* ── Hero Slider ── */}
       <section className="hero-slider">
-        {heroSlides.length > 0 ? (
+        {dataLoading ? (
+          <div className="hero-slide-loading" role="status" aria-live="polite">
+            <div className="hero-loader" aria-hidden="true" />
+            <p>Yukleniyor...</p>
+          </div>
+        ) : heroSlides.length > 0 ? (
           <>
             <div className="hero-slide active" key={currentSlide}>
+              {!heroImageLoaded && (
+                <div className="hero-image-skeleton" aria-hidden="true">
+                  <div className="hero-image-skeleton-shimmer" />
+                </div>
+              )}
               <img
                 src={heroSlides[currentSlide]?.src}
                 alt={heroSlides[currentSlide]?.alt}
                 fetchPriority="high"
                 loading="eager"
                 decoding="async"
+                onLoad={() => setHeroImageLoaded(true)}
+                onError={() => setHeroImageLoaded(true)}
+                className={heroImageLoaded ? 'hero-image-visible' : 'hero-image-hidden'}
               />
             </div>
 
@@ -239,7 +257,7 @@ const fetchData = async () => {
           </>
         ) : (
           <div className="hero-slide-placeholder">
-            <p>Anasayfa slider gorselleri admin panelinden yonetilir.</p>
+            <p>Yeni vitrin gorsellerimiz hazirlaniyor. Magazadan urunleri incelemeye devam edebilirsiniz.</p>
           </div>
         )}
       </section>
