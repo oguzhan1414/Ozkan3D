@@ -141,6 +141,8 @@ const applyMediaPayload = (payload, baseProduct = null) => {
 const productCardProjection = [
   'name',
   'slug',
+  'description',
+  'shortDesc',
   'category',
   'subcategory',
   'price',
