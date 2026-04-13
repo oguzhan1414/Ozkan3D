@@ -9,6 +9,7 @@ import SEO from './components/SEO'
 
 const HomePage = lazy(() => import('./pages/HomePage'))
 const ShopPage = lazy(() => import('./pages/ShopPage'))
+const ThreeDPrintingPage = lazy(() => import('./pages/ThreeDPrintingPage'))
 const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage'))
 const CartPage = lazy(() => import('./pages/CartPage'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
@@ -46,27 +47,22 @@ export const AppContent = () => {
   const isAdmin = location.pathname.startsWith('/admin')
 
   const getSeoForPath = (pathname) => {
-    if (pathname === '/') return null
+    const seoHandledInPage =
+      pathname === '/' ||
+      pathname === '/shop' ||
+      pathname === '/faq' ||
+      pathname === '/blog' ||
+      pathname === '/3d-baski' ||
+      pathname.startsWith('/product/') ||
+      pathname.startsWith('/blog/')
 
-    if (pathname.startsWith('/product/')) {
-      return {
-        title: 'Ürün Detayı',
-        description: 'Ürün özellikleri, renk seçenekleri, fiyat bilgisi ve müşteri yorumlarını inceleyin.',
-      }
-    }
+    if (seoHandledInPage) return null
 
     if (pathname.startsWith('/admin')) {
       return {
         title: 'Yönetim Paneli',
         description: 'Özkan3D yönetim paneli.',
         noIndex: true,
-      }
-    }
-
-    if (pathname.startsWith('/blog/')) {
-      return {
-        title: 'Blog Detayı',
-        description: 'Seçtiğiniz blog yazısının detaylı içeriğini okuyun.',
       }
     }
 
@@ -197,6 +193,7 @@ export const AppContent = () => {
             {/* Public Routes */}
             <Route path="/" element={<HomePage />} />
             <Route path="/shop" element={<ShopPage />} />
+            <Route path="/3d-baski" element={<ThreeDPrintingPage />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/custom" element={<CustomPrintPage />} />

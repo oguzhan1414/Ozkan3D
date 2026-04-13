@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { FiChevronDown, FiChevronUp } from 'react-icons/fi'
+import SEO from '../components/SEO'
 import './PolicyPages.css'
 
 const faqs = [
@@ -94,8 +95,28 @@ const FaqPage = () => {
     setOpenFaqId(null)
   }
 
+  const faqStructuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqs.map((faq) => ({
+      '@type': 'Question',
+      name: faq.q,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: faq.a,
+      },
+    })),
+  }
+
   return (
     <div className="policy-page">
+      <SEO
+        title="3D Baski SSS"
+        description="Siparis, kargo, iade ve ozel 3D baski hakkinda en cok sorulan sorularin yanitlari."
+        keywords="3d baski sss, 3d baski kargo, 3d baski iade, ozel 3d baski sorular"
+        url="/faq"
+        structuredData={faqStructuredData}
+      />
       <div className="policy-header">
         <h1 className="policy-title">Sıkça Sorulan Sorular</h1>
         <p className="policy-updated">Son Güncelleme: 9 Nisan 2026</p>

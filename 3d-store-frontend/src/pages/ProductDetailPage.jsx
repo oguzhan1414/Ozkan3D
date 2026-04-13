@@ -12,7 +12,10 @@ import { getProductApi, getProductsApi } from '../api/productApi'
 import { getProductReviewsApi, createReviewApi } from '../api/reviweApi'
 import { checkPurchaseApi } from '../api/orderApi'
 import { optimizeImage } from '../utils/imageUtils'
+import SEO from '../components/SEO'
 import './ProductDetailPage.css'
+
+const SITE_BASE_URL = 'https://www.ozkan3d.com.tr'
 
 const getRelatedImageUrl = (url) => {
   if (!url || typeof url !== 'string') return url
@@ -295,9 +298,93 @@ const ProductDetailPage = () => {
     : null
 
   const favorited = isFavorite(product._id)
+  const productPath = `/product/${product.slug || product._id}`
+  const productUrl = `${SITE_BASE_URL}${productPath}`
+
+  const seoTitle = (product.metaTitle || '').trim() || `${product.name} - ${product.category || '3D Baskı Ürünü'}`
+  const seoDescription = (product.metaDesc || '').trim() ||
+    product.shortDesc ||
+    product.description ||
+    `${product.name} ürünü için renk, malzeme, fiyat ve teslimat detaylarını inceleyin.`
+
+  const seoKeywords = Array.from(new Set([
+    ...(Array.isArray(product.tags) ? product.tags : []),
+    product.name,
+    product.category,
+    product.subcategory,
+    '3d baskı',
+    'ozkan3d',
+  ].filter(Boolean))).join(', ')
+
+  const productSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    description: seoDescription,
+    sku: product.sku || undefined,
+    category: [product.category, product.subcategory].filter(Boolean).join(' / ') || undefined,
+    image: galleryImages.slice(0, 8),
+    brand: {
+      '@type': 'Brand',
+      name: 'Ozkan3D',
+    },
+    color: product.colors?.length ? product.colors : undefined,
+    material: product.material?.length ? product.material.join(', ') : undefined,
+    offers: {
+      '@type': 'Offer',
+      url: productUrl,
+      priceCurrency: 'TRY',
+      price: Number(product.price || 0).toFixed(2),
+      availability: product.stock > 0
+        ? 'https://schema.org/InStock'
+        : 'https://schema.org/OutOfStock',
+      itemCondition: 'https://schema.org/NewCondition',
+    },
+    aggregateRating: product.reviewCount > 0
+      ? {
+        '@type': 'AggregateRating',
+        ratingValue: Number(product.rating || 0).toFixed(1),
+        reviewCount: Number(product.reviewCount || 0),
+      }
+      : undefined,
+  }
+
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Ana Sayfa',
+        item: SITE_BASE_URL,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Magaza',
+        item: `${SITE_BASE_URL}/shop`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: product.name,
+        item: productUrl,
+      },
+    ],
+  }
 
   return (
     <div className="detail-page">
+      <SEO
+        title={seoTitle}
+        description={seoDescription}
+        keywords={seoKeywords}
+        image={activeImageUrl}
+        url={productPath}
+        type="product"
+        structuredData={[productSchema, breadcrumbSchema]}
+      />
 
       {/* Breadcrumb */}
       <div className="detail-breadcrumb">

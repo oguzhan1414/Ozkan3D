@@ -1,0 +1,170 @@
+.three-d-page {
+  background: #fafafa;
+  color: #1f2937;
+}
+
+.three-d-hero {
+  background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 52%, #ecfeff 100%);
+  border-bottom: 1px solid #e5e7eb;
+  padding: clamp(44px, 8vw, 80px) var(--space-xl);
+}
+
+.three-d-hero-inner,
+.three-d-section-inner {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.three-d-sup {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  color: #1d4ed8;
+  margin-bottom: 10px;
+}
+
+.three-d-hero h1 {
+  font-size: clamp(1.7rem, 3.3vw, 2.8rem);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+
+.three-d-hero p {
+  margin-top: 14px;
+  max-width: 760px;
+  line-height: 1.75;
+  color: #475569;
+  font-size: 0.96rem;
+}
+
+.three-d-actions {
+  margin-top: 22px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.three-d-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.86rem;
+  border-radius: 999px;
+  height: 42px;
+  padding: 0 18px;
+  transition: all 0.2s ease;
+}
+
+.three-d-btn-primary {
+  background: #1d4ed8;
+  color: #ffffff;
+  border: 1px solid #1d4ed8;
+}
+
+.three-d-btn-primary:hover {
+  background: #1e40af;
+}
+
+.three-d-btn-ghost {
+  background: #ffffff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.three-d-btn-ghost:hover {
+  border-color: #60a5fa;
+  background: #f8fbff;
+}
+
+.three-d-section {
+  padding: clamp(28px, 5vw, 52px) var(--space-xl);
+}
+
+.three-d-section-alt {
+  background: #ffffff;
+  border-top: 1px solid #eef2f7;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.three-d-section h2 {
+  font-size: clamp(1.2rem, 2.2vw, 1.8rem);
+  letter-spacing: -0.02em;
+  margin-bottom: 16px;
+  color: #0f172a;
+}
+
+.three-d-link-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.three-d-link-card {
+  text-decoration: none;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: #1e293b;
+  font-weight: 600;
+  font-size: 0.86rem;
+  transition: all 0.2s ease;
+}
+
+.three-d-link-card:hover {
+  border-color: #93c5fd;
+  background: #f8fbff;
+  color: #1d4ed8;
+}
+
+.three-d-checklist {
+  display: grid;
+  gap: 10px;
+  padding-left: 18px;
+  line-height: 1.65;
+  color: #475569;
+}
+
+.three-d-faq-list {
+  display: grid;
+  gap: 12px;
+}
+
+.three-d-faq-item {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.three-d-faq-item h3 {
+  font-size: 0.94rem;
+  color: #0f172a;
+}
+
+.three-d-faq-item p {
+  margin-top: 8px;
+  color: #475569;
+  line-height: 1.7;
+  font-size: 0.87rem;
+}
+
+@media (max-width: 640px) {
+  .three-d-hero,
+  .three-d-section {
+    padding-left: var(--space-md);
+    padding-right: var(--space-md);
+  }
+
+  .three-d-actions {
+    width: 100%;
+  }
+
+  .three-d-btn {
+    width: 100%;
+  }
+}

@@ -1,9 +1,12 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Link, useSearchParams, useLocation } from 'react-router-dom'
 import { FiStar, FiFilter, FiX, FiChevronDown, FiGrid, FiList, FiLoader } from 'react-icons/fi'
 import { getProductsApi } from '../api/productApi'
 import { optimizeImage } from '../utils/imageUtils'
+import SEO from '../components/SEO'
 import './ShopPage.css'
+
+const SITE_BASE_URL = 'https://www.ozkan3d.com.tr'
 
 const categoryData = [
   {
@@ -205,6 +208,60 @@ const ShopPage = () => {
 
   const hasCategorySelected = selectedCats.length > 0 || selectedSubs.length > 0;
 
+  const seoTitle = keyword
+    ? `"${keyword}" icin 3D Baski Urunleri`
+    : selectedSubs.length
+      ? `${selectedSubs.join(', ')} 3D Baski Urunleri`
+      : selectedCats.length
+        ? `${selectedCats.join(', ')} 3D Baski Urunleri`
+        : '3D Baski Urunleri Magazasi'
+
+  const seoDescription = keyword
+    ? `${keyword} aramasi icin 3D baski urunlerini filtreleyin, fiyat ve ozellikleri karsilastirin.`
+    : 'Figur, dekor, anahtarlik, konsol aksesuari ve ozel tasarim dahil 3D baski urunlerini kategorilere gore inceleyin.'
+
+  const seoKeywords = Array.from(new Set([
+    '3d baski',
+    '3d baski urunleri',
+    'ozkan3d',
+    keyword,
+    ...selectedCats,
+    ...selectedSubs,
+  ].filter(Boolean))).join(', ')
+
+  const shopPathWithQuery = `/shop${location.search || ''}`
+
+  const itemListSchema = useMemo(() => ({
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: seoTitle,
+    itemListElement: products.map((product, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      url: `${SITE_BASE_URL}/product/${product.slug || product._id}`,
+      name: product.name,
+    })),
+  }), [products, seoTitle])
+
+  const breadcrumbSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Ana Sayfa',
+        item: SITE_BASE_URL,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Magaza',
+        item: `${SITE_BASE_URL}/shop`,
+      },
+    ],
+  }
+
   /* ── Sidebar ── */
   const Sidebar = () => (
     <aside className={`shop-sidebar ${sidebarOpen ? 'shop-sidebar-open' : ''}`}>
@@ -298,6 +355,13 @@ const ShopPage = () => {
 
   return (
     <div className="shop-page">
+      <SEO
+        title={seoTitle}
+        description={seoDescription}
+        keywords={seoKeywords}
+        url={shopPathWithQuery}
+        structuredData={[breadcrumbSchema, itemListSchema]}
+      />
       <div className="shop-layout">
 
         {sidebarOpen && (

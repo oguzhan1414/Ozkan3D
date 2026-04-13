@@ -87,6 +87,7 @@ const Footer = () => {
             <h4 className="footer-col-title">Hızlı Erişim</h4>
             <div className="footer-links">
               <Link to="/" className="footer-link"><FiArrowRight size={12} />Anasayfa</Link>
+              <Link to="/3d-baski" className="footer-link"><FiArrowRight size={12} />3D Baskı Ürünleri</Link>
               <Link to="/contact" className="footer-link"><FiArrowRight size={12} />İletişim</Link>
               <Link to="/faq" className="footer-link"><FiArrowRight size={12} />Sıkça Sorulan Sorular</Link>
               <Link to="/blog" className="footer-link"><FiArrowRight size={12} />Blog</Link>
