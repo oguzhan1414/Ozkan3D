@@ -7,12 +7,13 @@ import {
 import { protect } from '../middleware/authMiddleware.js'
 import { admin } from '../middleware/adminMiddleware.js'
 import { upload } from '../middleware/uploadMiddleware.js'
+import { withPublicCache } from '../middleware/cacheControlMiddleware.js'
 
 const router = express.Router()
 
-router.get('/', getProducts)
-router.get('/featured', getFeaturedProducts)
-router.get('/:slug', getProduct)
+router.get('/', withPublicCache(45, 90), getProducts)
+router.get('/featured', withPublicCache(120, 180), getFeaturedProducts)
+router.get('/:slug', withPublicCache(180, 300), getProduct)
 router.post('/', protect, admin, createProduct)
 router.put('/:id', protect, admin, updateProduct)
 router.delete('/:id', protect, admin, deleteProduct)

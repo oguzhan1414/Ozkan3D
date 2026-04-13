@@ -12,6 +12,7 @@ export const getProductReviews = async (req, res) => {
   })
     .populate('user', 'firstName lastName')
     .sort({ createdAt: -1 })
+    .lean()
 
   res.status(200).json({ success: true, count: reviews.length, data: reviews })
 }
@@ -51,13 +52,14 @@ export const getReviews = async (req, res) => {
 // @access  Public
 export const getPublicReviews = async (req, res) => {
   const { limit = 6 } = req.query
-  const limitNum = Number(limit)
+  const limitNum = Math.min(20, Math.max(1, Number(limit) || 6))
 
   const reviews = await Review.find({ status: 'approved' })
     .populate('user', 'firstName lastName')
     .populate('product', 'name images slug')
     .sort({ createdAt: -1 })
     .limit(limitNum)
+    .lean()
 
   res.status(200).json({
     success: true,

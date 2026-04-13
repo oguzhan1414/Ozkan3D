@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FiArrowRight, FiStar, FiZap, FiPackage, FiTruck, FiCheck } from 'react-icons/fi'
-import { getProductsApi, getFeaturedProductsApi } from '../api/productApi'
-import { getPublicReviewsApi } from '../api/reviweApi'
-import { getSettingsApi } from '../api/settingsApi'
+import { getHomeBootstrapApi } from '../api/homeApi'
 import SEO from '../components/SEO'
 import FavoriteButton from '../components/FavoriteButton'
 import { optimizeImage } from '../utils/imageUtils'
@@ -162,23 +160,15 @@ const HomePage = () => {
 const fetchData = async () => {
   setDataLoading(true)
   try {
-    const results = await Promise.all([
-      getFeaturedProductsApi(),
-      getProductsApi({ limit: 20 }),
-      getSettingsApi(),
-    ])
-    setFeaturedProducts(results[0].data || [])
-    setAllProducts(results[1].data || [])
+    const result = await getHomeBootstrapApi()
+    const payload = result?.data || {}
 
-    const dynamicSlides = normalizeHeroSlides(results[2]?.data?.heroSlides)
+    setFeaturedProducts(payload.featuredProducts || [])
+    setAllProducts(payload.products || [])
+
+    const dynamicSlides = normalizeHeroSlides(payload.settings?.heroSlides)
     setHeroSlides(dynamicSlides)
-
-    try {
-      const reviewRes = await getPublicReviewsApi({ status: 'approved', limit: 6 })
-      setReviews(reviewRes.data || [])
-    } catch {
-      setReviews([])
-    }
+    setReviews(payload.reviews || [])
   } catch (err) {
     console.log('HomePage data hatası:', err.message)
   } finally {

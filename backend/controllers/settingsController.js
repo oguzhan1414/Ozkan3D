@@ -4,9 +4,10 @@ import Settings from '../models/Settings.js'
 // @route   GET /api/settings
 // @access  Public (site adı vs frontend için)
 export const getSettings = async (req, res) => {
-  let settings = await Settings.findOne()
+  let settings = await Settings.findOne().lean()
   if (!settings) {
-    settings = await Settings.create({})
+    const created = await Settings.create({})
+    settings = created.toObject()
   }
   res.status(200).json({ success: true, data: settings })
 }

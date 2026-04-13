@@ -40,6 +40,8 @@ const reviewSchema = new mongoose.Schema({
 
 // Aynı kullanıcı aynı ürüne birden fazla yorum yapmasın
 reviewSchema.index({ user: 1, product: 1 }, { unique: true })
+reviewSchema.index({ status: 1, createdAt: -1 })
+reviewSchema.index({ product: 1, status: 1, createdAt: -1 })
 
 // Yorum eklenince ürün ratingini güncelle
 reviewSchema.statics.calcAverageRating = async function (productId) {

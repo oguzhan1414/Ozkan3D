@@ -138,6 +138,26 @@ const applyMediaPayload = (payload, baseProduct = null) => {
   return nextPayload
 }
 
+const productCardProjection = [
+  'name',
+  'slug',
+  'category',
+  'subcategory',
+  'price',
+  'oldPrice',
+  'stock',
+  'images',
+  'imageVariants',
+  'material',
+  'colors',
+  'badge',
+  'rating',
+  'reviewCount',
+  'featured',
+  'isActive',
+  'createdAt',
+].join(' ')
+
 // @desc    Tüm ürünleri getir
 // @route   GET /api/products
 // @access  Public
@@ -155,8 +175,16 @@ export const getProducts = async (req, res) => {
     query.$text = { $search: keyword }
   }
 
-  if (category) query.category = category
-  if (subcategory) query.subcategory = subcategory
+  if (category) {
+    query.category = category.includes(',')
+      ? { $in: category.split(',').map((item) => item.trim()).filter(Boolean) }
+      : category
+  }
+  if (subcategory) {
+    query.subcategory = subcategory.includes(',')
+      ? { $in: subcategory.split(',').map((item) => item.trim()).filter(Boolean) }
+      : subcategory
+  }
   if (badge) {
     query.badge = { $in: badge.split(',') }
   }
@@ -182,15 +210,19 @@ export const getProducts = async (req, res) => {
   if (sort === 'name-desc') sortOption = { name: -1 }
 
   // Sayfalama
-  const pageNum = Number(page)
-  const limitNum = Number(limit)
+  const pageNum = Math.max(1, Number(page) || 1)
+  const limitNum = Math.min(48, Math.max(1, Number(limit) || 12))
   const skip = (pageNum - 1) * limitNum
 
-  const total = await Product.countDocuments(query)
-  const products = await Product.find(query)
-    .sort(sortOption)
-    .skip(skip)
-    .limit(limitNum)
+  const [total, products] = await Promise.all([
+    Product.countDocuments(query),
+    Product.find(query)
+      .select(productCardProjection)
+      .sort(sortOption)
+      .skip(skip)
+      .limit(limitNum)
+      .lean(),
+  ])
 
   res.status(200).json({
     success: true,
@@ -209,7 +241,7 @@ export const getProduct = async (req, res) => {
   const product = await Product.findOne({
     slug: req.params.slug,
     isActive: true,
-  })
+  }).lean()
 
   if (!product) {
     res.status(404)
@@ -395,8 +427,10 @@ export const deleteProductImage = async (req, res) => {
 // @access  Public
 export const getFeaturedProducts = async (req, res) => {
   const products = await Product.find({ featured: true, isActive: true })
+    .select(productCardProjection)
     .limit(8)
     .sort({ createdAt: -1 })
+    .lean()
 
   res.status(200).json({ success: true, data: products })
 }

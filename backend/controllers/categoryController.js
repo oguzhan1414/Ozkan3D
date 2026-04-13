@@ -8,6 +8,7 @@ export const getCategories = async (req, res) => {
   const categories = await Category.find({ isActive: true })
     .sort({ order: 1 })
     .populate('parent', 'name slug')
+    .lean()
 
   res.status(200).json({ success: true, count: categories.length, data: categories })
 }
@@ -18,6 +19,7 @@ export const getCategories = async (req, res) => {
 export const getCategory = async (req, res) => {
   const category = await Category.findOne({ slug: req.params.slug })
     .populate('parent', 'name slug')
+    .lean()
 
   if (!category) {
     res.status(404)
