@@ -9,12 +9,6 @@ import {io} from '../server.js'
 import { calculateShippingQuote } from '../utils/shippingCalculator.js'
 import Settings from '../models/Settings.js'
 
-const SHIPPING_SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000
-let shippingConfigCache = {
-  value: null,
-  expiresAt: 0,
-}
-
 const formatOrderDateForTR = (dateValue) => {
   if (!dateValue) return ''
 
@@ -57,14 +51,9 @@ const bulkAdjustStock = async (items = [], direction = 'decrease') => {
 }
 
 const getShippingConfigFromSettings = async () => {
-  const now = Date.now()
-  if (shippingConfigCache.value && shippingConfigCache.expiresAt > now) {
-    return shippingConfigCache.value
-  }
-
   const settings = await Settings.findOne().lean()
 
-  const config = {
+  return {
     baseCostByZone: {
       local: Number(settings?.localShippingCost ?? 89),
       near: Number(settings?.nearShippingCost ?? 109),
@@ -73,13 +62,6 @@ const getShippingConfigFromSettings = async () => {
     },
     expressSurcharge: Number(settings?.expressShippingSurcharge ?? 35),
   }
-
-  shippingConfigCache = {
-    value: config,
-    expiresAt: now + SHIPPING_SETTINGS_CACHE_TTL_MS,
-  }
-
-  return config
 }
 
 // @desc    Sipariş oluştur

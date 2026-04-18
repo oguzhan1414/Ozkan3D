@@ -23,6 +23,12 @@ const roleColors = {
   'user':      { color: '#2563eb', bg: '#eff6ff' },
 }
 
+const normalizeNonNegativeNumber = (value, fallback) => {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return fallback
+  return Math.max(0, parsed)
+}
+
 const AdminSettings = () => {
   const [activeTab, setActiveTab]     = useState('general')
   const [settings, setSettings]       = useState(null)
@@ -66,7 +72,16 @@ const AdminSettings = () => {
   const handleSave = async () => {
     setSaving(true)
     try {
-      const res = await updateSettingsApi(settings)
+      const payload = {
+        ...settings,
+        localShippingCost: normalizeNonNegativeNumber(settings?.localShippingCost, 89),
+        nearShippingCost: normalizeNonNegativeNumber(settings?.nearShippingCost, 109),
+        standardShippingCost: normalizeNonNegativeNumber(settings?.standardShippingCost, 139),
+        farShippingCost: normalizeNonNegativeNumber(settings?.farShippingCost, 179),
+        expressShippingSurcharge: normalizeNonNegativeNumber(settings?.expressShippingSurcharge, 35),
+      }
+
+      const res = await updateSettingsApi(payload)
       setSettings(res.data)
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
@@ -79,6 +94,18 @@ const AdminSettings = () => {
 
   const updateField = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }))
+  }
+
+  const updateNumericField = (key, rawValue) => {
+    if (rawValue === '') {
+      updateField(key, '')
+      return
+    }
+
+    const parsed = Number(rawValue)
+    if (Number.isNaN(parsed)) return
+
+    updateField(key, parsed)
   }
 
   const resolveAssetUrl = (url) => {
@@ -421,8 +448,10 @@ const AdminSettings = () => {
                     <input
                       type="number"
                       className="admin-input"
-                      value={settings?.localShippingCost || 89}
-                      onChange={e => updateField('localShippingCost', Number(e.target.value))}
+                      min={0}
+                      step={1}
+                      value={settings?.localShippingCost ?? 89}
+                      onChange={e => updateNumericField('localShippingCost', e.target.value)}
                     />
                     <small className="input-hint">Ücretsiz kargo uygulanmaz, tüm siparişlerde kargo ücreti alınır.</small>
                   </div>
@@ -431,8 +460,10 @@ const AdminSettings = () => {
                     <input
                       type="number"
                       className="admin-input"
-                      value={settings?.nearShippingCost || 109}
-                      onChange={e => updateField('nearShippingCost', Number(e.target.value))}
+                      min={0}
+                      step={1}
+                      value={settings?.nearShippingCost ?? 109}
+                      onChange={e => updateNumericField('nearShippingCost', e.target.value)}
                     />
                   </div>
                 </div>
@@ -443,8 +474,10 @@ const AdminSettings = () => {
                     <input
                       type="number"
                       className="admin-input"
-                      value={settings?.standardShippingCost || 139}
-                      onChange={e => updateField('standardShippingCost', Number(e.target.value))}
+                      min={0}
+                      step={1}
+                      value={settings?.standardShippingCost ?? 139}
+                      onChange={e => updateNumericField('standardShippingCost', e.target.value)}
                     />
                   </div>
                   <div className="settings-form-group">
@@ -452,8 +485,10 @@ const AdminSettings = () => {
                     <input
                       type="number"
                       className="admin-input"
-                      value={settings?.farShippingCost || 179}
-                      onChange={e => updateField('farShippingCost', Number(e.target.value))}
+                      min={0}
+                      step={1}
+                      value={settings?.farShippingCost ?? 179}
+                      onChange={e => updateNumericField('farShippingCost', e.target.value)}
                     />
                   </div>
                 </div>
@@ -463,8 +498,10 @@ const AdminSettings = () => {
                   <input
                     type="number"
                     className="admin-input"
-                    value={settings?.expressShippingSurcharge || 35}
-                    onChange={e => updateField('expressShippingSurcharge', Number(e.target.value))}
+                    min={0}
+                    step={1}
+                    value={settings?.expressShippingSurcharge ?? 35}
+                    onChange={e => updateNumericField('expressShippingSurcharge', e.target.value)}
                     style={{ maxWidth: '220px' }}
                   />
                 </div>
