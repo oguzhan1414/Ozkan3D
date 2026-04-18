@@ -285,11 +285,11 @@ const CartPage = () => {
 
               <div className="summary-secure">
                 <FiShield size={14} />
-                <span>Güvenli ödeme — iyzico altyapısı</span>
+                <span>Güvenli ödeme — PayTR altyapısı</span>
               </div>
 
               <div className="summary-payments">
-                <div className="payment-badge payment-iyzico"><span>iyzico</span></div>
+                <div className="payment-badge payment-paytr"><span>PayTR</span></div>
                 <div className="payment-badge payment-visa"><span>VISA</span></div>
                 <div className="payment-badge payment-mc">
                   <span className="mc-circle mc-red" />

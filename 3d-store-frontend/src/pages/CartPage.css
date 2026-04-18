@@ -474,7 +474,7 @@
   font-weight: 700;
 }
 
-.payment-iyzico { color: #ff6600; background: #fff8f5; border-color: #ffd9c2; font-size: 0.7rem; }
+.payment-paytr { color: #ff6600; background: #fff8f5; border-color: #ffd9c2; font-size: 0.7rem; }
 .payment-visa { color: #1a1f71; font-style: italic; letter-spacing: 0.05em; }
 .payment-mc { gap: 2px; padding: 0 6px; }
 .mc-circle { width: 14px; height: 14px; border-radius: 50%; }

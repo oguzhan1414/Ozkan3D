@@ -293,20 +293,20 @@
   color: #444444;
 }
 
-.iyzico-section {
+.paytr-section {
   background: #fff8f5;
   border: 1.5px solid #ffd9c2;
   border-radius: var(--radius-lg);
   padding: var(--space-xl);
 }
 
-.iyzico-header {
+.paytr-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.iyzico-logo {
+.paytr-logo {
   font-size: 1.1rem;
   font-weight: 800;
   color: #ff6600;

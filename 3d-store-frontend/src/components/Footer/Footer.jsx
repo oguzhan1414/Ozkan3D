@@ -132,9 +132,9 @@ const Footer = () => {
             <span className="payment-label">Güvenli Ödeme:</span>
             <div className="payment-icons">
 
-              {/* iyzico */}
-              <div className="payment-badge payment-iyzico">
-                <span>iyzico</span>
+              {/* PayTR */}
+              <div className="payment-badge payment-paytr">
+                <span>PayTR</span>
               </div>
 
               {/* Visa */}

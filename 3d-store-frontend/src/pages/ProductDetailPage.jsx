@@ -588,7 +588,7 @@ const ProductDetailPage = () => {
               </div>
               <div className="detail-meta-item">
                 <FiShield size={16} />
-                <span><strong>Ödeme güvenliği</strong> — işlemler iyzico altyapısı ile korunur</span>
+                <span><strong>Ödeme güvenliği</strong> — işlemler PayTR altyapısı ile korunur</span>
               </div>
               <div className="detail-meta-item">
                 <FiRefreshCw size={16} />

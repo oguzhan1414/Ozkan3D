@@ -12,26 +12,6 @@ import { addAddressApi } from '../api/authApi'
 import './CheckoutPage.css'
 
 const steps = ['Adres', 'Kargo', 'Ödeme']
-const TR_IDENTITY_REGEX = /^\d{11}$/
-const TR_GSM_REGEX = /^\+90\d{10}$/
-
-const normalizeTrGsmNumber = (value = '') => {
-  const digits = String(value).replace(/\D/g, '')
-
-  if (digits.length === 12 && digits.startsWith('90')) {
-    return `+${digits}`
-  }
-
-  if (digits.length === 11 && digits.startsWith('0')) {
-    return `+90${digits.slice(1)}`
-  }
-
-  if (digits.length === 10) {
-    return `+90${digits}`
-  }
-
-  return String(value || '').trim()
-}
 
 const CheckoutPage = () => {
   const { items: cartItems, totalPrice, clearCart } = useCart()
@@ -55,11 +35,6 @@ const CheckoutPage = () => {
 
   const [shipping, setShipping] = useState('standard')
   const [payment, setPayment] = useState('card')
-  const [card, setCard] = useState({ number: '', name: '', expiry: '', cvv: '', installment: '1' })
-  const [kyc, setKyc] = useState({
-    identityNumber: '',
-    gsmNumber: user?.phone || '',
-  })
   const [selectedBank, setSelectedBank] = useState('ziraat')
   const [saveAddress, setSaveAddress] = useState(false)
   const [customerNote, setCustomerNote] = useState('')
@@ -149,25 +124,11 @@ const CheckoutPage = () => {
   const handleAddressChange = e => setAddress(p => ({ ...p, [e.target.name]: e.target.value }))
 
   useEffect(() => {
-    if (!kyc.gsmNumber && address.phone) {
-      setKyc(prev => ({ ...prev, gsmNumber: address.phone }))
+    const params = new URLSearchParams(location.search)
+    if (params.get('paytr') === 'failed') {
+      setError('PayTR odemesi tamamlanamadi. Siparis iptal edildi veya odeme basarisiz oldu.')
     }
-  }, [address.phone, kyc.gsmNumber])
-
-  const handleCardChange = e => {
-    const { name, value } = e.target
-    if (name === 'number') {
-      const v = value.replace(/\D/g, '').slice(0, 16)
-      setCard(p => ({ ...p, number: v.replace(/(.{4})/g, '$1 ').trim() }))
-    } else if (name === 'expiry') {
-      const v = value.replace(/\D/g, '').slice(0, 4)
-      setCard(p => ({ ...p, expiry: v.length > 2 ? `${v.slice(0,2)}/${v.slice(2)}` : v }))
-    } else if (name === 'cvv') {
-      setCard(p => ({ ...p, cvv: value.replace(/\D/g, '').slice(0, 3) }))
-    } else {
-      setCard(p => ({ ...p, [name]: value }))
-    }
-  }
+  }, [location.search])
 
   const handleSelectSavedAddress = (addr) => {
     setSelectedSavedAddress(addr._id)
@@ -190,47 +151,6 @@ const CheckoutPage = () => {
         return false
       }
     }
-    if (step === 2 && payment === 'card') {
-      if (!card.number || !card.name || !card.expiry || !card.cvv) {
-        setError('Lütfen kart bilgilerini eksiksiz doldurun.')
-        return false
-      }
-
-      const normalizedIdentity = String(kyc.identityNumber || '').replace(/\D/g, '')
-      if (!TR_IDENTITY_REGEX.test(normalizedIdentity) || /^(\d)\1{10}$/.test(normalizedIdentity)) {
-        setError('Lütfen geçerli bir 11 haneli TC kimlik numarası girin.')
-        return false
-      }
-
-      const normalizedGsm = normalizeTrGsmNumber(kyc.gsmNumber)
-      if (!TR_GSM_REGEX.test(normalizedGsm)) {
-        setError('Telefon numarası +90XXXXXXXXXX formatında olmalıdır.')
-        return false
-      }
-
-      const cardDigits = card.number.replace(/\s/g, '')
-      if (cardDigits.length !== 16) {
-        setError('Kart numarası 16 hane olmalıdır.')
-        return false
-      }
-
-      if (!/^\d{2}\/\d{2}$/.test(card.expiry)) {
-        setError('Son kullanma tarihi AA/YY formatında olmalıdır.')
-        return false
-      }
-
-      const [month] = card.expiry.split('/')
-      if (Number(month) < 1 || Number(month) > 12) {
-        setError('Geçerli bir ay girin (01-12).')
-        return false
-      }
-
-      if (card.cvv.length !== 3) {
-        setError('CVV 3 hane olmalıdır.')
-        return false
-      }
-    }
-
     if ((step === 1 || step === 2) && !shippingQuote) {
       setError('Kargo ucreti henuz hesaplanamadi. Sehir bilgisini kontrol edin.')
       return false
@@ -252,24 +172,6 @@ const CheckoutPage = () => {
     setLoading(true)
     setError('')
     try {
-      const cardDetails = payment === 'card'
-        ? {
-            cardNumber: card.number.replace(/\s/g, ''),
-            cardHolderName: card.name.trim(),
-            expireMonth: card.expiry.split('/')[0],
-            expireYear: `20${card.expiry.split('/')[1]}`,
-            cvc: card.cvv,
-            installment: Number(card.installment) || 1,
-          }
-        : null
-
-      const buyerInfo = payment === 'card'
-        ? {
-            identityNumber: String(kyc.identityNumber || '').replace(/\D/g, ''),
-            gsmNumber: normalizeTrGsmNumber(kyc.gsmNumber),
-          }
-        : null
-
       const orderData = {
         items: cartItems.map(item => ({
           product: item.productId,
@@ -303,9 +205,15 @@ const CheckoutPage = () => {
         try {
           paymentRes = await createPaymentApi({
             orderId: order._id,
-            cardDetails,
-            buyerInfo,
           })
+
+          const paymentPageUrl = paymentRes?.data?.paymentPageUrl
+          if (!paymentPageUrl) {
+            throw new Error('PayTR odeme sayfasi olusturulamadi.')
+          }
+
+          window.location.href = paymentPageUrl
+          return
         } catch (payErr) {
           // Ödeme başarısızsa stok ve sipariş akışı bozulmaması için siparişi iptal et.
           try {
@@ -314,7 +222,7 @@ const CheckoutPage = () => {
             console.log('Ödeme başarısız, sipariş iptali başarısız:', cancelErr.message)
           }
 
-          setError(payErr.response?.data?.message || 'Ödeme alınamadı. Kart bilgilerinizi kontrol edip tekrar deneyin.')
+          setError(payErr.response?.data?.message || payErr.message || 'PayTR odeme oturumu olusturulamadi. Lutfen tekrar deneyin.')
           return
         }
       }
@@ -608,9 +516,9 @@ const CheckoutPage = () => {
               <div className="checkout-card-header">
                 <FiCreditCard size={18} />
                 <h3>Ödeme</h3>
-                <div className="checkout-iyzico-badge">
+                <div className="checkout-paytr-badge">
                   <FiShield size={12} />
-                  <span>iyzico güvencesi</span>
+                  <span>PayTR guvencesi</span>
                 </div>
               </div>
 
@@ -631,89 +539,12 @@ const CheckoutPage = () => {
 
               {payment === 'card' && (
                 <div className="card-form">
-                  <div className="card-preview">
-                    <div className="card-preview-inner">
-                      <div className="card-chip" />
-                      <div className="card-number-preview">
-                        {(card.number || '•••• •••• •••• ••••')}
-                      </div>
-                      <div className="card-bottom">
-                        <div>
-                          <p className="card-label">Kart Sahibi</p>
-                          <p className="card-value">{card.name || 'AD SOYAD'}</p>
-                        </div>
-                        <div>
-                          <p className="card-label">Son Kullanma</p>
-                          <p className="card-value">{card.expiry || 'AA/YY'}</p>
-                        </div>
-                      </div>
-                    </div>
+                  <div className="checkout-note" style={{ marginTop: 0 }}>
+                    Kart bilgilerinizi bu sayfada girmiyorsunuz. "Siparisi Tamamla" dedikten sonra PayTR guvenli odeme sayfasina yonlendirileceksiniz.
                   </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Kart Numarası</label>
-                    <input name="number" value={card.number} onChange={handleCardChange} placeholder="0000 0000 0000 0000" className="form-input-plain" maxLength={19} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Kart Üzerindeki Ad</label>
-                    <input name="name" value={card.name} onChange={handleCardChange} placeholder="AD SOYAD" className="form-input-plain" />
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label className="form-label">TC Kimlik Numarası</label>
-                      <input
-                        name="identityNumber"
-                        value={kyc.identityNumber}
-                        onChange={e => setKyc(prev => ({ ...prev, identityNumber: e.target.value.replace(/\D/g, '').slice(0, 11) }))}
-                        placeholder="11 haneli TC kimlik no"
-                        className="form-input-plain"
-                        inputMode="numeric"
-                        maxLength={11}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Telefon (+90)</label>
-                      <input
-                        name="gsmNumber"
-                        value={kyc.gsmNumber}
-                        onChange={e => setKyc(prev => ({ ...prev, gsmNumber: e.target.value }))}
-                        placeholder="+905XXXXXXXXX"
-                        className="form-input-plain"
-                        inputMode="tel"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="checkout-note">
-                    Ödeme doğrulaması için TC kimlik ve telefon bilgisi iyzico'ya güvenli olarak iletilir.
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label className="form-label">Son Kullanma Tarihi</label>
-                      <input name="expiry" value={card.expiry} onChange={handleCardChange} placeholder="AA/YY" className="form-input-plain" maxLength={5} />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">CVV</label>
-                      <input name="cvv" value={card.cvv} onChange={handleCardChange} placeholder="•••" className="form-input-plain" maxLength={3} type="password" />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Taksit Seçeneği</label>
-                    <select
-                      className="form-input-plain"
-                      value={card.installment}
-                      onChange={e => setCard(p => ({ ...p, installment: e.target.value }))}
-                    >
-                      <option value="1">Tek Çekim</option>
-                      <option value="2">2 Taksit</option>
-                      <option value="3">3 Taksit</option>
-                      <option value="6">6 Taksit</option>
-                      <option value="9">9 Taksit</option>
-                      <option value="12">12 Taksit</option>
-                    </select>
+                  <div className="transfer-note" style={{ marginTop: '14px' }}>
+                    <p>PayTR test modunda sadece test kartlari ile odeme alinabilir.</p>
+                    <p>Basarili odeme sonrasinda otomatik olarak siparis sonuc sayfasina yonlendirilirsiniz.</p>
                   </div>
                 </div>
               )}
@@ -841,11 +672,11 @@ const CheckoutPage = () => {
 
             <div className="checkout-summary-secure">
               <FiShield size={14} />
-              <span>iyzico güvenli ödeme altyapısı</span>
+              <span>PayTR guvenli odeme altyapisi</span>
             </div>
 
             <div className="checkout-payment-icons">
-              <div className="payment-badge payment-iyzico"><span>iyzico</span></div>
+              <div className="payment-badge payment-paytr"><span>PayTR</span></div>
               <div className="payment-badge payment-visa"><span>VISA</span></div>
               <div className="payment-badge payment-mc">
                 <span className="mc-circle mc-red" />

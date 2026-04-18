@@ -1,6 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { FiCheck, FiShoppingBag, FiHome, FiMail, FiMapPin, FiPackage } from 'react-icons/fi'
+import { getOrderApi } from '../api/orderApi'
+import { useCart } from '../context/CartContext'
 import './OrderSuccessPage.css'
 
 const CanvasConfetti = () => {
@@ -49,16 +51,98 @@ const CanvasConfetti = () => {
 const OrderSuccessPage = () => {
   const location = useLocation()
   const navigate = useNavigate()
-  const order = location.state
+  const { clearCart } = useCart()
+  const [order, setOrder] = useState(location.state || null)
+  const [loading, setLoading] = useState(!location.state)
+  const [pageError, setPageError] = useState('')
+  const cartClearedRef = useRef(false)
 
-  // State yoksa checkout'a yönlendir
+  const search = new URLSearchParams(location.search)
+  const orderId = search.get('orderId')
+  const paytrStatus = search.get('paytr')
+
+  // State yoksa query param orderId ile siparisi cek.
   useEffect(() => {
-    if (!order?.orderNo) {
-      navigate('/')
+    let mounted = true
+
+    const fetchOrder = async () => {
+      if (location.state?.orderNo) {
+        setOrder(location.state)
+        setLoading(false)
+        return
+      }
+
+      if (!orderId) {
+        navigate('/')
+        return
+      }
+
+      setLoading(true)
+      try {
+        const res = await getOrderApi(orderId)
+        if (!mounted) return
+        setOrder(res.data)
+        setPageError('')
+      } catch (err) {
+        if (!mounted) return
+        setPageError(err.response?.data?.message || 'Siparis detayi alinamadi.')
+      } finally {
+        if (mounted) setLoading(false)
+      }
     }
-  }, [navigate, order?.orderNo])
+
+    fetchOrder()
+
+    return () => {
+      mounted = false
+    }
+  }, [location.state, orderId, navigate])
+
+  useEffect(() => {
+    if (cartClearedRef.current) return
+    if (!order?.orderNo) return
+
+    if (order.paymentMethod === 'transfer' || order.isPaid) {
+      cartClearedRef.current = true
+      clearCart().catch(() => {})
+    }
+  }, [order?.orderNo, order?.paymentMethod, order?.isPaid, clearCart])
+
+  if (loading) {
+    return (
+      <div className="success-page">
+        <div className="success-card">
+          <h2>Odeme durumu kontrol ediliyor...</h2>
+          <p>PayTR sonucu dogrulaniyor, lutfen sayfayi kapatmayin.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (pageError) {
+    return (
+      <div className="success-page">
+        <div className="success-card">
+          <h2>Siparis bilgisi alinamadi</h2>
+          <p>{pageError}</p>
+          <div className="success-actions">
+            <Link to="/account?tab=orders" className="btn-orders">
+              <FiShoppingBag size={16} />
+              Siparislerimi Gor
+            </Link>
+            <Link to="/" className="btn-home">
+              <FiHome size={16} />
+              Ana Sayfaya Don
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (!order?.orderNo) return null
+
+  const isPaytrPending = paytrStatus === 'success' && !order.isPaid
 
   return (
     <div className="success-page">
@@ -77,10 +161,17 @@ const OrderSuccessPage = () => {
             Sipariş No: <strong>{order.orderNo}</strong>
           </p>
           <h1 className="success-title">Siparişiniz Alındı! 🎉</h1>
-          <p className="success-desc">
-            Siparişiniz başarıyla oluşturuldu. Üretim süreciniz başladı,
-            kargo takip bilgileri e-posta adresinize gönderilecektir.
-          </p>
+          {isPaytrPending ? (
+            <p className="success-desc">
+              PayTR odemeniz alindi, bankadan kesin dogrulama bekleniyor.
+              Birkac saniye sonra sayfayi yenileyerek odeme durumunu kontrol edebilirsiniz.
+            </p>
+          ) : (
+            <p className="success-desc">
+              Siparişiniz başarıyla oluşturuldu. Üretim süreciniz başladı,
+              kargo takip bilgileri e-posta adresinize gönderilecektir.
+            </p>
+          )}
         </div>
 
         {/* Sipariş Adımları */}
