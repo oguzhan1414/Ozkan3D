@@ -6,8 +6,29 @@ import Coupon from '../models/Coupon.js'
 
 const inFlightPayments = new Set()
 const PAYTR_TOKEN_URL = 'https://www.paytr.com/odeme/api/get-token'
+const FALLBACK_CLIENT_URL = 'https://www.ozkan3d.com.tr'
 
 const normalizeMoney = (value) => Number(Number(value || 0).toFixed(2))
+
+const toBoolean = (value, fallback = false) => {
+  if (value == null) return fallback
+  const normalized = String(value).trim().toLowerCase()
+  if (['1', 'true', 'yes', 'y', 'on'].includes(normalized)) return true
+  if (['0', 'false', 'no', 'n', 'off'].includes(normalized)) return false
+  return fallback
+}
+
+const resolveClientUrl = () => {
+  const rawClientUrl = String(process.env.CLIENT_URL || '').trim()
+  if (rawClientUrl && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(rawClientUrl)) {
+    return rawClientUrl.replace(/\/+$/, '')
+  }
+
+  const isProduction = String(process.env.NODE_ENV || '').toLowerCase() === 'production'
+  if (isProduction) return FALLBACK_CLIENT_URL
+
+  return (rawClientUrl || 'http://localhost:5173').replace(/\/+$/, '')
+}
 
 const getPaytrConfig = () => {
   const merchantId = process.env.PAYTR_MERCHANT_ID || process.env.merchant_id
@@ -15,10 +36,10 @@ const getPaytrConfig = () => {
   const merchantSalt = process.env.PAYTR_MERCHANT_SALT || process.env.merchant_salt
 
   const explicitTestMode = process.env.PAYTR_TEST_MODE
-  const isTestMode =
-    explicitTestMode != null
-      ? String(explicitTestMode).trim() === '1' || String(explicitTestMode).trim().toLowerCase() === 'true'
-      : process.env.NODE_ENV !== 'production'
+  const defaultTestMode = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(
+    String(process.env.CLIENT_URL || '').trim() || 'http://localhost:5173'
+  )
+  const isTestMode = toBoolean(explicitTestMode, defaultTestMode)
 
   return {
     merchantId,
@@ -29,7 +50,7 @@ const getPaytrConfig = () => {
     maxInstallment: '12',
     currency: 'TL',
     timeoutLimit: Number(process.env.PAYTR_TIMEOUT_LIMIT || 30),
-    debugOn: String(process.env.PAYTR_DEBUG_ON || (isTestMode ? '1' : '0')),
+    debugOn: toBoolean(process.env.PAYTR_DEBUG_ON, isTestMode) ? '1' : '0',
   }
 }
 
@@ -258,7 +279,7 @@ export const createPayment = async (req, res) => {
       debugOn,
     } = getPaytrConfig()
 
-    const clientUrl = (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/+$/, '')
+    const clientUrl = resolveClientUrl()
     const merchantOid = order._id.toString()
     const userIp = getClientIp(req)
     const email = user.email

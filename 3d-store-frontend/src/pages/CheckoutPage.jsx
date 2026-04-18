@@ -543,7 +543,7 @@ const CheckoutPage = () => {
                     Kart bilgilerinizi bu sayfada girmiyorsunuz. "Siparisi Tamamla" dedikten sonra PayTR guvenli odeme sayfasina yonlendirileceksiniz.
                   </div>
                   <div className="transfer-note" style={{ marginTop: '14px' }}>
-                    <p>PayTR test modunda sadece test kartlari ile odeme alinabilir.</p>
+                    <p>Odeme adiminda banka tarafinda 3D Secure dogrulamasi istenebilir.</p>
                     <p>Basarili odeme sonrasinda otomatik olarak siparis sonuc sayfasina yonlendirilirsiniz.</p>
                   </div>
                 </div>
