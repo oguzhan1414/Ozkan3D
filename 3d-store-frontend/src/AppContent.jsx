@@ -61,7 +61,7 @@ export const AppContent = () => {
     if (pathname.startsWith('/admin')) {
       return {
         title: 'Yönetim Paneli',
-        description: 'Özkan3D yönetim paneli.',
+        description: 'Ozkan3D yonetim paneli.',
         noIndex: true,
       }
     }
@@ -97,7 +97,7 @@ export const AppContent = () => {
       },
       '/about': {
         title: 'Hakkımızda',
-        description: 'Özkan3D hikayesi, üretim yaklaşımımız ve kalite standartlarımız hakkında bilgi alın.',
+        description: 'Ozkan3D hikayesi, uretim yaklasimimiz ve kalite standartlarimiz hakkinda bilgi alin.',
       },
       '/scan': {
         title: '3D Tarama Hizmeti',
@@ -162,7 +162,7 @@ export const AppContent = () => {
       },
       '/register': {
         title: 'Üye Ol',
-        description: 'Hızlıca hesap oluşturun ve Özkan3D ayrıcalıklarından yararlanın.',
+        description: 'Hizlica hesap olusturun ve Ozkan3D ayricaliklarindan yararlanin.',
         noIndex: true,
       },
     }
