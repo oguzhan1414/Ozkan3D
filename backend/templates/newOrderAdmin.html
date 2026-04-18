@@ -1,0 +1,153 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      body {
+        font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        background-color: #f3f4f6;
+        margin: 0;
+        padding: 0;
+      }
+      .wrapper {
+        background-color: #f3f4f6;
+        padding: 32px 16px;
+      }
+      .container {
+        max-width: 600px;
+        width: 100%;
+        background: #ffffff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        margin: 0 auto;
+      }
+      .header {
+        background: #0f172a;
+        padding: 24px 32px;
+        text-align: center;
+        border-bottom: 4px solid #0ea5e9;
+      }
+      .header-logo {
+        color: #ffffff;
+        font-size: 26px;
+        font-weight: 800;
+        margin: 0;
+      }
+      .header-sub {
+        color: #bae6fd;
+        font-size: 14px;
+        margin-top: 6px;
+      }
+      .content {
+        padding: 32px;
+        color: #334155;
+        line-height: 1.6;
+      }
+      .content h2 {
+        color: #0f172a;
+        font-size: 22px;
+        margin-top: 0;
+      }
+      .box {
+        background: #f0f9ff;
+        border: 1px solid #dbeafe;
+        border-left: 4px solid #0ea5e9;
+        border-radius: 6px;
+        padding: 16px;
+        margin: 20px 0;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 0;
+        border-bottom: 1px solid #dbeafe;
+      }
+      .row:last-child {
+        border-bottom: none;
+      }
+      .label {
+        color: #0c4a6e;
+        font-weight: 600;
+      }
+      .value {
+        color: #082f49;
+        text-align: right;
+      }
+      .btn {
+        display: inline-block;
+        background: #0ea5e9;
+        color: #ffffff !important;
+        text-decoration: none;
+        padding: 12px 22px;
+        border-radius: 6px;
+        font-weight: 700;
+        margin-top: 8px;
+      }
+      .footer {
+        background: #f8fafc;
+        padding: 24px 32px;
+        text-align: center;
+        color: #64748b;
+        font-size: 13px;
+        border-top: 1px solid #e2e8f0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div class="container">
+        <div class="header">
+          <h1 class="header-logo">Ozkan3D.design</h1>
+          <div class="header-sub">Yeni Siparis Bildirimi</div>
+        </div>
+
+        <div class="content">
+          <h2>Yeni siparis alindi</h2>
+          <p>Yeni bir siparis olusturuldu. Detaylar asagidadir:</p>
+
+          <div class="box">
+            <div class="row">
+              <span class="label">Siparis No:</span
+              ><span class="value">{{orderNo}}</span>
+            </div>
+            <div class="row">
+              <span class="label">Musteri:</span
+              ><span class="value">{{customerName}}</span>
+            </div>
+            <div class="row">
+              <span class="label">E-posta:</span
+              ><span class="value">{{customerEmail}}</span>
+            </div>
+            <div class="row">
+              <span class="label">Odeme:</span
+              ><span class="value">{{paymentMethod}}</span>
+            </div>
+            <div class="row">
+              <span class="label">Kargo:</span
+              ><span class="value">{{shippingMethod}}</span>
+            </div>
+            <div class="row">
+              <span class="label">Toplam:</span
+              ><span class="value">{{totalPrice}} TL</span>
+            </div>
+            <div class="row">
+              <span class="label">Tarih:</span
+              ><span class="value">{{orderDate}}</span>
+            </div>
+          </div>
+
+          <a href="{{adminUrl}}/admin/orders" class="btn"
+            >Siparisi Panelde Ac</a
+          >
+        </div>
+
+        <div class="footer">
+          Bu otomatik bir yonetim bilgilendirme e-postasidir.<br /><br />
+          &copy; {{year}} Ozkan3D.design
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

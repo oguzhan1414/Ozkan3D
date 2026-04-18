@@ -2,7 +2,7 @@ import Order from '../models/Order.js'
 import Product from '../models/Product.js'
 import Coupon from '../models/Coupon.js'
 import { generateOrderNo } from '../utils/generateOrderNo.js'
-import { sendOrderConfirmEmail, sendShippingEmail } from '../utils/sendEmail.js'
+import { sendOrderConfirmEmail, sendOrderNotifyAdmin, sendShippingEmail } from '../utils/sendEmail.js'
 import { generateInvoicePDF } from '../utils/pdfGenerator.js'
 import User from '../models/User.js'
 import {io} from '../server.js'
@@ -227,11 +227,23 @@ export const createOrder = async (req, res) => {
   }
 
   // Onay maili gönder
+  const user = await User.findById(req.user._id)
+
+  if (user?.email) {
+    try {
+      await sendOrderConfirmEmail(order, user)
+    } catch (err) {
+      console.log('Mail gönderilemedi:', err.message)
+    }
+  } else {
+    console.log('Mail gönderilemedi: kullanici e-postasi bulunamadi')
+  }
+
+  // Admin'e siparis mail bildirimi gönder
   try {
-    const user = await User.findById(req.user._id)
-    await sendOrderConfirmEmail(order, user)
+    await sendOrderNotifyAdmin(order, user)
   } catch (err) {
-    console.log('Mail gönderilemedi:', err.message)
+    console.log('Admin siparis maili gönderilemedi:', err.message)
   }
 
   // --- Socket.IO Bildirimleri ---

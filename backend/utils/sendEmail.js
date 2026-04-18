@@ -10,6 +10,18 @@ let transporter
 let transporterVerified = false
 let transporterConfigKey = ''
 
+const extractEmailAddress = (value = '') => {
+  const source = String(value || '').trim()
+  if (!source) return ''
+
+  const angleMatch = source.match(/<([^>]+)>/)
+  if (angleMatch?.[1]) return angleMatch[1].trim()
+
+  return source
+}
+
+const getSenderEmail = () => extractEmailAddress(process.env.EMAIL_FROM || process.env.EMAIL_USER)
+
 try {
   // Railway ortamında IPv6 route yoksa SMTP bağlantısı ENETUNREACH verebilir.
   // DNS sıralamasını IPv4 öncelikli yaparak gmail host çözümlemesinde IPv4 tercih edilir.
@@ -18,7 +30,24 @@ try {
   // Node sürümü bu API'yi desteklemiyorsa sessizce varsayılana devam eder.
 }
 
-const getAdminNotifyEmail = () => process.env.EMAIL_ADMIN_TO || process.env.EMAIL_USER
+const getAdminNotifyEmail = () => {
+  const explicitAdminEmail = extractEmailAddress(process.env.EMAIL_ADMIN_TO)
+  if (explicitAdminEmail) return explicitAdminEmail
+
+  const senderEmail = getSenderEmail()
+  if (senderEmail) return senderEmail
+
+  return extractEmailAddress(process.env.EMAIL_USER)
+}
+
+const getDisplayName = (user = {}) => {
+  const fullName = [user?.firstName, user?.lastName]
+    .filter(Boolean)
+    .join(' ')
+    .trim()
+
+  return fullName || user?.name || user?.fullName || user?.email || 'Musteri'
+}
 
 const toBoolean = (value, fallback = false) => {
   if (typeof value !== 'string') return fallback
@@ -104,7 +133,7 @@ const normalizeResendAttachments = (attachments = []) => {
   return normalized.length ? normalized : undefined
 }
 
-const sendEmailViaResend = async ({ to, subject, html, attachments = [] }) => {
+const sendEmailViaResend = async ({ to, subject, html, text, attachments = [] }) => {
   const { apiKey, from } = getResendConfig()
 
   const payload = {
@@ -112,6 +141,7 @@ const sendEmailViaResend = async ({ to, subject, html, attachments = [] }) => {
     to: Array.isArray(to) ? to : [to],
     subject,
     html,
+    text,
   }
 
   const resendAttachments = normalizeResendAttachments(attachments)
@@ -237,8 +267,36 @@ const loadTemplate = (templateName, variables) => {
   return template
 }
 
-export const sendEmail = async ({ to, subject, templateName, variables, html, attachments = [] }) => {
+const decodeHtmlEntities = (value = '') => {
+  return String(value || '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+}
+
+const htmlToPlainText = (value = '') => {
+  const stripped = String(value || '')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<li>/gi, '- ')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  return decodeHtmlEntities(stripped)
+}
+
+export const sendEmail = async ({ to, subject, templateName, variables, html, text, attachments = [] }) => {
   const mailHtml = html || loadTemplate(templateName, variables)
+  const mailText = text || htmlToPlainText(mailHtml)
   const from = process.env.EMAIL_FROM || process.env.EMAIL_USER
   const provider = getMailProvider()
 
@@ -247,6 +305,7 @@ export const sendEmail = async ({ to, subject, templateName, variables, html, at
       to,
       subject,
       html: mailHtml,
+      text: mailText,
       attachments,
     })
     return
@@ -257,6 +316,8 @@ export const sendEmail = async ({ to, subject, templateName, variables, html, at
     to,
     subject,
     html: mailHtml,
+    text: mailText,
+    replyTo: process.env.EMAIL_REPLY_TO || getSenderEmail(),
     attachments,
   }
 
@@ -277,6 +338,7 @@ export const sendEmail = async ({ to, subject, templateName, variables, html, at
           to,
           subject,
           html: mailHtml,
+          text: mailText,
           attachments,
         })
         return
@@ -304,27 +366,54 @@ export const sendEmail = async ({ to, subject, templateName, variables, html, at
 
 // Hazır mail fonksiyonları
 export const sendOrderConfirmEmail = async (order, user) => {
+  const customerName = getDisplayName(user)
+
   await sendEmail({
     to: user.email,
     subject: `Siparişiniz Alındı — ${order.orderNo}`,
     templateName: 'orderConfirm',
     variables: {
-      name: user.name,
+      name: customerName,
       orderNo: order.orderNo,
       totalPrice: order.totalPrice,
       status: order.status,
+      accountUrl: `${(process.env.CLIENT_URL || 'https://www.ozkan3d.com.tr').replace(/\/+$/, '')}/account`,
+      year: new Date().getFullYear(),
+    },
+  })
+}
+
+export const sendOrderNotifyAdmin = async (order, user) => {
+  const customerName = getDisplayName(user)
+  const adminUrl = (process.env.CLIENT_URL || 'https://www.ozkan3d.com.tr').replace(/\/+$/, '')
+
+  await sendEmail({
+    to: getAdminNotifyEmail(),
+    subject: `Yeni Siparis: ${order.orderNo}`,
+    templateName: 'newOrderAdmin',
+    variables: {
+      customerName,
+      customerEmail: user?.email || '-',
+      orderNo: order.orderNo,
+      totalPrice: Number(order.totalPrice || 0).toFixed(2),
+      paymentMethod: order.paymentMethod === 'card' ? 'Kart (PayTR)' : 'Havale / EFT',
+      shippingMethod: order.shippingMethod === 'express' ? 'Hizli Kargo' : 'Standart Kargo',
+      orderDate: new Date(order.createdAt || Date.now()).toLocaleString('tr-TR'),
+      adminUrl,
       year: new Date().getFullYear(),
     },
   })
 }
 
 export const sendShippingEmail = async (order, user) => {
+  const customerName = getDisplayName(user)
+
   await sendEmail({
     to: user.email,
     subject: `Siparişiniz Kargoya Verildi — ${order.orderNo}`,
     templateName: 'shippingNotify',
     variables: {
-      name: user.name,
+      name: customerName,
       orderNo: order.orderNo,
       trackingNo: order.trackingNo,
       carrier: order.carrier,
@@ -334,12 +423,14 @@ export const sendShippingEmail = async (order, user) => {
 }
 
 export const sendPasswordResetEmail = async (user, resetUrl) => {
+  const customerName = getDisplayName(user)
+
   await sendEmail({
     to: user.email,
     subject: 'Şifre Sıfırlama Talebi',
     templateName: 'passwordReset',
     variables: {
-      name: user.name,
+      name: customerName,
       resetUrl,
       year: new Date().getFullYear(),
     },
