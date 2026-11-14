@@ -7,7 +7,7 @@
  *
  * Kullanıcı zaten varsa şifresine dokunulmaz, sadece rolü admin yapılır.
  */
-import 'dotenv/config'
+import './config/env.js'
 import { supabase } from './config/supabase.js'
 import { must } from './utils/db.js'
 import { hashPassword, findUserRowByEmail } from './services/userService.js'

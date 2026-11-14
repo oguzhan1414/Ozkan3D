@@ -1,5 +1,5 @@
 // Ortam değişkenleri, diğer modüller import edilmeden ÖNCE yüklenmeli
-import 'dotenv/config'
+import './config/env.js'
 import express from 'express'
 import cors from 'cors'
 import compression from 'compression'

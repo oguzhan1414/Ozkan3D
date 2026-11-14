@@ -6,7 +6,7 @@
  *   node scripts/cleanup-mock.js --dry-run
  *   node scripts/cleanup-mock.js
  */
-import 'dotenv/config'
+import '../config/env.js'
 import { supabase } from '../config/supabase.js'
 import { must } from '../utils/db.js'
 import { getPublicId, MEDIA_BUCKET } from '../utils/imageUpload.js'

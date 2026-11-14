@@ -10,7 +10,7 @@
  *         orders.items[].image, carts.items[].image
  * Tekrar çalıştırılabilir: zaten Storage'da olan URL'lere dokunmaz.
  */
-import 'dotenv/config'
+import '../config/env.js'
 import { supabase } from '../config/supabase.js'
 import { must } from '../utils/db.js'
 import { uploadImage, getPublicId } from '../utils/imageUpload.js'
