@@ -1,7 +1,8 @@
 import axios from 'axios'
 
 const ensureApiBaseUrl = (rawBaseUrl) => {
-  const fallbackBaseUrl = 'http://localhost:5000/api'
+  // Frontend ve API aynı domainde (Vercel). Lokal geliştirmede Vite /api'yi :5000'e proxy'ler.
+  const fallbackBaseUrl = '/api'
   const value = (rawBaseUrl || '').trim()
 
   if (!value) return fallbackBaseUrl

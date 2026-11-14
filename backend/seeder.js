@@ -1,39 +1,52 @@
-import mongoose from 'mongoose'
-import dotenv from 'dotenv'
-import User from './models/User.js'
+/**
+ * Admin hesabı oluşturur veya mevcut kullanıcıyı admin yapar.
+ *
+ * Kullanım (backend klasöründe):
+ *   node seeder.js admin@ornek.com 'GucluBirSifre123'
+ *   (veya .env içinde ADMIN_EMAIL / ADMIN_PASSWORD)
+ *
+ * Kullanıcı zaten varsa şifresine dokunulmaz, sadece rolü admin yapılır.
+ */
+import 'dotenv/config'
+import { supabase } from './config/supabase.js'
+import { must } from './utils/db.js'
+import { hashPassword, findUserRowByEmail } from './services/userService.js'
 
-dotenv.config()
+const email = String(process.argv[2] || process.env.ADMIN_EMAIL || '').trim().toLowerCase()
+const password = process.argv[3] || process.env.ADMIN_PASSWORD
 
-const createAdmin = async () => {
-  try {
-    await mongoose.connect(process.env.MONGO_URI)
-    console.log('MongoDB bağlandı')
-
-    // Var mı kontrol et
-    const existing = await User.findOne({ email: 'admin@ozkan3d.design' })
-    if (existing) {
-      existing.role = 'admin'
-      await existing.save()
-      console.log('✅ Mevcut kullanıcı admin yapıldı!')
-    } else {
-      await User.create({
-        firstName: 'Oğuz',
-        lastName: 'Özkan',
-        email: 'admin@ozkan3d.design',
-        password: 'Admin1234',
-        phone: '05321234567',
-        role: 'admin',
-      })
-      console.log('✅ Admin hesabı oluşturuldu!')
-      console.log('📧 Email: admin@ozkan3d.design')
-      console.log('🔑 Şifre: Admin1234')
-    }
-
-    process.exit()
-  } catch (error) {
-    console.error('❌ Hata:', error)
-    process.exit(1)
+const run = async () => {
+  if (!email) {
+    throw new Error('Kullanım: node seeder.js <email> <şifre>  (veya ADMIN_EMAIL / ADMIN_PASSWORD)')
   }
+
+  const existing = await findUserRowByEmail(email)
+  if (existing) {
+    must(
+      await supabase.from('users').update({ role: 'admin', email_verified: true, is_active: true }).eq('id', existing.id)
+    )
+    console.log(`✅ Mevcut kullanıcı admin yapıldı: ${email}`)
+    return
+  }
+
+  if (!password || String(password).length < 8) {
+    throw new Error('Yeni admin için en az 8 karakterlik bir şifre verin.')
+  }
+
+  must(
+    await supabase.from('users').insert({
+      first_name: 'Admin',
+      last_name: 'Ozkan3D',
+      email,
+      password: await hashPassword(password),
+      role: 'admin',
+      email_verified: true,
+    })
+  )
+  console.log(`✅ Admin hesabı oluşturuldu: ${email}`)
 }
 
-createAdmin()
+run().catch((err) => {
+  console.error('❌ Hata:', err.message)
+  process.exitCode = 1
+})

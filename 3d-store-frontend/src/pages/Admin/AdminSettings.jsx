@@ -112,7 +112,7 @@ const AdminSettings = () => {
     if (!url) return ''
     if (/^https?:\/\//i.test(url)) return url
 
-    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+    const apiBase = import.meta.env.VITE_API_URL || '/api'
     const origin = apiBase.replace(/\/api\/?$/, '')
 
     if (url.startsWith('/')) return `${origin}${url}`

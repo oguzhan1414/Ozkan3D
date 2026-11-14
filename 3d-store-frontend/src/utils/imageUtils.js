@@ -7,12 +7,13 @@
  * @returns {string} - The optimized URL
  */
 const getApiOrigin = () => {
-  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').trim()
+  const apiBase = (import.meta.env.VITE_API_URL || '/api').trim()
 
   try {
     return new URL(apiBase).origin
   } catch {
-    return 'http://localhost:5000'
+    // Göreli API adresi (/api): API aynı domainde, yol olduğu gibi kullanılır
+    return ''
   }
 }
 

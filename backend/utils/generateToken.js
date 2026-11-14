@@ -18,7 +18,7 @@ export const getAuthCookieOptions = () => {
 }
 
 export const sendTokenResponse = (user, statusCode, res) => {
-  const token = generateToken(user._id)
+  const token = generateToken(user._id || user.id)
 
   const cookieOptions = getAuthCookieOptions()
 
@@ -32,7 +32,7 @@ export const sendTokenResponse = (user, statusCode, res) => {
         _id: user._id,
         firstName: user.firstName,
         lastName: user.lastName,
-        fullName: user.fullName,
+        fullName: user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
         email: user.email,
         phone: user.phone,
         birthDate: user.birthDate,

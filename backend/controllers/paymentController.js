@@ -1,10 +1,24 @@
 import crypto from 'crypto'
-import Order from '../models/Order.js'
-import User from '../models/User.js'
-import Product from '../models/Product.js'
-import Coupon from '../models/Coupon.js'
+import { supabase } from '../config/supabase.js'
+import { must, isUuid } from '../utils/db.js'
+import {
+  findOrderRow,
+  updateOrderRow,
+  historyEntry,
+  adjustStock,
+  rollbackCouponUsage,
+} from '../services/orderService.js'
 
+// Not: Serverless ortamda bu set sadece aynı instance içindeki çift tıklamaları engeller.
 const inFlightPayments = new Set()
+
+// PayTR merchant_oid sadece alfanumerik kabul eder: UUID tirelerini kaldır / geri ekle
+const toMerchantOid = (orderId) => String(orderId).replace(/-/g, '')
+const fromMerchantOid = (oid) => {
+  const hex = String(oid || '').toLowerCase()
+  if (!/^[0-9a-f]{32}$/.test(hex)) return null
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
 const PAYTR_TOKEN_URL = 'https://www.paytr.com/odeme/api/get-token'
 const FALLBACK_CLIENT_URL = 'https://www.ozkan3d.com.tr'
 
@@ -80,41 +94,15 @@ const normalizePhoneForPaytr = (phone = '') => {
   return '5555555555'
 }
 
-const rollbackCouponUsage = async (couponId) => {
-  if (!couponId) return
-  const coupon = await Coupon.findById(couponId)
-  if (!coupon) return
-  coupon.used = Math.max(0, (coupon.used || 0) - 1)
-  await coupon.save()
-}
-
-const bulkAdjustStock = async (items = [], direction = 'decrease') => {
-  if (!Array.isArray(items) || items.length === 0) return
-
-  const sign = direction === 'increase' ? 1 : -1
-  const ops = items
-    .filter((item) => item?.product && Number(item.quantity) > 0)
-    .map((item) => ({
-      updateOne: {
-        filter: { _id: item.product },
-        update: { $inc: { stock: sign * Number(item.quantity) } },
-      },
-    }))
-
-  if (ops.length > 0) {
-    await Product.bulkWrite(ops, { ordered: false })
-  }
-}
-
+// order: DB satırı (items JSONB, total_price)
 const buildBasketForPaytr = (order) => {
-  const baseItems = order.items.map((item, index) => ({
-    id: item.product?._id?.toString() || `${order._id}-${index + 1}`,
+  const baseItems = (order.items || []).map((item, index) => ({
     name: item.name || `Urun-${index + 1}`,
     amount: normalizeMoney((Number(item.price) || 0) * (Number(item.quantity) || 1)),
   }))
 
   const baseTotal = normalizeMoney(baseItems.reduce((sum, item) => sum + item.amount, 0))
-  const targetTotal = normalizeMoney(order.totalPrice)
+  const targetTotal = normalizeMoney(order.total_price)
 
   if (baseItems.length === 0 || baseTotal <= 0 || targetTotal <= 0) {
     throw new Error('PayTR sepeti olusturulamadi. Siparis tutarini kontrol edin.')
@@ -229,24 +217,29 @@ export const createPayment = async (req, res) => {
 
   ensurePaytrConfig()
 
-  const order = await Order.findById(orderId).populate('items.product', 'name')
+  const order = await findOrderRow(orderId)
 
   if (!order) {
     res.status(404)
     throw new Error('Siparis bulunamadi.')
   }
 
-  if (order.user.toString() !== req.user._id.toString()) {
+  if (order.user_id !== req.user._id) {
     res.status(403)
     throw new Error('Bu siparis icin odeme yetkiniz yok.')
   }
 
-  if (order.paymentMethod !== 'card') {
+  if (order.payment_method !== 'card') {
     res.status(400)
     throw new Error('Bu siparis kart ile odeme icin olusturulmamis.')
   }
 
-  if (order.isPaid) {
+  if (order.status === 'İptal') {
+    res.status(400)
+    throw new Error('Iptal edilmis siparis icin odeme yapilamaz.')
+  }
+
+  if (order.is_paid) {
     res.status(400)
     throw new Error('Bu siparis zaten odenmis.')
   }
@@ -261,11 +254,7 @@ export const createPayment = async (req, res) => {
   inFlightPayments.add(orderId)
 
   try {
-    const user = await User.findById(req.user._id)
-    if (!user) {
-      res.status(404)
-      throw new Error('Kullanici bulunamadi.')
-    }
+    const user = req.user
 
     const {
       merchantId,
@@ -280,15 +269,15 @@ export const createPayment = async (req, res) => {
     } = getPaytrConfig()
 
     const clientUrl = resolveClientUrl()
-    const merchantOid = order._id.toString()
+    const merchantOid = toMerchantOid(order.id)
     const userIp = getClientIp(req)
     const email = user.email
     const { basketBase64, paymentAmount } = buildBasketForPaytr(order)
 
     const merchantOkUrlBase = process.env.PAYTR_MERCHANT_OK_URL || `${clientUrl}/order-success`
     const merchantFailUrlBase = process.env.PAYTR_MERCHANT_FAIL_URL || `${clientUrl}/checkout`
-    const merchantOkUrl = buildRedirectUrlWithOrder(merchantOkUrlBase, order._id.toString(), 'success')
-    const merchantFailUrl = buildRedirectUrlWithOrder(merchantFailUrlBase, order._id.toString(), 'failed')
+    const merchantOkUrl = buildRedirectUrlWithOrder(merchantOkUrlBase, order.id, 'success')
+    const merchantFailUrl = buildRedirectUrlWithOrder(merchantFailUrlBase, order.id, 'failed')
 
     const paytrToken = buildPaytrToken({
       merchantId,
@@ -316,9 +305,9 @@ export const createPayment = async (req, res) => {
       debug_on: debugOn,
       no_installment: noInstallment,
       max_installment: maxInstallment,
-      user_name: order.shippingAddress?.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Musteri',
-      user_address: `${order.shippingAddress?.address || ''} ${order.shippingAddress?.district || ''} ${order.shippingAddress?.city || ''}`.trim(),
-      user_phone: normalizePhoneForPaytr(order.shippingAddress?.phone || user.phone),
+      user_name: order.shipping_address?.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Musteri',
+      user_address: `${order.shipping_address?.address || ''} ${order.shipping_address?.district || ''} ${order.shipping_address?.city || ''}`.trim(),
+      user_phone: normalizePhoneForPaytr(order.shipping_address?.phone || user.phone),
       merchant_ok_url: merchantOkUrl,
       merchant_fail_url: merchantFailUrl,
       timeout_limit: String(timeoutLimit),
@@ -327,25 +316,26 @@ export const createPayment = async (req, res) => {
       lang: 'tr',
     })
 
-    order.paymentResult = {
-      ...(order.paymentResult || {}),
-      id: merchantOid,
-      status: 'pending',
-      paytrToken: token,
-      requestedAt: Date.now(),
-    }
-    order.statusHistory.push({
-      status: order.status,
-      note: 'PayTR odeme oturumu olusturuldu.',
-    })
-    await order.save()
+    await updateOrderRow(order.id, {
+      payment_result: {
+        ...(order.payment_result || {}),
+        id: merchantOid,
+        status: 'pending',
+        paytrToken: token,
+        requestedAt: new Date().toISOString(),
+      },
+      status_history: [
+        ...(order.status_history || []),
+        historyEntry(order.status, 'PayTR odeme oturumu olusturuldu.'),
+      ],
+    }, 'id')
 
     return res.status(200).json({
       success: true,
       message: 'PayTR odeme sayfasi hazir.',
       data: {
         paymentId: merchantOid,
-        orderNo: order.orderNo,
+        orderNo: order.order_no,
         status: order.status,
         token,
         paymentPageUrl: `https://www.paytr.com/odeme/guvenli/${token}`,
@@ -379,50 +369,74 @@ export const handlePaytrCallback = async (req, res) => {
     return res.status(403).send('INVALID_HASH')
   }
 
-  const order = await Order.findById(merchantOid)
+  const orderId = fromMerchantOid(merchantOid)
+  const order = orderId ? await findOrderRow(orderId) : null
   if (!order) {
     return res.status(200).send('OK')
   }
 
+  const amountTl = Number(totalAmount) / 100
+  const now = new Date().toISOString()
+
   if (status === 'success') {
-    if (!order.isPaid) {
-      order.isPaid = true
-      order.paidAt = Date.now()
-      order.paymentResult = {
-        ...(order.paymentResult || {}),
-        id: merchantOid,
-        status: 'success',
-        paidAt: Date.now(),
-        totalAmount: Number(totalAmount) / 100,
-      }
-      order.statusHistory.push({
-        status: order.status,
-        note: `PayTR odeme alindi. Tutar: ${(Number(totalAmount) / 100).toFixed(2)} TL`,
-      })
-      await order.save()
+    if (!order.is_paid) {
+      // Koşullu güncelleme: PayTR aynı callback'i tekrar gönderirse çift işlenmez
+      must(
+        await supabase
+          .from('orders')
+          .update({
+            is_paid: true,
+            paid_at: now,
+            payment_result: {
+              ...(order.payment_result || {}),
+              id: merchantOid,
+              status: 'success',
+              paidAt: now,
+              totalAmount: amountTl,
+            },
+            status_history: [
+              ...(order.status_history || []),
+              historyEntry(order.status, `PayTR odeme alindi. Tutar: ${amountTl.toFixed(2)} TL`),
+            ],
+          })
+          .eq('id', order.id)
+          .eq('is_paid', false)
+      )
     }
 
     return res.status(200).send('OK')
   }
 
-  if (!order.isPaid && order.status !== 'İptal') {
-    order.status = 'İptal'
-    order.paymentResult = {
-      ...(order.paymentResult || {}),
-      id: merchantOid,
-      status: 'failed',
-      failedReasonCode,
-      failedReasonMsg,
-      failedAt: Date.now(),
-    }
-    order.statusHistory.push({
-      status: 'İptal',
-      note: `PayTR odeme basarisiz. Kod: ${failedReasonCode || '-'} Mesaj: ${failedReasonMsg || '-'}`,
-    })
+  if (!order.is_paid && order.status !== 'İptal') {
+    const cancelled = must(
+      await supabase
+        .from('orders')
+        .update({
+          status: 'İptal',
+          payment_result: {
+            ...(order.payment_result || {}),
+            id: merchantOid,
+            status: 'failed',
+            failedReasonCode,
+            failedReasonMsg,
+            failedAt: now,
+          },
+          status_history: [
+            ...(order.status_history || []),
+            historyEntry('İptal', `PayTR odeme basarisiz. Kod: ${failedReasonCode || '-'} Mesaj: ${failedReasonMsg || '-'}`),
+          ],
+        })
+        .eq('id', order.id)
+        .eq('is_paid', false)
+        .neq('status', 'İptal')
+        .select('id')
+    )
 
-    await bulkAdjustStock(order.items, 'increase')
-    await rollbackCouponUsage(order.coupon)
-    await order.save()
+    // Stok ve kupon sadece bu istek siparişi gerçekten iptal ettiyse geri alınır
+    if (cancelled.length > 0) {
+      await adjustStock(order.items, 1)
+      await rollbackCouponUsage(order.coupon_id)
+    }
   }
 
   return res.status(200).send('OK')
@@ -438,22 +452,17 @@ export const refundPayment = async (req, res) => {
   })
 }
 
-const isMongoId = (value = '') => /^[a-f\d]{24}$/i.test(String(value))
-
 // @desc    Odeme durumu sorgula
 // @route   GET /api/payment/:paymentId
 // @access  Admin
 export const getPaymentDetail = async (req, res) => {
   const { paymentId } = req.params
 
-  const orQuery = [{ 'paymentResult.id': paymentId }]
-  if (isMongoId(paymentId)) {
-    orQuery.push({ _id: paymentId })
-  }
-
-  const order = await Order.findOne({ $or: orQuery })
-    .select('orderNo isPaid paidAt status paymentResult totalPrice createdAt')
-    .lean()
+  // paymentId: PayTR merchant_oid (tiresiz uuid) veya sipariş id'si
+  const orderId = isUuid(paymentId) ? paymentId : fromMerchantOid(paymentId)
+  const order = orderId
+    ? await findOrderRow(orderId, 'id, order_no, is_paid, paid_at, status, payment_result, total_price, created_at')
+    : null
 
   if (!order) {
     res.status(404)
@@ -464,14 +473,14 @@ export const getPaymentDetail = async (req, res) => {
     success: true,
     data: {
       paymentId,
-      orderId: order._id,
-      orderNo: order.orderNo,
-      isPaid: order.isPaid,
-      paidAt: order.paidAt,
+      orderId: order.id,
+      orderNo: order.order_no,
+      isPaid: order.is_paid,
+      paidAt: order.paid_at,
       status: order.status,
-      totalPrice: order.totalPrice,
-      paymentResult: order.paymentResult || null,
-      createdAt: order.createdAt,
+      totalPrice: order.total_price,
+      paymentResult: order.payment_result || null,
+      createdAt: order.created_at,
     },
   })
 }

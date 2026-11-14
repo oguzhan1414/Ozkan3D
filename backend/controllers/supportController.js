@@ -1,5 +1,11 @@
-import SupportRequest from '../models/SupportRequest.js'
+import crypto from 'crypto'
+import path from 'path'
+import { supabase } from '../config/supabase.js'
+import { must, toApiList, toApi } from '../utils/db.js'
 import { sendSupportRequestToAdmin } from '../utils/sendEmail.js'
+
+const SUPPORT_BUCKET = 'support-attachments'
+const SIGNED_URL_TTL_SECONDS = 7 * 24 * 60 * 60 // admin mailindeki link 7 gün geçerli
 
 const formatSubmittedAt = (dateValue) => {
   return new Intl.DateTimeFormat('tr-TR', {
@@ -10,6 +16,28 @@ const formatSubmittedAt = (dateValue) => {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(dateValue))
+}
+
+/** Eki özel bucket'a yükler, storage yolunu döner */
+const uploadAttachment = async (userId, file) => {
+  const ext = path.extname(file.originalname || '').toLowerCase()
+  const storagePath = `${userId}/support-${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`
+
+  must(
+    await supabase.storage.from(SUPPORT_BUCKET).upload(storagePath, file.buffer, {
+      contentType: file.mimetype,
+      upsert: false,
+    })
+  )
+  return storagePath
+}
+
+const signedAttachmentUrl = async (storagePath) => {
+  if (!storagePath) return ''
+  const { data, error } = await supabase.storage
+    .from(SUPPORT_BUCKET)
+    .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS)
+  return error ? '' : data.signedUrl
 }
 
 // @desc    Destek talebi oluştur
@@ -23,17 +51,28 @@ export const createSupportRequest = async (req, res) => {
     throw new Error('E-posta, konu ve detay alanları zorunludur.')
   }
 
-  const attachmentUrl = req.file ? `/uploads/support/${req.file.filename}` : ''
-  const attachmentName = req.file ? req.file.originalname : ''
+  if (String(subject).trim().length > 140 || String(message).trim().length > 3000) {
+    res.status(400)
+    throw new Error('Konu en fazla 140, detay en fazla 3000 karakter olabilir.')
+  }
 
-  const ticket = await SupportRequest.create({
-    user: req.user._id,
-    email: String(email).trim().toLowerCase(),
-    subject: String(subject).trim(),
-    message: String(message).trim(),
-    attachmentUrl,
-    attachmentName,
-  })
+  const attachmentPath = req.file ? await uploadAttachment(req.user._id, req.file) : null
+
+  const row = must(
+    await supabase
+      .from('support_requests')
+      .insert({
+        user_id: req.user._id,
+        email: String(email).trim().toLowerCase(),
+        subject: String(subject).trim(),
+        message: String(message).trim(),
+        attachment_url: attachmentPath,
+        attachment_name: req.file ? req.file.originalname : null,
+      })
+      .select('*')
+      .single()
+  )
+  const ticket = toApi(row)
 
   try {
     await sendSupportRequestToAdmin({
@@ -43,7 +82,7 @@ export const createSupportRequest = async (req, res) => {
       message: ticket.message,
       submittedAt: formatSubmittedAt(ticket.createdAt),
       attachmentName: ticket.attachmentName || 'Yok',
-      attachmentUrl: ticket.attachmentUrl || '',
+      attachmentUrl: await signedAttachmentUrl(attachmentPath),
     })
   } catch (err) {
     console.log('Destek talebi maili gönderilemedi:', err.message)
@@ -56,11 +95,15 @@ export const createSupportRequest = async (req, res) => {
 // @route   GET /api/support/mine
 // @access  Private
 export const getMySupportRequests = async (req, res) => {
-  const tickets = await SupportRequest.find({ user: req.user._id })
-    .sort({ createdAt: -1 })
-    .lean()
+  const rows = must(
+    await supabase
+      .from('support_requests')
+      .select('*')
+      .eq('user_id', req.user._id)
+      .order('created_at', { ascending: false })
+  )
 
-  const preparedTickets = tickets.map((item) => ({
+  const preparedTickets = toApiList(rows).map((item) => ({
     ...item,
     createdAtDisplay: formatSubmittedAt(item.createdAt),
   }))

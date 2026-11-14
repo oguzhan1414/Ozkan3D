@@ -1,6 +1,8 @@
-import User from '../models/User.js'
-import Order from '../models/Order.js'
+import { supabase } from '../config/supabase.js'
+import { must, toApi, toApiList, isUuid, sanitizeSearch } from '../utils/db.js'
 import { sendEmail } from '../utils/sendEmail.js'
+import { userToApi, findUserRowById, updateUserRow } from '../services/userService.js'
+import { populateItemProducts } from '../services/orderService.js'
 
 const escapeHtml = (value = '') => String(value)
   .replace(/&/g, '&amp;')
@@ -9,37 +11,46 @@ const escapeHtml = (value = '') => String(value)
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;')
 
+const requireUserRow = async (id, res) => {
+  const row = await findUserRowById(id)
+  if (!row) {
+    res.status(404)
+    throw new Error('Kullanıcı bulunamadı.')
+  }
+  return row
+}
+
 // @desc    Tüm kullanıcıları getir
 // @route   GET /api/users
 // @access  Admin
 export const getUsers = async (req, res) => {
   const { page = 1, limit = 20, search } = req.query
 
-  const query = { role: 'user' } // ← sadece normal kullanıcılar
-  if (search) {
-    query.$or = [
-      { firstName: { $regex: search, $options: 'i' } },
-      { lastName: { $regex: search, $options: 'i' } },
-      { email: { $regex: search, $options: 'i' } },
-    ]
+  const pageNum = Math.max(1, Number(page) || 1)
+  const limitNum = Math.min(200, Math.max(1, Number(limit) || 20))
+  const from = (pageNum - 1) * limitNum
+
+  let query = supabase.from('users').select('*', { count: 'exact' }).eq('role', 'user')
+
+  const term = search ? sanitizeSearch(search) : ''
+  if (term) {
+    query = query.or(
+      `first_name.ilike."*${term}*",last_name.ilike."*${term}*",email.ilike."*${term}*"`
+    )
   }
 
-  const pageNum = Number(page)
-  const limitNum = Number(limit)
-  const skip = (pageNum - 1) * limitNum
+  const { data, count, error } = await query
+    .order('created_at', { ascending: false })
+    .range(from, from + limitNum - 1)
+  must({ data, error })
 
-  const total = await User.countDocuments(query)
-  const users = await User.find(query)
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limitNum)
-
+  const total = count || 0
   res.status(200).json({
     success: true,
-    count: users.length,
+    count: data.length,
     total,
     pages: Math.ceil(total / limitNum),
-    data: users,
+    data: data.map(userToApi),
   })
 }
 
@@ -47,22 +58,17 @@ export const getUsers = async (req, res) => {
 // @route   GET /api/users/:id
 // @access  Admin
 export const getUser = async (req, res) => {
-  const user = await User.findById(req.params.id)
-
-  if (!user) {
-    res.status(404)
-    throw new Error('Kullanıcı bulunamadı.')
-  }
+  const row = await requireUserRow(req.params.id, res)
 
   // Kullanıcının sipariş istatistikleri
-  const orders = await Order.find({ user: req.params.id })
-  const totalSpent = orders.reduce((sum, order) => sum + order.totalPrice, 0)
+  const orders = must(await supabase.from('orders').select('total_price').eq('user_id', row.id))
+  const totalSpent = orders.reduce((sum, order) => sum + Number(order.total_price || 0), 0)
   const orderCount = orders.length
 
   res.status(200).json({
     success: true,
     data: {
-      ...user.toObject(),
+      ...userToApi(row),
       stats: {
         orderCount,
         totalSpent,
@@ -77,18 +83,19 @@ export const getUser = async (req, res) => {
 // @access  Admin
 export const updateUser = async (req, res) => {
   const { role, isActive } = req.body
+  const row = await requireUserRow(req.params.id, res)
 
-  const user = await User.findByIdAndUpdate(
-    req.params.id,
-    { role, isActive },
-    { new: true, runValidators: true }
-  )
-
-  if (!user) {
-    res.status(404)
-    throw new Error('Kullanıcı bulunamadı.')
+  const fields = {}
+  if (role !== undefined) {
+    if (!['user', 'admin'].includes(role)) {
+      res.status(400)
+      throw new Error('Geçersiz rol.')
+    }
+    fields.role = role
   }
+  if (isActive !== undefined) fields.is_active = Boolean(isActive)
 
+  const user = Object.keys(fields).length ? await updateUserRow(row.id, fields) : userToApi(row)
   res.status(200).json({ success: true, data: user })
 }
 
@@ -96,19 +103,14 @@ export const updateUser = async (req, res) => {
 // @route   DELETE /api/users/:id
 // @access  Admin
 export const deleteUser = async (req, res) => {
-  const user = await User.findById(req.params.id)
+  const row = await requireUserRow(req.params.id, res)
 
-  if (!user) {
-    res.status(404)
-    throw new Error('Kullanıcı bulunamadı.')
-  }
-
-  if (user.role === 'admin') {
+  if (row.role === 'admin') {
     res.status(400)
     throw new Error('Admin hesabı silinemez.')
   }
 
-  await user.deleteOne()
+  must(await supabase.from('users').delete().eq('id', row.id))
   res.status(200).json({ success: true, message: 'Kullanıcı silindi.' })
 }
 
@@ -116,9 +118,18 @@ export const deleteUser = async (req, res) => {
 // @route   GET /api/users/:id/orders
 // @access  Admin
 export const getUserOrders = async (req, res) => {
-  const orders = await Order.find({ user: req.params.id })
-    .sort({ createdAt: -1 })
-    .populate('items.product', 'name images')
+  const rows = isUuid(req.params.id)
+    ? must(
+        await supabase
+          .from('orders')
+          .select('*')
+          .eq('user_id', req.params.id)
+          .order('created_at', { ascending: false })
+      )
+    : []
+
+  const orders = toApiList(rows)
+  await populateItemProducts(orders, 'id, name, images')
 
   res.status(200).json({ success: true, count: orders.length, data: orders })
 }
@@ -139,12 +150,7 @@ export const sendCustomerEmail = async (req, res) => {
     throw new Error('E-posta mesajı zorunludur.')
   }
 
-  const user = await User.findById(req.params.id)
-
-  if (!user) {
-    res.status(404)
-    throw new Error('Kullanıcı bulunamadı.')
-  }
+  const user = userToApi(await requireUserRow(req.params.id, res))
 
   const safeMessage = escapeHtml(message).replace(/\r?\n/g, '<br/>')
   const safeName = escapeHtml(`${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email)
@@ -174,13 +180,13 @@ export const getDashboardStats = async (req, res) => {
 
   const now = new Date()
   const startDate = new Date(now)
-  let groupFormat = '%Y-%m-%d'
+  let groupFormat = 'YYYY-MM-DD'
   let periodLabel = 'Bu Ay'
   let salesTitle = 'Son 30 Gün Satış'
 
   if (period === 'today') {
     startDate.setHours(0, 0, 0, 0)
-    groupFormat = '%H:00'
+    groupFormat = 'HH24:00'
     periodLabel = 'Bugün'
     salesTitle = 'Bugün Saatlik Satış'
   } else if (period === 'week') {
@@ -196,55 +202,47 @@ export const getDashboardStats = async (req, res) => {
   } else if (period === 'quarter') {
     startDate.setMonth(now.getMonth() - 2, 1)
     startDate.setHours(0, 0, 0, 0)
-    groupFormat = '%Y-%m'
+    groupFormat = 'YYYY-MM'
     periodLabel = 'Bu Çeyrek'
     salesTitle = 'Son 3 Ay Satış'
   } else if (period === 'year') {
     startDate.setMonth(now.getMonth() - 11, 1)
     startDate.setHours(0, 0, 0, 0)
-    groupFormat = '%Y-%m'
+    groupFormat = 'YYYY-MM'
     periodLabel = 'Bu Yıl'
     salesTitle = 'Son 12 Ay Satış'
   }
 
-  const dateMatch = { createdAt: { $gte: startDate, $lte: now } }
+  const from = startDate.toISOString()
+  const to = now.toISOString()
+  const countOnly = { count: 'exact', head: true }
 
-  const [totalUsers, totalOrders, totalRevenueAgg, pendingOrders, processingOrders, recentSales] = await Promise.all([
-    User.countDocuments({ role: 'user' }),
-    Order.countDocuments(dateMatch),
-    Order.aggregate([
-      { $match: { ...dateMatch, isPaid: true } },
-      { $group: { _id: null, total: { $sum: '$totalPrice' } } },
-    ]),
-    Order.countDocuments({ ...dateMatch, status: 'Bekliyor' }),
-    Order.countDocuments({ ...dateMatch, status: { $in: ['Basımda', 'Hazırlanıyor'] } }),
-    Order.aggregate([
-      { $match: { ...dateMatch, isPaid: true } },
-      {
-        $group: {
-          _id: {
-            $dateToString: {
-              format: groupFormat,
-              date: '$createdAt',
-              timezone: 'Europe/Istanbul',
-            },
-          },
-          revenue: { $sum: '$totalPrice' },
-          orders: { $sum: 1 },
-        },
-      },
-      { $sort: { _id: 1 } },
-    ]),
+  const ordersInRange = () =>
+    supabase.from('orders').select('id', countOnly).gte('created_at', from).lte('created_at', to)
+
+  const [usersRes, ordersRes, pendingRes, processingRes, salesRes] = await Promise.all([
+    supabase.from('users').select('id', countOnly).eq('role', 'user'),
+    ordersInRange(),
+    ordersInRange().eq('status', 'Bekliyor'),
+    ordersInRange().in('status', ['Basımda', 'Hazırlanıyor']),
+    supabase.rpc('dashboard_sales', { p_start: from, p_end: to, p_format: groupFormat }),
   ])
+
+  for (const r of [usersRes, ordersRes, pendingRes, processingRes]) must(r)
+  const recentSales = must(salesRes).map((s) => ({
+    _id: s._id,
+    revenue: Number(s.revenue) || 0,
+    orders: Number(s.orders) || 0,
+  }))
 
   res.status(200).json({
     success: true,
     data: {
-      totalUsers,
-      totalOrders,
-      totalRevenue: totalRevenueAgg[0]?.total || 0,
-      pendingOrders,
-      processingOrders,
+      totalUsers: usersRes.count || 0,
+      totalOrders: ordersRes.count || 0,
+      totalRevenue: recentSales.reduce((sum, s) => sum + s.revenue, 0),
+      pendingOrders: pendingRes.count || 0,
+      processingOrders: processingRes.count || 0,
       recentSales,
       period,
       periodLabel,
@@ -257,28 +255,48 @@ export const getDashboardStats = async (req, res) => {
 // @route   GET /api/users/favorites
 // @access  Private
 export const getFavorites = async (req, res) => {
-  const user = await User.findById(req.user._id)
-    .populate('favorites', 'name images price slug rating reviewCount badge colors')
+  const ids = req.user.favorites || []
+  if (ids.length === 0) {
+    res.status(200).json({ success: true, data: [] })
+    return
+  }
 
-  res.status(200).json({ success: true, data: user.favorites })
+  const rows = must(
+    await supabase
+      .from('products')
+      .select('id, name, images, price, slug, rating, review_count, badge, colors')
+      .in('id', ids)
+  )
+
+  // Favori ekleme sırasını koru
+  const map = new Map(rows.map((r) => [r.id, toApi(r)]))
+  res.status(200).json({ success: true, data: ids.map((id) => map.get(id)).filter(Boolean) })
 }
 
 // @desc    Favoriye ekle/çıkar
 // @route   POST /api/users/favorites/:productId
 // @access  Private
 export const toggleFavorite = async (req, res) => {
-  const user = await User.findById(req.user._id)
   const productId = req.params.productId
 
-  const isFav = user.favorites.includes(productId)
-
-  if (isFav) {
-    user.favorites = user.favorites.filter(id => id.toString() !== productId)
-  } else {
-    user.favorites.push(productId)
+  if (!isUuid(productId)) {
+    res.status(404)
+    throw new Error('Ürün bulunamadı.')
   }
 
-  await user.save()
+  const current = req.user.favorites || []
+  const isFav = current.includes(productId)
+
+  if (!isFav) {
+    const exists = must(await supabase.from('products').select('id').eq('id', productId).maybeSingle())
+    if (!exists) {
+      res.status(404)
+      throw new Error('Ürün bulunamadı.')
+    }
+  }
+
+  const favorites = isFav ? current.filter((id) => id !== productId) : [...current, productId]
+  const user = await updateUserRow(req.user._id, { favorites })
 
   res.status(200).json({
     success: true,

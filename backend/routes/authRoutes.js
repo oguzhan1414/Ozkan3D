@@ -4,7 +4,7 @@ import {
   updateProfile, changePassword,
   forgotPassword, resetPassword,
   addAddress, updateAddress, deleteAddress, googleLogin,
-  verifyEmail, resendVerificationEmail,
+  verifyEmail, resendVerificationEmail, getRealtimeChannels,
 } from '../controllers/authController.js'
 import { protect } from '../middleware/authMiddleware.js'
 import { authLimiter } from '../middleware/rateLimiter.js'
@@ -18,6 +18,7 @@ router.post('/login', authLimiter, login)
 router.post('/google', authLimiter, googleLogin)
 router.post('/logout', protect, logout)
 router.get('/me', protect, getMe)
+router.get('/realtime', protect, getRealtimeChannels)
 router.put('/profile', protect, updateProfile)
 router.put('/change-password', protect, changePassword)
 router.post('/forgot-password', forgotPassword)

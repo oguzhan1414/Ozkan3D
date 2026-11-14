@@ -19,6 +19,6 @@ router.put('/:id/status', protect, admin, updateOrderStatus)
 router.put('/:id/track', protect, admin, updateTracking)
 router.put('/:id/cancel', protect, cancelOrder)
 router.get('/:id/pdf', protect, admin, getInvoicePDF)
-router.put('/:id/pay', protect, updateOrderToPaid)
+router.put('/:id/pay', protect, admin, updateOrderToPaid)
 
 export default router

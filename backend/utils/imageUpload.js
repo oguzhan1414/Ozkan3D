@@ -1,61 +1,78 @@
-import { v2 as cloudinary } from 'cloudinary'
+import crypto from 'crypto'
+import sharp from 'sharp'
+import { supabase, SUPABASE_URL } from '../config/supabase.js'
 
-const getCloudinaryConfig = () => {
-  const cloud_name = (process.env.CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD || '').trim()
-  const api_key = (process.env.CLOUDINARY_API_KEY || process.env.CLOUDINARY_KEY || '').trim()
-  const api_secret = (process.env.CLOUDINARY_API_SECRET || process.env.CLOUDINARY_SECRET || '').trim()
+/**
+ * Ürün ve slider görselleri — Supabase Storage ("media" public bucket).
+ * Eskiden Cloudinary kullanılıyordu; fonksiyon isimleri ve dönüş şekli
+ * ({ secure_url }) aynı tutuldu, controller'lar değişmedi.
+ *
+ * Supabase'in ücretsiz planında görsel dönüştürme olmadığı için Cloudinary'nin
+ * yaptığı küçültme/sıkıştırma burada sharp ile yapılır.
+ */
 
-  return { cloud_name, api_key, api_secret }
+export const MEDIA_BUCKET = 'media'
+
+const PUBLIC_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/${MEDIA_BUCKET}/`
+
+// Klasöre göre maksimum boyut (px). Slider geniş, ürün görselleri kare ağırlıklı.
+const MAX_SIZE = {
+  products: { width: 1200, height: 1200 },
+  'home-hero': { width: 1920, height: 1080 },
 }
 
-const ensureCloudinaryConfig = () => {
-  const config = getCloudinaryConfig()
+/** Görseli küçültür, EXIF yönünü düzeltir, WebP'ye çevirir */
+export const optimizeImageBuffer = async (buffer, folder = 'products') => {
+  const { width, height } = MAX_SIZE[folder] || MAX_SIZE.products
+  return sharp(buffer, { failOn: 'error' })
+    .rotate()
+    .resize({ width, height, fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 82 })
+    .toBuffer()
+}
 
-  if (!config.cloud_name || !config.api_key || !config.api_secret) {
-    const missing = [
-      !config.cloud_name ? 'CLOUDINARY_CLOUD_NAME' : null,
-      !config.api_key ? 'CLOUDINARY_API_KEY' : null,
-      !config.api_secret ? 'CLOUDINARY_API_SECRET' : null,
-    ].filter(Boolean)
-
-    const error = new Error(`Cloudinary ayarlari eksik: ${missing.join(', ')}`)
-    error.statusCode = 500
-    throw error
+/**
+ * @param {Buffer} fileBuffer
+ * @param {'products'|'home-hero'} folder
+ * @returns {Promise<{ secure_url: string, public_id: string }>}
+ */
+export const uploadImage = async (fileBuffer, folder = 'products') => {
+  let optimized
+  try {
+    optimized = await optimizeImageBuffer(fileBuffer, folder)
+  } catch {
+    const err = new Error('Görsel okunamadı. Geçerli bir JPEG, PNG veya WebP yükleyin.')
+    err.statusCode = 400
+    throw err
   }
 
-  cloudinary.config(config)
-}
+  const path = `${folder}/${Date.now()}-${crypto.randomBytes(6).toString('hex')}.webp`
 
-export const uploadImage = async (fileBuffer, folder = 'ozkan3d') => {
-  ensureCloudinaryConfig()
-
-  return new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder,
-        resource_type: 'image',
-        transformation: [
-          { width: 800, height: 800, crop: 'limit' },
-          { quality: 'auto', fetch_format: 'auto' },
-        ],
-      },
-      (error, result) => {
-        if (error) reject(error)
-        else resolve(result)
-      }
-    )
-    uploadStream.end(fileBuffer)
+  const { error } = await supabase.storage.from(MEDIA_BUCKET).upload(path, optimized, {
+    contentType: 'image/webp',
+    cacheControl: '31536000', // dosya adı benzersiz, 1 yıl önbelleklenebilir
+    upsert: false,
   })
+
+  if (error) {
+    const err = new Error(`Görsel yüklenemedi: ${error.message}`)
+    err.statusCode = 500
+    throw err
+  }
+
+  return { secure_url: `${PUBLIC_PREFIX}${path}`, public_id: path }
 }
 
-export const deleteImage = async (publicId) => {
-  ensureCloudinaryConfig()
-  return await cloudinary.uploader.destroy(publicId)
-}
-
+/** URL bizim bucket'ımıza aitse storage yolunu döner, değilse null */
 export const getPublicId = (imageUrl) => {
-  const parts = imageUrl.split('/')
-  const filename = parts[parts.length - 1]
-  const folder = parts[parts.length - 2]
-  return `${folder}/${filename.split('.')[0]}`
+  if (typeof imageUrl !== 'string' || !imageUrl.startsWith(PUBLIC_PREFIX)) return null
+  return decodeURIComponent(imageUrl.slice(PUBLIC_PREFIX.length).split('?')[0])
+}
+
+/** Storage'dan siler. Dış URL'ler (null) sessizce atlanır. */
+export const deleteImage = async (path) => {
+  if (!path) return null
+  const { error } = await supabase.storage.from(MEDIA_BUCKET).remove([path])
+  if (error) throw new Error(error.message)
+  return { result: 'ok' }
 }

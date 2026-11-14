@@ -1,22 +1,22 @@
 import slugify from 'slugify'
-import Product from '../models/Product.js'
+import { supabase } from '../config/supabase.js'
+import { must } from './db.js'
 
-export const createSlug = async (name, model = Product) => {
-  let slug = slugify(name, {
-    lower: true,
-    strict: true,
-    locale: 'tr',
-  })
+/**
+ * Benzersiz slug üretir. Aynı slug varsa sonuna -1, -2 ... ekler.
+ * @param {string} name
+ * @param {'products'|'categories'} table
+ * @param {string|null} excludeId güncellenen kaydın kendisi (çakışma sayılmasın)
+ */
+export const createSlug = async (name, table = 'products', excludeId = null) => {
+  const base = slugify(String(name || ''), { lower: true, strict: true, locale: 'tr' }) || 'urun'
 
-  // Aynı slug varsa sonuna numara ekle
-  let slugExists = await model.findOne({ slug })
+  let query = supabase.from(table).select('slug').like('slug', `${base}%`)
+  if (excludeId) query = query.neq('id', excludeId)
+  const taken = new Set(must(await query).map((r) => r.slug))
+
+  if (!taken.has(base)) return base
   let counter = 1
-
-  while (slugExists) {
-    slug = `${slug}-${counter}`
-    slugExists = await model.findOne({ slug })
-    counter++
-  }
-
-  return slug
+  while (taken.has(`${base}-${counter}`)) counter++
+  return `${base}-${counter}`
 }

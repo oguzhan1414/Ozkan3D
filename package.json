@@ -1,0 +1,14 @@
+{
+  "name": "ozkan3d",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "install:all": "npm install --prefix backend && npm install --prefix 3d-store-frontend",
+    "dev:api": "npm run dev --prefix backend",
+    "dev:web": "npm run dev --prefix 3d-store-frontend",
+    "build": "npm run build --prefix 3d-store-frontend"
+  }
+}

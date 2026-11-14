@@ -1,13 +1,31 @@
-import Order from '../models/Order.js'
-import Product from '../models/Product.js'
-import Coupon from '../models/Coupon.js'
+import { supabase } from '../config/supabase.js'
+import { must, toApi, toApiList, isUuid, newSubId } from '../utils/db.js'
 import { generateOrderNo } from '../utils/generateOrderNo.js'
 import { sendOrderConfirmEmail, sendOrderNotifyAdmin, sendShippingEmail } from '../utils/sendEmail.js'
 import { generateInvoicePDF } from '../utils/pdfGenerator.js'
-import User from '../models/User.js'
-import {io} from '../server.js'
 import { calculateShippingQuote } from '../utils/shippingCalculator.js'
-import Settings from '../models/Settings.js'
+import { broadcast, adminChannel, userChannel } from '../utils/realtime.js'
+import { findUserById } from '../services/userService.js'
+import { getShippingConfig } from '../services/settingsService.js'
+import { findCouponRowByCode, couponIsValid, couponDiscount, adjustCouponUsage } from '../services/couponService.js'
+import {
+  findOrderRow,
+  updateOrderRow,
+  historyEntry,
+  adjustStock,
+  rollbackCouponUsage,
+  populateItemProducts,
+  hasPurchasedProduct,
+} from '../services/orderService.js'
+
+const ORDER_STATUSES = ['Bekliyor', 'Basımda', 'Hazırlanıyor', 'Kargoda', 'Teslim Edildi', 'İptal']
+const ORDER_SORT_COLUMNS = {
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+  totalPrice: 'total_price',
+  orderNo: 'order_no',
+  status: 'status',
+}
 
 const formatOrderDateForTR = (dateValue) => {
   if (!dateValue) return ''
@@ -22,60 +40,26 @@ const formatOrderDateForTR = (dateValue) => {
   }).format(new Date(dateValue))
 }
 
-const rollbackCouponUsage = async (couponId) => {
-  if (!couponId) return
-
-  const coupon = await Coupon.findById(couponId)
-  if (!coupon) return
-
-  coupon.used = Math.max(0, (coupon.used || 0) - 1)
-  await coupon.save()
-}
-
-const bulkAdjustStock = async (items = [], direction = 'decrease') => {
-  if (!Array.isArray(items) || items.length === 0) return
-
-  const sign = direction === 'increase' ? 1 : -1
-  const ops = items
-    .filter((item) => item?.product && Number(item.quantity) > 0)
-    .map((item) => ({
-      updateOne: {
-        filter: { _id: item.product },
-        update: { $inc: { stock: sign * Number(item.quantity) } },
-      },
-    }))
-
-  if (ops.length > 0) {
-    await Product.bulkWrite(ops, { ordered: false })
+const requireOrderRow = async (id, res, columns = '*') => {
+  const row = await findOrderRow(id, columns)
+  if (!row) {
+    res.status(404)
+    throw new Error('Sipariş bulunamadı.')
   }
-}
-
-const getShippingConfigFromSettings = async () => {
-  const settings = await Settings.findOne().lean()
-
-  return {
-    baseCostByZone: {
-      local: Number(settings?.localShippingCost ?? 89),
-      near: Number(settings?.nearShippingCost ?? 109),
-      standard: Number(settings?.standardShippingCost ?? 139),
-      far: Number(settings?.farShippingCost ?? 179),
-    },
-    expressSurcharge: Number(settings?.expressShippingSurcharge ?? 35),
-  }
+  return row
 }
 
 // @desc    Sipariş oluştur
 // @route   POST /api/orders
 // @access  Private
-
 export const createOrder = async (req, res) => {
   const {
     items, shippingAddress, paymentMethod,
-    shippingMethod, couponCode, customerNote
+    shippingMethod, couponCode, customerNote,
   } = req.body
 
   if (!items || items.length === 0) {
-    res.status(400) 
+    res.status(400)
     throw new Error('Sipariş öğeleri zorunludur.')
   }
 
@@ -84,30 +68,35 @@ export const createOrder = async (req, res) => {
     throw new Error('Teslimat adresindeki zorunlu alanlar eksik.')
   }
 
-  // Ürünleri DB'den doğrula ve fiyatları kontrol et
-  let subtotal = 0
-  const orderItems = []
+  if (!['card', 'transfer'].includes(paymentMethod)) {
+    res.status(400)
+    throw new Error('Geçersiz ödeme yöntemi.')
+  }
 
-  const productIds = [...new Set(items.map((item) => item?.product?.toString()).filter(Boolean))]
+  // Ürünleri DB'den doğrula ve fiyatları kontrol et
+  const productIds = [...new Set(items.map((item) => String(item?.product?._id || item?.product || '')).filter(Boolean))]
   if (productIds.length === 0) {
     res.status(400)
     throw new Error('Sipariş ürün bilgisi eksik.')
   }
 
-  const products = await Product.find({ _id: { $in: productIds } })
-    .select('_id name images price stock')
-    .lean()
+  const invalidId = productIds.find((id) => !isUuid(id))
+  if (invalidId) {
+    res.status(404)
+    throw new Error(`Ürün bulunamadı: ${invalidId}`)
+  }
 
-  const productMap = new Map(products.map((product) => [product._id.toString(), product]))
+  const products = must(
+    await supabase.from('products').select('id, name, images, price, stock').in('id', productIds)
+  )
+  const productMap = new Map(products.map((p) => [p.id, p]))
+
+  let subtotal = 0
+  const orderItems = []
 
   for (const item of items) {
-    const productId = item?.product?.toString()
+    const productId = String(item?.product?._id || item?.product || '')
     const quantity = Number(item?.quantity)
-
-    if (!productId) {
-      res.status(400)
-      throw new Error('Ürün kimliği eksik.')
-    }
 
     if (!Number.isFinite(quantity) || quantity <= 0) {
       res.status(400)
@@ -126,90 +115,86 @@ export const createOrder = async (req, res) => {
       throw new Error(`${product.name} için yeterli stok yok. Mevcut stok: ${product.stock}`)
     }
 
+    const price = Number(product.price)
     orderItems.push({
-      product: product._id,
+      _id: newSubId(),
+      product: product.id,
       name: product.name,
-      image: product.images[0] || '',
-      price: product.price,
+      image: product.images?.[0] || '',
+      price,
       quantity,
       material: item.material,
       color: item.color,
     })
 
-    subtotal += product.price * quantity
+    subtotal += price * quantity
   }
 
   const selectedShippingMethod = shippingMethod === 'express' ? 'express' : 'standard'
-  const shippingConfig = await getShippingConfigFromSettings()
   let shippingQuote = calculateShippingQuote({
     items: orderItems,
     shippingAddress,
     shippingMethod: selectedShippingMethod,
-  }, shippingConfig)
+  }, await getShippingConfig())
   let shippingCost = shippingQuote.totalCost
 
   // Kupon
   let discount = 0
   let couponId = null
-  let couponToUpdate = null
 
   if (couponCode) {
-    const coupon = await Coupon.findOne({ code: couponCode.toUpperCase() })
+    const coupon = await findCouponRowByCode(couponCode)
 
     if (coupon) {
-      const { valid, message } = coupon.isValid(subtotal)
+      const { valid, message } = couponIsValid(coupon, subtotal)
       if (!valid) {
         res.status(400)
         throw new Error(message)
       }
 
-      discount = coupon.calcDiscount(subtotal)
+      discount = couponDiscount(coupon, subtotal)
       if (coupon.type === 'shipping') {
         shippingCost = 0
-        shippingQuote = {
-          ...shippingQuote,
-          totalCost: 0,
-          couponFreeShipping: true,
-        }
+        shippingQuote = { ...shippingQuote, totalCost: 0, couponFreeShipping: true }
       }
-      couponId = coupon._id
-      couponToUpdate = coupon
+      couponId = coupon.id
     }
   }
 
   const totalPrice = subtotal - discount + shippingCost
   const orderNo = await generateOrderNo()
 
-  // Siparişi oluştur
-  const order = await Order.create({
-    user: req.user._id,
-    orderNo,
-    items: orderItems,
-    shippingAddress,
-    paymentMethod,
-    shippingMethod: selectedShippingMethod,
-    shippingDetails: shippingQuote,
-    subtotal,
-    discount,
-    shippingCost,
-    totalPrice,
-    coupon: couponId,
-    couponCode,
-    customerNote,
-    statusHistory: [{ status: 'Bekliyor', note: 'Sipariş alındı' }],
-  })
+  const orderRow = must(
+    await supabase
+      .from('orders')
+      .insert({
+        user_id: req.user._id,
+        order_no: orderNo,
+        items: orderItems,
+        shipping_address: shippingAddress,
+        payment_method: paymentMethod,
+        shipping_method: selectedShippingMethod,
+        shipping_details: shippingQuote,
+        subtotal,
+        discount,
+        shipping_cost: shippingCost,
+        total_price: totalPrice,
+        coupon_id: couponId,
+        coupon_code: couponCode || null,
+        customer_note: customerNote || null,
+        status_history: [historyEntry('Bekliyor', 'Sipariş alındı')],
+      })
+      .select('*')
+      .single()
+  )
+  const order = toApi(orderRow)
 
-  // Stokları düş
-  await bulkAdjustStock(orderItems, 'decrease')
-
-  // Sipariş başarıyla oluşturulduktan sonra kupon kullanımını artır
-  if (couponToUpdate) {
-    couponToUpdate.used += 1
-    await couponToUpdate.save()
-  }
+  // Stokları düş, kupon kullanımını artır
+  await adjustStock(orderItems, -1)
+  if (couponId) await adjustCouponUsage(couponId, 1)
 
   // Onay maili gönder
-  const user = await User.findById(req.user._id)
+  const user = req.user
 
   if (user?.email) {
     try {
@@ -217,40 +202,36 @@ export const createOrder = async (req, res) => {
     } catch (err) {
       console.log('Mail gönderilemedi:', err.message)
     }
-  } else {
-    console.log('Mail gönderilemedi: kullanici e-postasi bulunamadi')
   }
 
-  // Admin'e siparis mail bildirimi gönder
+  // Admin'e sipariş mail bildirimi gönder
   try {
     await sendOrderNotifyAdmin(order, user)
   } catch (err) {
     console.log('Admin siparis maili gönderilemedi:', err.message)
   }
 
-  // --- Socket.IO Bildirimleri ---
-  // Admin'e bildirim gönder
-  io.to('admin').emit('newOrder', {
-    type: 'newOrder',
-    message: `Yeni sipariş: ${order.orderNo} — ${order.totalPrice}₺`,
-    order: {
-      _id: order._id,
+  // Realtime bildirimleri (eski socket.io olayları)
+  await Promise.all([
+    broadcast(adminChannel(), 'newOrder', {
+      type: 'newOrder',
+      message: `Yeni sipariş: ${order.orderNo} — ${order.totalPrice}₺`,
+      order: {
+        _id: order._id,
+        orderNo: order.orderNo,
+        totalPrice: order.totalPrice,
+        status: order.status,
+        createdAt: order.createdAt,
+      },
+      timestamp: new Date(),
+    }),
+    broadcast(userChannel(req.user._id), 'orderCreated', {
+      type: 'orderCreated',
+      message: `Siparişiniz alındı! ${order.orderNo}`,
       orderNo: order.orderNo,
-      totalPrice: order.totalPrice,
-      status: order.status,
-      createdAt: order.createdAt,
-    },
-    timestamp: new Date(),
-  })
-
-  // Kullanıcıya da bildirim gönder
-  io.to(`user_${req.user._id}`).emit('orderCreated', {
-    type: 'orderCreated',
-    message: `Siparişiniz alındı! ${order.orderNo}`,
-    orderNo: order.orderNo,
-    timestamp: new Date(),
-  })
-  // ------------------------------
+      timestamp: new Date(),
+    }),
+  ])
 
   res.status(201).json({ success: true, data: order })
 }
@@ -277,37 +258,20 @@ export const getShippingQuote = async (req, res) => {
     quantity: Number(item.quantity) || 1,
   }))
 
-  const shippingConfig = await getShippingConfigFromSettings()
-
   const quote = calculateShippingQuote({
     items: sanitizedItems,
     shippingAddress,
     shippingMethod,
-  }, shippingConfig)
+  }, await getShippingConfig())
 
   res.status(200).json({ success: true, data: quote })
 }
+
 // @desc    Ürünün kullanıcı tarafından satın alınıp alınmadığını kontrol et
 // @route   GET /api/orders/check-purchase/:productId
 // @access  Private
 export const checkPurchase = async (req, res) => {
-  const productId = req.params.productId
-  
-  const hasPurchased = await Order.findOne({
-    user: req.user._id,
-    'items.product': productId,
-    status: {
-      $in: [
-        'Onaylandı',
-        'Basımda',
-        'Hazırlanıyor',
-        'Kargoya Verildi',
-        'Kargoda',
-        'Teslim Edildi',
-      ],
-    },
-  })
-  
+  const hasPurchased = await hasPurchasedProduct(req.user._id, req.params.productId)
   res.status(200).json({ success: true, hasPurchased: !!hasPurchased })
 }
 
@@ -315,18 +279,21 @@ export const checkPurchase = async (req, res) => {
 // @route   GET /api/orders/mine
 // @access  Private
 export const getMyOrders = async (req, res) => {
-  const orders = await Order.find({ user: req.user._id })
-    .sort({ createdAt: -1 })
-    .populate('items.product', 'name images slug')
+  const rows = must(
+    await supabase
+      .from('orders')
+      .select('*')
+      .eq('user_id', req.user._id)
+      .order('created_at', { ascending: false })
+  )
 
-  const preparedOrders = orders.map((order) => {
-    const orderObj = order.toObject()
+  const orders = toApiList(rows)
+  await populateItemProducts(orders)
 
-    return {
-      ...orderObj,
-      createdAtDisplay: formatOrderDateForTR(orderObj.createdAt),
-    }
-  })
+  const preparedOrders = orders.map((order) => ({
+    ...order,
+    createdAtDisplay: formatOrderDateForTR(order.createdAt),
+  }))
 
   res.status(200).json({ success: true, count: preparedOrders.length, data: preparedOrders })
 }
@@ -335,20 +302,20 @@ export const getMyOrders = async (req, res) => {
 // @route   GET /api/orders/:id
 // @access  Private
 export const getOrder = async (req, res) => {
-  const order = await Order.findById(req.params.id)
-    .populate('user', 'firstName lastName email phone')
-    .populate('items.product', 'name images slug')
-
-  if (!order) {
-    res.status(404)
-    throw new Error('Sipariş bulunamadı.')
-  }
+  const row = await requireOrderRow(
+    req.params.id,
+    res,
+    '*, user:users(id, first_name, last_name, email, phone)'
+  )
 
   // Sadece kendi siparişini görebilir (admin hariç)
-  if (order.user._id.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+  if (row.user_id !== req.user._id && req.user.role !== 'admin') {
     res.status(403)
     throw new Error('Bu siparişi görüntüleme yetkiniz yok.')
   }
+
+  const order = toApi(row, ['user'])
+  await populateItemProducts(order)
 
   res.status(200).json({ success: true, data: order })
 }
@@ -357,33 +324,30 @@ export const getOrder = async (req, res) => {
 // @route   GET /api/orders
 // @access  Admin
 export const getOrders = async (req, res) => {
-  const {
-    status, page = 1, limit = 20,
-    sort = 'createdAt', order = 'desc'
-  } = req.query
+  const { status, page = 1, limit = 20, sort = 'createdAt', order = 'desc' } = req.query
 
-  const query = {}
-  if (status) query.status = status
+  const pageNum = Math.max(1, Number(page) || 1)
+  const limitNum = Math.min(200, Math.max(1, Number(limit) || 20))
+  const from = (pageNum - 1) * limitNum
 
-  const sortOption = { [sort]: order === 'desc' ? -1 : 1 }
-  const pageNum = Number(page)
-  const limitNum = Number(limit)
-  const skip = (pageNum - 1) * limitNum
+  let query = supabase
+    .from('orders')
+    .select('*, user:users(id, first_name, last_name, email)', { count: 'exact' })
+  if (status) query = query.eq('status', status)
 
-  const total = await Order.countDocuments(query)
-  const orders = await Order.find(query)
-    .sort(sortOption)
-    .skip(skip)
-    .limit(limitNum)
-    .populate('user', 'firstName lastName email')
+  const { data, count, error } = await query
+    .order(ORDER_SORT_COLUMNS[sort] || 'created_at', { ascending: order !== 'desc' })
+    .range(from, from + limitNum - 1)
+  must({ data, error })
 
+  const total = count || 0
   res.status(200).json({
     success: true,
-    count: orders.length,
+    count: data.length,
     total,
     pages: Math.ceil(total / limitNum),
     currentPage: pageNum,
-    data: orders,
+    data: toApiList(data, ['user']),
   })
 }
 
@@ -393,34 +357,32 @@ export const getOrders = async (req, res) => {
 export const updateOrderStatus = async (req, res) => {
   const { status, note } = req.body
 
-  const order = await Order.findById(req.params.id)
-
-  if (!order) {
-    res.status(404)
-    throw new Error('Sipariş bulunamadı.')
+  if (!ORDER_STATUSES.includes(status)) {
+    res.status(400)
+    throw new Error('Geçersiz sipariş durumu.')
   }
 
-  const previousStatus = order.status
-  order.status = status
-  order.statusHistory.push({ status, note })
+  const row = await requireOrderRow(req.params.id, res)
+  const previousStatus = row.status
+
+  const fields = {
+    status,
+    status_history: [...(row.status_history || []), historyEntry(status, note)],
+  }
 
   if (status === 'Teslim Edildi') {
-    order.isDelivered = true
-    order.deliveredAt = Date.now()
+    fields.is_delivered = true
+    fields.delivered_at = new Date().toISOString()
   }
 
-  if (status === 'İptal') {
-    // Stokları geri yükle
-    await bulkAdjustStock(order.items, 'increase')
-
-    if (previousStatus !== 'İptal') {
-      await rollbackCouponUsage(order.coupon)
-    }
+  // Stoklar ve kupon sadece ilk iptalde geri alınır
+  if (status === 'İptal' && previousStatus !== 'İptal') {
+    await adjustStock(row.items, 1)
+    await rollbackCouponUsage(row.coupon_id)
   }
 
-  await order.save()
-
-  res.status(200).json({ success: true, data: order })
+  const updated = await updateOrderRow(row.id, fields)
+  res.status(200).json({ success: true, data: toApi(updated) })
 }
 
 // @desc    Kargo takip ekle
@@ -429,24 +391,20 @@ export const updateOrderStatus = async (req, res) => {
 export const updateTracking = async (req, res) => {
   const { trackingNo, carrier } = req.body
 
-  const order = await Order.findById(req.params.id)
+  const row = await requireOrderRow(req.params.id, res)
 
-  if (!order) {
-    res.status(404)
-    throw new Error('Sipariş bulunamadı.')
-  }
-
-  order.trackingNo = trackingNo
-  order.carrier = carrier
-  order.status = 'Kargoda'
-  order.statusHistory.push({ status: 'Kargoda', note: `${carrier} - ${trackingNo}` })
-
-  await order.save()
+  const updated = await updateOrderRow(row.id, {
+    tracking_no: trackingNo,
+    carrier,
+    status: 'Kargoda',
+    status_history: [...(row.status_history || []), historyEntry('Kargoda', `${carrier} - ${trackingNo}`)],
+  })
+  const order = toApi(updated)
 
   // Kargo maili gönder
   try {
-    const user = await User.findById(order.user)
-    await sendShippingEmail(order, user)
+    const user = await findUserById(row.user_id)
+    if (user) await sendShippingEmail(order, user)
   } catch (err) {
     console.log('Mail gönderilemedi:', err.message)
   }
@@ -458,48 +416,36 @@ export const updateTracking = async (req, res) => {
 // @route   PUT /api/orders/:id/cancel
 // @access  Private
 export const cancelOrder = async (req, res) => {
-  const order = await Order.findById(req.params.id)
+  const row = await requireOrderRow(req.params.id, res)
 
-  if (!order) {
-    res.status(404)
-    throw new Error('Sipariş bulunamadı.')
-  }
-
-  if (order.user.toString() !== req.user._id.toString()) {
+  if (row.user_id !== req.user._id) {
     res.status(403)
     throw new Error('Bu siparişi iptal etme yetkiniz yok.')
   }
 
   const cancellableStatuses = ['Bekliyor', 'Onaylandı']
-  if (!cancellableStatuses.includes(order.status)) {
+  if (!cancellableStatuses.includes(row.status)) {
     res.status(400)
-    throw new Error(`"${order.status}" aşamasındaki siparişler iptal edilemez.`)
+    throw new Error(`"${row.status}" aşamasındaki siparişler iptal edilemez.`)
   }
 
-  order.status = 'İptal'
-  order.statusHistory.push({ status: 'İptal', note: 'Müşteri tarafından iptal edildi.' })
+  await adjustStock(row.items, 1)
+  await rollbackCouponUsage(row.coupon_id)
 
-  // Stokları geri yükle
-  await bulkAdjustStock(order.items, 'increase')
+  const updated = await updateOrderRow(row.id, {
+    status: 'İptal',
+    status_history: [...(row.status_history || []), historyEntry('İptal', 'Müşteri tarafından iptal edildi.')],
+  })
 
-  await rollbackCouponUsage(order.coupon)
-
-  await order.save()
-
-  res.status(200).json({ success: true, data: order })
+  res.status(200).json({ success: true, data: toApi(updated) })
 }
 
 // @desc    Fatura PDF indir
 // @route   GET /api/orders/:id/pdf
 // @access  Admin
 export const getInvoicePDF = async (req, res) => {
-  const order = await Order.findById(req.params.id)
-    .populate('user', 'firstName lastName email')
-
-  if (!order) {
-    res.status(404)
-    throw new Error('Sipariş bulunamadı.')
-  }
+  const row = await requireOrderRow(req.params.id, res, '*, user:users(id, first_name, last_name, email)')
+  const order = toApi(row, ['user'])
 
   const pdfBuffer = await generateInvoicePDF(order, order.user)
 
@@ -510,26 +456,22 @@ export const getInvoicePDF = async (req, res) => {
 
 // @desc    Ödeme güncelle
 // @route   PUT /api/orders/:id/pay
-// @access  Private
+// @access  Admin
+// Not: Eskiden her giriş yapmış kullanıcı herhangi bir siparişi "ödendi" yapabiliyordu.
+// Kart ödemeleri PayTR callback'i ile işaretlendiği için bu uç artık sadece admin'e açık.
 export const updateOrderToPaid = async (req, res) => {
-  const order = await Order.findById(req.params.id)
+  const row = await requireOrderRow(req.params.id, res)
+  const now = new Date().toISOString()
 
-  if (!order) {
-    res.status(404)
-    throw new Error('Sipariş bulunamadı.')
-  }
+  const updated = await updateOrderRow(row.id, {
+    is_paid: true,
+    paid_at: now,
+    payment_result: { id: req.body.id, status: req.body.status, paidAt: now },
+    status_history: [
+      ...(row.status_history || []),
+      historyEntry(row.status, 'Odeme alindi, uretim planlama asamasinda.'),
+    ],
+  })
 
-  order.isPaid = true
-  order.paidAt = Date.now()
-  order.paymentResult = {
-    id: req.body.id,
-    status: req.body.status,
-    paidAt: Date.now(),
-  }
-
-  order.statusHistory.push({ status: order.status, note: 'Odeme alindi, uretim planlama asamasinda.' })
-
-  await order.save()
-
-  res.status(200).json({ success: true, data: order })
+  res.status(200).json({ success: true, data: toApi(updated) })
 }

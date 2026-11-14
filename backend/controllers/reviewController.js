@@ -1,20 +1,27 @@
-import Review from '../models/Review.js'
-import Product from '../models/Product.js'
-import Order from '../models/Order.js'
+import { supabase } from '../config/supabase.js'
+import { must, toApi, toApiList, isUuid } from '../utils/db.js'
+import { hasPurchasedProduct } from '../services/orderService.js'
+
+// Ürün puanı (rating / reviewCount) Postgres trigger'ı ile otomatik güncellenir.
+
+const REVIEW_STATUSES = ['pending', 'approved', 'rejected']
 
 // @desc    Ürün yorumlarını getir
 // @route   GET /api/reviews/product/:productId
 // @access  Public
 export const getProductReviews = async (req, res) => {
-  const reviews = await Review.find({
-    product: req.params.productId,
-    status: 'approved',
-  })
-    .populate('user', 'firstName lastName')
-    .sort({ createdAt: -1 })
-    .lean()
+  const rows = isUuid(req.params.productId)
+    ? must(
+        await supabase
+          .from('reviews')
+          .select('*, user:users(id, first_name, last_name)')
+          .eq('product_id', req.params.productId)
+          .eq('status', 'approved')
+          .order('created_at', { ascending: false })
+      )
+    : []
 
-  res.status(200).json({ success: true, count: reviews.length, data: reviews })
+  res.status(200).json({ success: true, count: rows.length, data: toApiList(rows, ['user']) })
 }
 
 // @desc    Tüm yorumları getir
@@ -23,27 +30,30 @@ export const getProductReviews = async (req, res) => {
 export const getReviews = async (req, res) => {
   const { status, page = 1, limit = 20 } = req.query
 
-  const query = {}
-  if (status) query.status = status
+  const pageNum = Math.max(1, Number(page) || 1)
+  const limitNum = Math.min(200, Math.max(1, Number(limit) || 20))
+  const from = (pageNum - 1) * limitNum
 
-  const pageNum = Number(page)
-  const limitNum = Number(limit)
-  const skip = (pageNum - 1) * limitNum
+  let query = supabase
+    .from('reviews')
+    .select(
+      '*, user:users(id, first_name, last_name, email), product:products(id, name, images)',
+      { count: 'exact' }
+    )
+  if (status) query = query.eq('status', status)
 
-  const total = await Review.countDocuments(query)
-  const reviews = await Review.find(query)
-    .populate('user', 'firstName lastName email')
-    .populate('product', 'name images')
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limitNum)
+  const { data, count, error } = await query
+    .order('created_at', { ascending: false })
+    .range(from, from + limitNum - 1)
+  must({ data, error })
 
+  const total = count || 0
   res.status(200).json({
     success: true,
-    count: reviews.length,
+    count: data.length,
     total,
     pages: Math.ceil(total / limitNum),
-    data: reviews,
+    data: toApiList(data, ['user', 'product']),
   })
 }
 
@@ -51,78 +61,89 @@ export const getReviews = async (req, res) => {
 // @route   GET /api/reviews/public
 // @access  Public
 export const getPublicReviews = async (req, res) => {
-  const { limit = 6 } = req.query
-  const limitNum = Math.min(20, Math.max(1, Number(limit) || 6))
+  const limitNum = Math.min(20, Math.max(1, Number(req.query.limit) || 6))
 
-  const reviews = await Review.find({ status: 'approved' })
-    .populate('user', 'firstName lastName')
-    .populate('product', 'name images slug')
-    .sort({ createdAt: -1 })
-    .limit(limitNum)
-    .lean()
+  const rows = must(
+    await supabase
+      .from('reviews')
+      .select('*, user:users(id, first_name, last_name), product:products(id, name, images, slug)')
+      .eq('status', 'approved')
+      .order('created_at', { ascending: false })
+      .limit(limitNum)
+  )
 
-  res.status(200).json({
-    success: true,
-    count: reviews.length,
-    data: reviews,
-  })
+  res.status(200).json({ success: true, count: rows.length, data: toApiList(rows, ['user', 'product']) })
 }
 
 // @desc    Yorum oluştur
 // @route   POST /api/reviews
 // @access  Private
 export const createReview = async (req, res) => {
-  const { productId, rating, comment, orderId } = req.body
+  const { productId, comment } = req.body
+  const rating = Math.round(Number(req.body.rating))
 
-  // Ürün var mı?
-  const product = await Product.findById(productId)
+  const product = isUuid(productId)
+    ? must(await supabase.from('products').select('id').eq('id', productId).maybeSingle())
+    : null
   if (!product) {
     res.status(404)
     throw new Error('Ürün bulunamadı.')
   }
 
-  // Daha önce yorum yapmış mı?
-  const alreadyReviewed = await Review.findOne({
-    user: req.user._id,
-    product: productId,
-  })
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+    res.status(400)
+    throw new Error('Puan zorunludur')
+  }
 
-  if (alreadyReviewed) {
+  if (!comment || !String(comment).trim()) {
+    res.status(400)
+    throw new Error('Yorum zorunludur')
+  }
+
+  if (String(comment).length > 500) {
+    res.status(400)
+    throw new Error('Yorum 500 karakterden uzun olamaz')
+  }
+
+  // Daha önce yorum yapmış mı?
+  const already = must(
+    await supabase
+      .from('reviews')
+      .select('id')
+      .eq('user_id', req.user._id)
+      .eq('product_id', productId)
+      .maybeSingle()
+  )
+
+  if (already) {
     res.status(400)
     throw new Error('Bu ürün için zaten yorum yaptınız.')
   }
 
   // Satın almış ve siparişi onaylanmış/kargolanmış/teslim edilmiş mi?
-  const hasPurchased = await Order.findOne({
-    user: req.user._id,
-    'items.product': productId,
-    status: {
-      $in: [
-        'Onaylandı',
-        'Basımda',
-        'Hazırlanıyor',
-        'Kargoya Verildi',
-        'Kargoda',
-        'Teslim Edildi',
-      ],
-    },
-  })
+  const purchase = await hasPurchasedProduct(req.user._id, productId)
 
-  if (!hasPurchased) {
+  if (!purchase) {
     res.status(403)
     throw new Error('Bu ürünü değerlendirebilmek için satın almış olmanız gerekmektedir.')
   }
 
-  const review = await Review.create({
-    user: req.user._id,
-    product: productId,
-    order: hasPurchased._id,
-    rating,
-    comment,
-    isVerified: true,
-  })
+  const row = must(
+    await supabase
+      .from('reviews')
+      .insert({
+        user_id: req.user._id,
+        product_id: productId,
+        order_id: purchase.id,
+        rating,
+        comment: String(comment).trim(),
+        is_verified: true,
+      })
+      .select('*')
+      .single()
+  )
 
-  res.status(201).json({ success: true, data: review })
+  res.status(201).json({ success: true, data: toApi(row) })
 }
 
 // @desc    Yorum durumu güncelle
@@ -131,42 +152,50 @@ export const createReview = async (req, res) => {
 export const updateReviewStatus = async (req, res) => {
   const { status } = req.body
 
-  const review = await Review.findByIdAndUpdate(
-    req.params.id,
-    { status },
-    { new: true }
-  )
+  if (!REVIEW_STATUSES.includes(status)) {
+    res.status(400)
+    throw new Error('Geçersiz yorum durumu.')
+  }
 
-  if (!review) {
+  const row = isUuid(req.params.id)
+    ? must(await supabase.from('reviews').update({ status }).eq('id', req.params.id).select('*').maybeSingle())
+    : null
+
+  if (!row) {
     res.status(404)
     throw new Error('Yorum bulunamadı.')
   }
 
-  // Rating'i güncelle
-  await Review.calcAverageRating(review.product)
-
-  res.status(200).json({ success: true, data: review })
+  res.status(200).json({ success: true, data: toApi(row) })
 }
 
 // @desc    Yorum sil
 // @route   DELETE /api/reviews/:id
 // @access  Admin
 export const deleteReview = async (req, res) => {
-  const review = await Review.findById(req.params.id)
+  const deleted = isUuid(req.params.id)
+    ? must(await supabase.from('reviews').delete().eq('id', req.params.id).select('id'))
+    : []
 
-  if (!review) {
+  if (deleted.length === 0) {
     res.status(404)
     throw new Error('Yorum bulunamadı.')
   }
 
-  await review.deleteOne()
-
   res.status(200).json({ success: true, message: 'Yorum silindi.' })
 }
 
+// @desc    Kullanıcının kendi yorumları
+// @route   GET /api/reviews/my
+// @access  Private
 export const getMyReviews = async (req, res) => {
-  const reviews = await Review.find({ user: req.user._id })
-    .populate('product', 'name images')
-    .sort({ createdAt: -1 })
-    res.status(200).json({ success: true, count: reviews.length, data: reviews })
+  const rows = must(
+    await supabase
+      .from('reviews')
+      .select('*, product:products(id, name, images)')
+      .eq('user_id', req.user._id)
+      .order('created_at', { ascending: false })
+  )
+
+  res.status(200).json({ success: true, count: rows.length, data: toApiList(rows, ['product']) })
 }

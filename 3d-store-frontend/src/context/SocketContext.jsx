@@ -1,6 +1,20 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
-import { io } from 'socket.io-client'
+// Eskiden socket.io kullanıyordu; Vercel serverless kalıcı WebSocket tutamadığı için
+// artık Supabase Realtime Broadcast dinleniyor. Dışa açılan API (SocketProvider,
+// useSocket) aynı kaldığı için bu context'i kullanan bileşenler değişmedi.
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createClient } from '@supabase/supabase-js'
+import api from '../api/axios'
 import { useAuth } from './AuthContext'
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+
+// Sadece Realtime için kullanılıyor; veritabanına doğrudan erişim yok (RLS kapalı tutuyor)
+const realtimeClient = SUPABASE_URL && SUPABASE_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+  : null
 
 const SocketContext = createContext({
   notifications: [],
@@ -10,23 +24,7 @@ const SocketContext = createContext({
   clearAll: () => {},
 })
 
-const resolveSocketUrl = () => {
-  const fallback = 'http://localhost:5000'
-  const apiBase = (import.meta.env.VITE_API_URL || '').trim()
-
-  if (!apiBase) return fallback
-
-  try {
-    const parsedUrl = new URL(apiBase)
-    parsedUrl.pathname = parsedUrl.pathname.replace(/\/api\/?$/, '') || '/'
-    return parsedUrl.toString().replace(/\/+$/, '')
-  } catch {
-    return fallback
-  }
-}
-
 export const SocketProvider = ({ children }) => {
-  const socketRef = useRef(null)
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
   const { isAuthenticated, isAdmin, user } = useAuth()
@@ -37,71 +35,69 @@ export const SocketProvider = ({ children }) => {
   }, [])
 
   useEffect(() => {
-    if (!isAuthenticated) return
+    if (!isAuthenticated || !realtimeClient) return
 
-    const socketUrl = resolveSocketUrl()
+    let cancelled = false
+    const channels = []
 
-    socketRef.current = io(
-      socketUrl,
-      { withCredentials: true }
-    )
-
-    const socket = socketRef.current
-
-    socket.on('connect', () => {
-      console.log('🔌 Socket bağlandı:', socket.id)
-      if (isAdmin) socket.emit('joinAdmin')
-      if (user?._id) socket.emit('joinUser', user._id)
-    })
-
-    if (isAdmin) {
-      socket.on('newOrder', (data) => {
-        addNotification({
-          id: Date.now(),
-          type: 'newOrder',
-          title: 'Yeni Sipariş!',
-          message: data.message,
-          data: data.order,
-          timestamp: data.timestamp || new Date(),
-          read: false,
-        })
-      })
-
-      socket.on('newUser', (data) => {
-        addNotification({
-          id: Date.now(),
-          type: 'newUser',
-          title: 'Yeni Üye!',
-          message: data.message,
-          data: data.user,
-          timestamp: data.timestamp || new Date(),
-          read: false,
-        })
-      })
+    const subscribe = (name, handlers) => {
+      const channel = realtimeClient.channel(name)
+      for (const [event, handler] of Object.entries(handlers)) {
+        channel.on('broadcast', { event }, ({ payload }) => handler(payload || {}))
+      }
+      channel.subscribe()
+      channels.push(channel)
     }
 
-    socket.on('orderCreated', (data) => {
-      addNotification({
-        id: Date.now(),
-        type: 'orderCreated',
-        title: 'Sipariş Alındı!',
-        message: data.message,
-        timestamp: data.timestamp || new Date(),
-        read: false,
+    // Kanal adları sunucuda gizli anahtarla üretilir; sadece giriş yapmış kullanıcıya verilir
+    api.get('/auth/realtime')
+      .then(({ data }) => {
+        if (cancelled) return
+        const { user: userTopic, admin: adminTopic } = data?.data || {}
+
+        if (userTopic) {
+          subscribe(userTopic, {
+            orderCreated: (payload) => addNotification({
+              id: Date.now(),
+              type: 'orderCreated',
+              title: 'Sipariş Alındı!',
+              message: payload.message,
+              timestamp: payload.timestamp || new Date(),
+              read: false,
+            }),
+          })
+        }
+
+        if (isAdmin && adminTopic) {
+          subscribe(adminTopic, {
+            newOrder: (payload) => addNotification({
+              id: Date.now(),
+              type: 'newOrder',
+              title: 'Yeni Sipariş!',
+              message: payload.message,
+              data: payload.order,
+              timestamp: payload.timestamp || new Date(),
+              read: false,
+            }),
+            newUser: (payload) => addNotification({
+              id: Date.now(),
+              type: 'newUser',
+              title: 'Yeni Üye!',
+              message: payload.message,
+              data: payload.user,
+              timestamp: payload.timestamp || new Date(),
+              read: false,
+            }),
+          })
+        }
       })
-    })
-
-    socket.on('disconnect', () => {
-      console.log('🔌 Socket ayrıldı')
-    })
-
-    socket.on('connect_error', (err) => {
-      console.log('🔌 Socket bağlantı hatası:', err.message)
-    })
+      .catch((err) => {
+        console.log('Bildirim kanalları alınamadı:', err.message)
+      })
 
     return () => {
-      socket.disconnect()
-      socketRef.current = null
+      cancelled = true
+      channels.forEach((channel) => realtimeClient.removeChannel(channel))
     }
   }, [isAuthenticated, isAdmin, user?._id, addNotification])
 

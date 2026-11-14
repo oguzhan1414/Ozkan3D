@@ -1,11 +1,11 @@
 import jwt from 'jsonwebtoken'
-import User from '../models/User.js'
+import { findUserById } from '../services/userService.js'
 
 export const protect = async (req, res, next) => {
   let token
 
   // Cookie'den al
-  if (req.cookies.token) {
+  if (req.cookies?.token) {
     token = req.cookies.token
   }
   // Header'dan al
@@ -18,12 +18,20 @@ export const protect = async (req, res, next) => {
     throw new Error('Bu işlem için giriş yapmanız gerekiyor.')
   }
 
+  let decoded
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET)
-    req.user = await User.findById(decoded.id).select('-password')
-    next()
-  } catch (error) {
+    decoded = jwt.verify(token, process.env.JWT_SECRET)
+  } catch {
     res.status(401)
     throw new Error('Token geçersiz veya süresi dolmuş.')
   }
+
+  const user = await findUserById(decoded.id)
+  if (!user || user.isActive === false) {
+    res.status(401)
+    throw new Error('Token geçersiz veya süresi dolmuş.')
+  }
+
+  req.user = user
+  next()
 }

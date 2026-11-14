@@ -1,6 +1,6 @@
-import Product from '../models/Product.js'
-import Settings from '../models/Settings.js'
-import Review from '../models/Review.js'
+import { supabase } from '../config/supabase.js'
+import { must, toApiList } from '../utils/db.js'
+import { getSettingsRow } from '../services/settingsService.js'
 
 const clamp = (value, min, max, fallback) => {
   const numeric = Number(value)
@@ -8,25 +8,11 @@ const clamp = (value, min, max, fallback) => {
   return Math.max(min, Math.min(max, Math.floor(numeric)))
 }
 
-const cardProjection = [
-  'name',
-  'slug',
-  'category',
-  'subcategory',
-  'price',
-  'oldPrice',
-  'stock',
-  'images',
-  'imageVariants',
-  'material',
-  'colors',
-  'badge',
-  'rating',
-  'reviewCount',
-  'featured',
-  'isActive',
-  'createdAt',
-].join(' ')
+const cardColumns = [
+  'id', 'name', 'slug', 'category', 'subcategory', 'price', 'old_price', 'stock',
+  'images', 'image_variants', 'material', 'colors', 'badge', 'rating', 'review_count',
+  'featured', 'is_active', 'created_at',
+].join(', ')
 
 // @desc    Home bootstrap verisi
 // @route   GET /api/home/bootstrap
@@ -36,35 +22,38 @@ export const getHomeBootstrap = async (req, res) => {
   const featuredLimit = clamp(req.query.featuredLimit, 1, 12, 8)
   const reviewsLimit = clamp(req.query.reviewsLimit, 1, 12, 6)
 
-  const [featuredProducts, products, settingsDoc, reviews] = await Promise.all([
-    Product.find({ featured: true, isActive: true })
-      .select(cardProjection)
-      .sort({ createdAt: -1 })
-      .limit(featuredLimit)
-      .lean(),
-    Product.find({ isActive: true })
-      .select(cardProjection)
-      .sort({ createdAt: -1 })
-      .limit(productsLimit)
-      .lean(),
-    Settings.findOne().select('heroSlides').lean(),
-    Review.find({ status: 'approved' })
-      .populate('user', 'firstName lastName')
-      .populate('product', 'name images slug')
-      .sort({ createdAt: -1 })
-      .limit(reviewsLimit)
-      .lean(),
+  const [featured, products, settings, reviews] = await Promise.all([
+    supabase
+      .from('products')
+      .select(cardColumns)
+      .eq('featured', true)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(featuredLimit),
+    supabase
+      .from('products')
+      .select(cardColumns)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(productsLimit),
+    getSettingsRow('hero_slides'),
+    supabase
+      .from('reviews')
+      .select('*, user:users(id, first_name, last_name), product:products(id, name, images, slug)')
+      .eq('status', 'approved')
+      .order('created_at', { ascending: false })
+      .limit(reviewsLimit),
   ])
 
   res.status(200).json({
     success: true,
     data: {
-      featuredProducts,
-      products,
+      featuredProducts: toApiList(must(featured)),
+      products: toApiList(must(products)),
       settings: {
-        heroSlides: settingsDoc?.heroSlides || [],
+        heroSlides: settings?.hero_slides || [],
       },
-      reviews,
+      reviews: toApiList(must(reviews), ['user', 'product']),
     },
   })
 }

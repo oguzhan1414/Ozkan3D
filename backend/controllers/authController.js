@@ -1,40 +1,60 @@
 import crypto from 'crypto'
-import User from '../models/User.js'
-import { sendTokenResponse, getAuthCookieOptions } from '../utils/generateToken.js'
-import { sendPasswordResetEmail } from '../utils/sendEmail.js'
-import { sendWelcomeEmail, sendNewUserNotifyAdmin, sendEmailVerificationEmail } from '../utils/sendEmail.js'
-import { io } from '../server.js'
 import { OAuth2Client } from 'google-auth-library'
+import { supabase } from '../config/supabase.js'
+import { must, newSubId } from '../utils/db.js'
+import { sendTokenResponse, getAuthCookieOptions } from '../utils/generateToken.js'
+import {
+  sendPasswordResetEmail,
+  sendWelcomeEmail,
+  sendNewUserNotifyAdmin,
+  sendEmailVerificationEmail,
+} from '../utils/sendEmail.js'
+import { broadcast, adminChannel, userChannel } from '../utils/realtime.js'
+import {
+  hashPassword,
+  matchPassword,
+  userToApi,
+  findUserRowById,
+  findUserRowByEmail,
+  updateUserRow,
+  deleteUserRow,
+} from '../services/userService.js'
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
 const EMAIL_VERIFY_WINDOW_MS = 3 * 60 * 1000
 const EMAIL_VERIFY_WINDOW_SECONDS = Math.floor(EMAIL_VERIFY_WINDOW_MS / 1000)
 const EMAIL_REGEX = /^\S+@\S+\.\S+$/
 const PHONE_REGEX = /^\+90\d{10}$/
+const ADDRESS_FIELDS = ['title', 'fullName', 'phone', 'city', 'district', 'neighborhood', 'address', 'isDefault']
 
-const isVerificationExpired = (user) => {
-  if (!user?.emailVerifyExpire) return false
-  return new Date(user.emailVerifyExpire).getTime() <= Date.now()
+const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex')
+
+const isVerificationExpired = (row) => {
+  if (!row?.email_verify_expire) return false
+  return new Date(row.email_verify_expire).getTime() <= Date.now()
 }
+
+const remainingVerifySeconds = (row) =>
+  Math.max(1, Math.ceil((new Date(row.email_verify_expire).getTime() - Date.now()) / 1000))
 
 const cleanupExpiredUnverifiedUsers = async () => {
-  await User.deleteMany({
-    emailVerified: false,
-    role: 'user',
-    emailVerifyExpire: { $lte: new Date() },
-  })
+  must(
+    await supabase
+      .from('users')
+      .delete()
+      .eq('email_verified', false)
+      .eq('role', 'user')
+      .lte('email_verify_expire', new Date().toISOString())
+  )
 }
 
-const createEmailVerifyToken = (user) => {
+/** Yeni doğrulama token'ı üretir, hash'ini kaydeder, düz halini döner */
+const issueEmailVerifyToken = async (userId) => {
   const verifyToken = crypto.randomBytes(20).toString('hex')
-
-  user.emailVerifyToken = crypto
-    .createHash('sha256')
-    .update(verifyToken)
-    .digest('hex')
-
-  user.emailVerifyExpire = Date.now() + EMAIL_VERIFY_WINDOW_MS
-
+  await updateUserRow(userId, {
+    email_verify_token: sha256(verifyToken),
+    email_verify_expire: new Date(Date.now() + EMAIL_VERIFY_WINDOW_MS).toISOString(),
+  })
   return verifyToken
 }
 
@@ -51,7 +71,7 @@ const notifyNewVerifiedUser = async (user) => {
     console.log('Admin bildirimi gönderilemedi:', err.message)
   }
 
-  io.to('admin').emit('newUser', {
+  await broadcast(adminChannel(), 'newUser', {
     type: 'newUser',
     message: `Yeni üye: ${user.firstName} ${user.lastName}`,
     user: {
@@ -65,26 +85,23 @@ const notifyNewVerifiedUser = async (user) => {
   })
 }
 
-const normalizeDefaultAddresses = (user) => {
-  if (!user?.addresses || user.addresses.length === 0) return
-
-  const defaultIndexes = []
-  user.addresses.forEach((addr, index) => {
-    if (addr.isDefault) defaultIndexes.push(index)
-  })
-
-  if (defaultIndexes.length === 0) {
-    user.addresses[0].isDefault = true
-    return
-  }
-
-  if (defaultIndexes.length > 1) {
-    const keepIndex = defaultIndexes[0]
-    user.addresses.forEach((addr, index) => {
-      addr.isDefault = index === keepIndex
-    })
-  }
+/** Tam olarak bir varsayılan adres kalmasını sağlar */
+const normalizeDefaultAddresses = (addresses = []) => {
+  if (addresses.length === 0) return addresses
+  const firstDefault = addresses.findIndex((a) => a.isDefault)
+  const keep = firstDefault === -1 ? 0 : firstDefault
+  return addresses.map((a, i) => ({ ...a, isDefault: i === keep }))
 }
+
+const pickAddressFields = (body = {}) => {
+  const out = {}
+  for (const key of ADDRESS_FIELDS) {
+    if (body[key] !== undefined) out[key] = body[key]
+  }
+  return out
+}
+
+const hasRequiredAddressFields = (a) => a.fullName && a.phone && a.city && a.district && a.address
 
 // @desc    Kayıt ol
 // @route   POST /api/auth/register
@@ -117,6 +134,16 @@ export const register = async (req, res) => {
     throw new Error('Telefon numarası +90 ile başlayan 10 haneli formatta olmalıdır. Örn: +905XXXXXXXXX')
   }
 
+  if (String(password).length < 8) {
+    res.status(400)
+    throw new Error('Şifre en az 8 karakter olmalıdır')
+  }
+
+  if (String(firstName).trim().length > 30 || String(lastName).trim().length > 30) {
+    res.status(400)
+    throw new Error('Ad ve soyad 30 karakterden uzun olamaz')
+  }
+
   const parsedBirthDate = new Date(birthDate)
   if (Number.isNaN(parsedBirthDate.getTime())) {
     res.status(400)
@@ -128,20 +155,15 @@ export const register = async (req, res) => {
     throw new Error('Doğum tarihi bugünden ileri bir tarih olamaz.')
   }
 
-  const userExists = await User.findOne({ email: normalizedEmail })
-  if (userExists) {
-    if (userExists.emailVerified === false && userExists.role !== 'admin') {
-      if (isVerificationExpired(userExists)) {
-        await User.deleteOne({ _id: userExists._id })
+  const existing = await findUserRowByEmail(normalizedEmail)
+  if (existing) {
+    if (existing.email_verified === false && existing.role !== 'admin') {
+      if (isVerificationExpired(existing)) {
+        await deleteUserRow(existing.id)
       } else {
-        const remainingSeconds = Math.max(
-          1,
-          Math.ceil((new Date(userExists.emailVerifyExpire).getTime() - Date.now()) / 1000)
-        )
-
         res.status(409)
         throw new Error(
-          `Bu e-posta için doğrulama bekleniyor. Kalan süre: ${remainingSeconds} saniye. Mailinizi doğrulayın veya süre dolunca tekrar kayıt olun.`
+          `Bu e-posta için doğrulama bekleniyor. Kalan süre: ${remainingVerifySeconds(existing)} saniye. Mailinizi doğrulayın veya süre dolunca tekrar kayıt olun.`
         )
       }
     } else {
@@ -150,19 +172,27 @@ export const register = async (req, res) => {
     }
   }
 
-  const user = await User.create({
-    firstName, lastName, email: normalizedEmail,
-    password, phone: normalizedPhone, birthDate: parsedBirthDate,
-    emailVerified: false,
-  })
+  const row = must(
+    await supabase
+      .from('users')
+      .insert({
+        first_name: String(firstName).trim(),
+        last_name: String(lastName).trim(),
+        email: normalizedEmail,
+        password: await hashPassword(password),
+        phone: normalizedPhone,
+        birth_date: parsedBirthDate.toISOString(),
+        email_verified: false,
+      })
+      .select('*')
+      .single()
+  )
 
-  const verifyToken = createEmailVerifyToken(user)
-  await user.save({ validateBeforeSave: false })
-
+  const verifyToken = await issueEmailVerifyToken(row.id)
   const verifyUrl = `${process.env.CLIENT_URL}/verify-email/${verifyToken}`
 
   try {
-    await sendEmailVerificationEmail(user, verifyUrl)
+    await sendEmailVerificationEmail(userToApi(row), verifyUrl)
   } catch (error) {
     res.status(500)
     throw new Error('Doğrulama e-postası gönderilemedi. Lütfen tekrar deneyin.')
@@ -186,34 +216,29 @@ export const login = async (req, res) => {
     throw new Error('E-posta ve şifre zorunludur.')
   }
 
-  const user = await User.findOne({ email }).select('+password')
-  if (!user || !(await user.matchPassword(password))) {
+  const row = await findUserRowByEmail(email)
+  if (!row || !(await matchPassword(password, row.password))) {
     res.status(401)
     throw new Error('E-posta veya şifre hatalı.')
   }
 
-  if (!user.isActive) {
+  if (!row.is_active) {
     res.status(401)
     throw new Error('Hesabınız devre dışı bırakılmış.')
   }
 
-  if (user.role !== 'admin' && user.emailVerified === false) {
-    if (isVerificationExpired(user)) {
-      await User.deleteOne({ _id: user._id })
+  if (row.role !== 'admin' && row.email_verified === false) {
+    if (isVerificationExpired(row)) {
+      await deleteUserRow(row.id)
       res.status(410)
       throw new Error('E-posta doğrulama süresi dolduğu için kayıt iptal edildi. Lütfen tekrar kayıt olun.')
     }
 
-    const remainingSeconds = Math.max(
-      1,
-      Math.ceil((new Date(user.emailVerifyExpire).getTime() - Date.now()) / 1000)
-    )
-
     res.status(403)
-    throw new Error(`Giriş yapmadan önce e-posta adresinizi doğrulayın. Kalan süre: ${remainingSeconds} saniye.`)
+    throw new Error(`Giriş yapmadan önce e-posta adresinizi doğrulayın. Kalan süre: ${remainingVerifySeconds(row)} saniye.`)
   }
 
-  sendTokenResponse(user, 200, res)
+  sendTokenResponse(userToApi(row), 200, res)
 }
 
 // @desc    Google ile Giriş yap
@@ -229,32 +254,44 @@ export const googleLogin = async (req, res) => {
   // Frontend'den gelen credential (JWT id_token) doğrulanır
   const ticket = await client.verifyIdToken({
     idToken: credential,
-    audience: process.env.GOOGLE_CLIENT_ID,  // Backend .env'inde olmalı
+    audience: process.env.GOOGLE_CLIENT_ID,
   })
-  const payload = ticket.getPayload()
-  const { sub, email, given_name, family_name } = payload
+  const { sub, email, given_name, family_name } = ticket.getPayload()
+  const normalizedEmail = String(email || '').trim().toLowerCase()
 
-  let user = await User.findOne({ email })
-  if (user) {
-    if (!user.googleId || user.emailVerified !== true) {
-      user.googleId = sub
-      user.emailVerified = true
-      user.emailVerifyToken = undefined
-      user.emailVerifyExpire = undefined
-      await user.save({ validateBeforeSave: false })
+  const existing = await findUserRowByEmail(normalizedEmail)
+  let user
+
+  if (existing) {
+    user = userToApi(existing)
+    if (!existing.google_id || existing.email_verified !== true) {
+      user = await updateUserRow(existing.id, {
+        google_id: sub,
+        email_verified: true,
+        email_verify_token: null,
+        email_verify_expire: null,
+      })
+    }
+    if (!existing.is_active) {
+      res.status(401)
+      throw new Error('Hesabınız devre dışı bırakılmış.')
     }
   } else {
-    // Yeni kullanıcı
-    const randomPassword = crypto.randomBytes(16).toString('hex')
-    user = await User.create({
-      firstName: given_name || 'Kullanıcı',
-      lastName: family_name || 'Kullanıcısı',
-      email,
-      password: randomPassword,
-      googleId: sub,
-      emailVerified: true,
-    })
-
+    const row = must(
+      await supabase
+        .from('users')
+        .insert({
+          first_name: String(given_name || 'Kullanıcı').slice(0, 30),
+          last_name: String(family_name || 'Kullanıcısı').slice(0, 30),
+          email: normalizedEmail,
+          password: await hashPassword(crypto.randomBytes(16).toString('hex')),
+          google_id: sub,
+          email_verified: true,
+        })
+        .select('*')
+        .single()
+    )
+    user = userToApi(row)
     await notifyNewVerifiedUser(user)
   }
 
@@ -270,19 +307,20 @@ export const verifyEmail = async (req, res) => {
     throw new Error('Doğrulama token bilgisi eksik.')
   }
 
-  const emailVerifyToken = crypto
-    .createHash('sha256')
-    .update(req.params.token)
-    .digest('hex')
+  const row = must(
+    await supabase
+      .from('users')
+      .select('*')
+      .eq('email_verify_token', sha256(req.params.token))
+      .maybeSingle()
+  )
 
-  const user = await User.findOne({ emailVerifyToken })
-
-  if (!user) {
+  if (!row) {
     res.status(400)
     throw new Error('Doğrulama bağlantısı geçersiz veya süresi dolmuş.')
   }
 
-  if (user.emailVerified === true) {
+  if (row.email_verified === true) {
     res.status(200).json({
       success: true,
       message: 'E-posta adresiniz zaten doğrulanmış. Giriş yapabilirsiniz.',
@@ -290,20 +328,14 @@ export const verifyEmail = async (req, res) => {
     return
   }
 
-  if (isVerificationExpired(user)) {
-    await User.deleteOne({ _id: user._id })
+  if (isVerificationExpired(row)) {
+    await deleteUserRow(row.id)
     res.status(410)
     throw new Error('Doğrulama süresi dolduğu için kayıt iptal edildi. Lütfen tekrar kayıt olun.')
   }
 
-  const shouldSendOnboarding = user.emailVerified !== true
-
-  user.emailVerified = true
-  await user.save({ validateBeforeSave: false })
-
-  if (shouldSendOnboarding) {
-    await notifyNewVerifiedUser(user)
-  }
+  const user = await updateUserRow(row.id, { email_verified: true })
+  await notifyNewVerifiedUser(user)
 
   res.status(200).json({
     success: true,
@@ -315,39 +347,35 @@ export const verifyEmail = async (req, res) => {
 // @route   POST /api/auth/resend-verification
 // @access  Public
 export const resendVerificationEmail = async (req, res) => {
-  const { email } = req.body
-
-  const normalizedEmail = String(email || '').trim().toLowerCase()
+  const normalizedEmail = String(req.body.email || '').trim().toLowerCase()
 
   if (!normalizedEmail) {
     res.status(400)
     throw new Error('E-posta adresi zorunludur.')
   }
 
-  const user = await User.findOne({ email: normalizedEmail })
-  if (!user) {
+  const row = await findUserRowByEmail(normalizedEmail)
+  if (!row) {
     res.status(404)
     throw new Error('Bu e-posta adresiyle kayıtlı kullanıcı bulunamadı.')
   }
 
-  if (user.emailVerified === true) {
+  if (row.email_verified === true) {
     res.status(400)
     throw new Error('Bu e-posta adresi zaten doğrulanmış.')
   }
 
-  if (isVerificationExpired(user)) {
-    await User.deleteOne({ _id: user._id })
+  if (isVerificationExpired(row)) {
+    await deleteUserRow(row.id)
     res.status(410)
     throw new Error('Doğrulama süresi dolduğu için kayıt iptal edildi. Lütfen tekrar kayıt olun.')
   }
 
-  const verifyToken = createEmailVerifyToken(user)
-  await user.save({ validateBeforeSave: false })
-
+  const verifyToken = await issueEmailVerifyToken(row.id)
   const verifyUrl = `${process.env.CLIENT_URL}/verify-email/${verifyToken}`
 
   try {
-    await sendEmailVerificationEmail(user, verifyUrl)
+    await sendEmailVerificationEmail(userToApi(row), verifyUrl)
   } catch (error) {
     res.status(500)
     throw new Error('Doğrulama e-postası gönderilemedi. Lütfen tekrar deneyin.')
@@ -364,10 +392,8 @@ export const resendVerificationEmail = async (req, res) => {
 // @route   POST /api/auth/logout
 // @access  Private
 export const logout = async (req, res) => {
-  const cookieOptions = getAuthCookieOptions()
-
   res.cookie('token', 'none', {
-    ...cookieOptions,
+    ...getAuthCookieOptions(),
     expires: new Date(Date.now() + 10 * 1000),
   })
 
@@ -378,8 +404,20 @@ export const logout = async (req, res) => {
 // @route   GET /api/auth/me
 // @access  Private
 export const getMe = async (req, res) => {
-  const user = await User.findById(req.user.id)
-  res.status(200).json({ success: true, data: user })
+  res.status(200).json({ success: true, data: req.user })
+}
+
+// @desc    Realtime bildirim kanallarını getir (socket.io yerine)
+// @route   GET /api/auth/realtime
+// @access  Private
+export const getRealtimeChannels = async (req, res) => {
+  res.status(200).json({
+    success: true,
+    data: {
+      user: userChannel(req.user._id),
+      admin: req.user.role === 'admin' ? adminChannel() : null,
+    },
+  })
 }
 
 // @desc    Profil güncelle
@@ -387,20 +425,19 @@ export const getMe = async (req, res) => {
 // @access  Private
 export const updateProfile = async (req, res) => {
   const { firstName, lastName, phone, birthDate } = req.body
+  const fields = {}
 
-  const updateFields = {
-    ...(firstName !== undefined ? { firstName } : {}),
-    ...(lastName !== undefined ? { lastName } : {}),
-    ...(phone !== undefined ? { phone } : {}),
-    ...(birthDate !== undefined ? { birthDate } : {}),
+  if (firstName !== undefined) fields.first_name = String(firstName).trim()
+  if (lastName !== undefined) fields.last_name = String(lastName).trim()
+  if (phone !== undefined) fields.phone = phone ? String(phone).trim() : null
+  if (birthDate !== undefined) fields.birth_date = birthDate || null
+
+  if ((fields.first_name !== undefined && !fields.first_name) || (fields.last_name !== undefined && !fields.last_name)) {
+    res.status(400)
+    throw new Error('Ad ve soyad boş bırakılamaz.')
   }
 
-  const user = await User.findByIdAndUpdate(
-    req.user.id,
-    updateFields,
-    { new: true, runValidators: true }
-  )
-
+  const user = Object.keys(fields).length ? await updateUserRow(req.user._id, fields) : req.user
   res.status(200).json({ success: true, data: user })
 }
 
@@ -410,16 +447,19 @@ export const updateProfile = async (req, res) => {
 export const changePassword = async (req, res) => {
   const { currentPassword, newPassword } = req.body
 
-  const user = await User.findById(req.user.id).select('+password')
+  const row = await findUserRowById(req.user._id)
 
-  if (!(await user.matchPassword(currentPassword))) {
+  if (!(await matchPassword(currentPassword, row?.password))) {
     res.status(401)
     throw new Error('Mevcut şifre hatalı.')
   }
 
-  user.password = newPassword
-  await user.save()
+  if (!newPassword || String(newPassword).length < 8) {
+    res.status(400)
+    throw new Error('Şifre en az 8 karakter olmalıdır')
+  }
 
+  const user = await updateUserRow(row.id, { password: await hashPassword(newPassword) })
   sendTokenResponse(user, 200, res)
 }
 
@@ -427,22 +467,18 @@ export const changePassword = async (req, res) => {
 // @route   POST /api/auth/forgot-password
 // @access  Public
 export const forgotPassword = async (req, res) => {
-  const user = await User.findOne({ email: req.body.email })
+  const row = await findUserRowByEmail(req.body.email)
 
-  if (!user) {
+  if (!row) {
     res.status(404)
     throw new Error('Bu e-posta adresiyle kayıtlı kullanıcı bulunamadı.')
   }
 
   const resetToken = crypto.randomBytes(20).toString('hex')
-
-  user.resetPasswordToken = crypto
-    .createHash('sha256')
-    .update(resetToken)
-    .digest('hex')
-
-  user.resetPasswordExpire = Date.now() + 15 * 60 * 1000 // 15 dakika
-  await user.save({ validateBeforeSave: false })
+  const user = await updateUserRow(row.id, {
+    reset_password_token: sha256(resetToken),
+    reset_password_expire: new Date(Date.now() + 15 * 60 * 1000).toISOString(), // 15 dakika
+  })
 
   const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`
 
@@ -450,9 +486,7 @@ export const forgotPassword = async (req, res) => {
     await sendPasswordResetEmail(user, resetUrl)
     res.status(200).json({ success: true, message: 'Şifre sıfırlama linki e-posta adresinize gönderildi.' })
   } catch (error) {
-    user.resetPasswordToken = undefined
-    user.resetPasswordExpire = undefined
-    await user.save({ validateBeforeSave: false })
+    await updateUserRow(row.id, { reset_password_token: null, reset_password_expire: null })
     res.status(500)
     throw new Error('E-posta gönderilemedi, lütfen tekrar deneyin.')
   }
@@ -462,25 +496,30 @@ export const forgotPassword = async (req, res) => {
 // @route   POST /api/auth/reset-password/:token
 // @access  Public
 export const resetPassword = async (req, res) => {
-  const resetPasswordToken = crypto
-    .createHash('sha256')
-    .update(req.params.token)
-    .digest('hex')
+  const row = must(
+    await supabase
+      .from('users')
+      .select('id')
+      .eq('reset_password_token', sha256(req.params.token))
+      .gt('reset_password_expire', new Date().toISOString())
+      .maybeSingle()
+  )
 
-  const user = await User.findOne({
-    resetPasswordToken,
-    resetPasswordExpire: { $gt: Date.now() },
-  })
-
-  if (!user) {
+  if (!row) {
     res.status(400)
     throw new Error('Geçersiz veya süresi dolmuş token.')
   }
 
-  user.password = req.body.password
-  user.resetPasswordToken = undefined
-  user.resetPasswordExpire = undefined
-  await user.save()
+  if (!req.body.password || String(req.body.password).length < 8) {
+    res.status(400)
+    throw new Error('Şifre en az 8 karakter olmalıdır')
+  }
+
+  const user = await updateUserRow(row.id, {
+    password: await hashPassword(req.body.password),
+    reset_password_token: null,
+    reset_password_expire: null,
+  })
 
   sendTokenResponse(user, 200, res)
 }
@@ -489,27 +528,20 @@ export const resetPassword = async (req, res) => {
 // @route   POST /api/auth/address
 // @access  Private
 export const addAddress = async (req, res) => {
-  const user = await User.findById(req.user.id)
-
-  const { fullName, phone, city, district, address } = req.body
-  if (!fullName || !phone || !city || !district || !address) {
+  const fields = pickAddressFields(req.body)
+  if (!hasRequiredAddressFields(fields)) {
     res.status(400)
     throw new Error('Adres için zorunlu alanlar eksik.')
   }
 
-  const shouldBeDefault = req.body.isDefault || user.addresses.length === 0
-  if (shouldBeDefault) {
-    user.addresses.forEach(addr => addr.isDefault = false)
-  }
+  const current = req.user.addresses || []
+  const shouldBeDefault = Boolean(fields.isDefault) || current.length === 0
 
-  user.addresses.push({
-    ...req.body,
-    isDefault: shouldBeDefault,
-  })
+  let addresses = shouldBeDefault ? current.map((a) => ({ ...a, isDefault: false })) : [...current]
+  addresses.push({ title: 'Ev', ...fields, _id: newSubId(), isDefault: shouldBeDefault })
+  addresses = normalizeDefaultAddresses(addresses)
 
-  normalizeDefaultAddresses(user)
-  await user.save()
-
+  const user = await updateUserRow(req.user._id, { addresses })
   res.status(201).json({ success: true, data: user.addresses })
 }
 
@@ -517,36 +549,28 @@ export const addAddress = async (req, res) => {
 // @route   PUT /api/auth/address/:addressId
 // @access  Private
 export const updateAddress = async (req, res) => {
-  const user = await User.findById(req.user.id)
-  const address = user.addresses.id(req.params.addressId)
+  const current = req.user.addresses || []
+  const index = current.findIndex((a) => a._id === req.params.addressId)
 
-  if (!address) {
+  if (index === -1) {
     res.status(404)
     throw new Error('Adres bulunamadı.')
   }
 
-  const fields = ['title', 'fullName', 'phone', 'city', 'district', 'neighborhood', 'address', 'isDefault']
-  fields.forEach((field) => {
-    if (req.body[field] !== undefined) {
-      address[field] = req.body[field]
-    }
-  })
+  const updated = { ...current[index], ...pickAddressFields(req.body) }
 
-  if (address.isDefault) {
-    user.addresses.forEach((addr) => {
-      if (addr._id.toString() !== req.params.addressId) {
-        addr.isDefault = false
-      }
-    })
-  }
-
-  if (!address.fullName || !address.phone || !address.city || !address.district || !address.address) {
+  if (!hasRequiredAddressFields(updated)) {
     res.status(400)
     throw new Error('Adres için zorunlu alanlar eksik.')
   }
 
-  normalizeDefaultAddresses(user)
-  await user.save()
+  let addresses = current.map((a, i) => {
+    if (i === index) return updated
+    return updated.isDefault ? { ...a, isDefault: false } : a
+  })
+  addresses = normalizeDefaultAddresses(addresses)
+
+  const user = await updateUserRow(req.user._id, { addresses })
   res.status(200).json({ success: true, data: user.addresses })
 }
 
@@ -554,13 +578,10 @@ export const updateAddress = async (req, res) => {
 // @route   DELETE /api/auth/address/:addressId
 // @access  Private
 export const deleteAddress = async (req, res) => {
-  const user = await User.findById(req.user.id)
-
-  user.addresses = user.addresses.filter(
-    addr => addr._id.toString() !== req.params.addressId
+  const addresses = normalizeDefaultAddresses(
+    (req.user.addresses || []).filter((a) => a._id !== req.params.addressId)
   )
 
-  normalizeDefaultAddresses(user)
-  await user.save()
+  const user = await updateUserRow(req.user._id, { addresses })
   res.status(200).json({ success: true, data: user.addresses })
 }

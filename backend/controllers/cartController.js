@@ -1,21 +1,45 @@
-import Cart from '../models/Cart.js'
-import Product from '../models/Product.js'
+import { supabase } from '../config/supabase.js'
+import { must, toApi, isUuid, newSubId } from '../utils/db.js'
+import { populateItemProducts } from '../services/orderService.js'
+
+const CART_TTL_MS = 7 * 24 * 60 * 60 * 1000
+
+/** Kullanıcının sepetini getirir; yoksa veya süresi dolmuşsa boş sepet döner */
+const getOrCreateCartRow = async (userId) => {
+  const existing = must(await supabase.from('carts').select('*').eq('user_id', userId).maybeSingle())
+
+  if (!existing) {
+    return must(
+      await supabase.from('carts').insert({ user_id: userId, items: [] }).select('*').single()
+    )
+  }
+
+  // Mongo TTL index karşılığı: süresi dolan sepet boşaltılır
+  if (new Date(existing.expires_at).getTime() < Date.now()) {
+    return saveCart(existing.id, [])
+  }
+  return existing
+}
+
+const saveCart = async (cartId, items) =>
+  must(
+    await supabase
+      .from('carts')
+      .update({ items, expires_at: new Date(Date.now() + CART_TTL_MS).toISOString() })
+      .eq('id', cartId)
+      .select('*')
+      .single()
+  )
 
 // @desc    Sepeti getir
 // @route   GET /api/cart
 // @access  Private
 export const getCart = async (req, res) => {
-  let cart = await Cart.findOne({ user: req.user._id })
-    .populate('items.product', 'name images price slug isActive')
+  const cart = toApi(await getOrCreateCartRow(req.user._id))
+  await populateItemProducts(cart, 'id, name, images, price, slug, is_active')
 
-  if (!cart) {
-    cart = await Cart.create({ user: req.user._id, items: [] })
-  }
-
-  // Aktif olmayan ürünleri filtrele
-  cart.items = cart.items.filter(item =>
-    item.product && item.product.isActive !== false
-  )
+  // Silinmiş veya pasif ürünleri filtrele
+  cart.items = cart.items.filter((item) => item.product && item.product.isActive !== false)
 
   res.status(200).json({ success: true, data: cart })
 }
@@ -24,9 +48,13 @@ export const getCart = async (req, res) => {
 // @route   POST /api/cart
 // @access  Private
 export const addToCart = async (req, res) => {
-  const { productId, quantity = 1, material, color, name, image, price } = req.body
+  const { productId, material, color, name, image, price } = req.body
+  const quantity = Math.max(1, Number(req.body.quantity) || 1)
 
-  const product = await Product.findById(productId)
+  const product = isUuid(productId)
+    ? must(await supabase.from('products').select('id, name, images, price, stock').eq('id', productId).maybeSingle())
+    : null
+
   if (!product) {
     res.status(404)
     throw new Error('Ürün bulunamadı.')
@@ -37,36 +65,30 @@ export const addToCart = async (req, res) => {
     throw new Error(`Yeterli stok yok. Mevcut: ${product.stock}`)
   }
 
-  let cart = await Cart.findOne({ user: req.user._id })
-  if (!cart) {
-    cart = await Cart.create({ user: req.user._id, items: [] })
-  }
+  const cartRow = await getOrCreateCartRow(req.user._id)
+  const items = [...(cartRow.items || [])]
 
   // Aynı ürün, malzeme ve renk varsa adet artır
-  const existingIndex = cart.items.findIndex(i =>
-    i.product.toString() === productId &&
-    i.material === material &&
-    i.color === color
+  const existingIndex = items.findIndex(
+    (i) => i.product === productId && i.material === material && i.color === color
   )
 
   if (existingIndex > -1) {
-    cart.items[existingIndex].quantity += quantity
+    items[existingIndex] = { ...items[existingIndex], quantity: items[existingIndex].quantity + quantity }
   } else {
-    cart.items.push({
+    items.push({
+      _id: newSubId(),
       product: productId,
       name: name || product.name,
       image: image || product.images?.[0] || '',
-      price: price || product.price,
+      price: price || Number(product.price),
       quantity,
       material,
       color,
     })
   }
 
-  // Expire güncelle
-  cart.expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-  await cart.save()
-
+  const cart = toApi(await saveCart(cartRow.id, items))
   res.status(200).json({ success: true, data: cart })
 }
 
@@ -74,27 +96,25 @@ export const addToCart = async (req, res) => {
 // @route   PUT /api/cart/:itemId
 // @access  Private
 export const updateCartItem = async (req, res) => {
-  const { quantity } = req.body
+  const quantity = Number(req.body.quantity)
 
-  const cart = await Cart.findOne({ user: req.user._id })
-  if (!cart) {
+  const cartRow = must(await supabase.from('carts').select('*').eq('user_id', req.user._id).maybeSingle())
+  if (!cartRow) {
     res.status(404)
     throw new Error('Sepet bulunamadı.')
   }
 
-  const item = cart.items.id(req.params.itemId)
-  if (!item) {
+  const items = cartRow.items || []
+  if (!items.some((i) => i._id === req.params.itemId)) {
     res.status(404)
     throw new Error('Ürün bulunamadı.')
   }
 
-  if (quantity < 1) {
-    cart.items.pull(req.params.itemId)
-  } else {
-    item.quantity = quantity
-  }
+  const nextItems = quantity < 1
+    ? items.filter((i) => i._id !== req.params.itemId)
+    : items.map((i) => (i._id === req.params.itemId ? { ...i, quantity } : i))
 
-  await cart.save()
+  const cart = toApi(await saveCart(cartRow.id, nextItems))
   res.status(200).json({ success: true, data: cart })
 }
 
@@ -102,14 +122,14 @@ export const updateCartItem = async (req, res) => {
 // @route   DELETE /api/cart/:itemId
 // @access  Private
 export const removeCartItem = async (req, res) => {
-  const cart = await Cart.findOne({ user: req.user._id })
-  if (!cart) {
+  const cartRow = must(await supabase.from('carts').select('*').eq('user_id', req.user._id).maybeSingle())
+  if (!cartRow) {
     res.status(404)
     throw new Error('Sepet bulunamadı.')
   }
 
-  cart.items.pull(req.params.itemId)
-  await cart.save()
+  const items = (cartRow.items || []).filter((i) => i._id !== req.params.itemId)
+  const cart = toApi(await saveCart(cartRow.id, items))
 
   res.status(200).json({ success: true, data: cart })
 }
@@ -118,11 +138,6 @@ export const removeCartItem = async (req, res) => {
 // @route   DELETE /api/cart
 // @access  Private
 export const clearCart = async (req, res) => {
-  const cart = await Cart.findOne({ user: req.user._id })
-  if (cart) {
-    cart.items = []
-    await cart.save()
-  }
-
+  must(await supabase.from('carts').update({ items: [] }).eq('user_id', req.user._id))
   res.status(200).json({ success: true, message: 'Sepet temizlendi.' })
 }
