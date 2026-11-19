@@ -118,7 +118,7 @@ const ShopPage = () => {
   const [pages, setPages] = useState(1)
   const [currentPage, setCurrentPage] = useState(1)
 
-  const [selectedCats, setSelectedCats] = useState([]) // Bu artık ana kategorileri tutacak (örn: Figürler)
+  const [selectedCats, setSelectedCats] = useState(() => searchParams.get('cat') ? [searchParams.get('cat')] : []) // Bu artık ana kategorileri tutacak (örn: Figürler)
   const [selectedSubs, setSelectedSubs] = useState(() => searchParams.get('sub') ? [searchParams.get('sub')] : []) // Bu alt kategorileri (örn: Katana)
   const [selectedBadges, setSelectedBadges] = useState([]) // Rozet (İndirim, Yeni, Çok Satan vb.)
   const [minPrice, setMinPrice] = useState('')
@@ -141,6 +141,15 @@ const ShopPage = () => {
       }
     }
   }, [subParam, selectedSubs])
+
+  // URL'den gelen ana kategori (?cat=Figürler) — yeni anasayfa/footer bağlantıları
+  const catParam = searchParams.get('cat')
+  useEffect(() => {
+    if (catParam && !subParam) {
+      setSelectedCats([catParam])
+      setSelectedSubs([])
+    }
+  }, [catParam, subParam])
 
   // "3D Baskı Ürünleri" tıklanıldığını yakala ve sıfırla
   useEffect(() => {

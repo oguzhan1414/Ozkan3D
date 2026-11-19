@@ -2,7 +2,8 @@ import express from 'express'
 import {
   getProducts, getProduct, createProduct,
   updateProduct, deleteProduct, uploadProductImage,
-  deleteProductImage, getFeaturedProducts, updateStock
+  deleteProductImage, getFeaturedProducts, updateStock, duplicateProduct,
+  getProductsAdmin, getProductAdmin,
 } from '../controllers/productController.js'
 import { protect } from '../middleware/authMiddleware.js'
 import { admin } from '../middleware/adminMiddleware.js'
@@ -12,6 +13,8 @@ import { withPublicCache } from '../middleware/cacheControlMiddleware.js'
 const router = express.Router()
 
 router.get('/', withPublicCache(45, 90), getProducts)
+router.get('/admin/list', protect, admin, getProductsAdmin)
+router.get('/admin/:id', protect, admin, getProductAdmin)
 router.get('/featured', withPublicCache(120, 180), getFeaturedProducts)
 router.get('/:slug', withPublicCache(180, 300), getProduct)
 router.post('/', protect, admin, createProduct)
@@ -20,5 +23,6 @@ router.delete('/:id', protect, admin, deleteProduct)
 router.post('/:id/image', protect, admin, upload.single('image'), uploadProductImage)
 router.delete('/:id/image', protect, admin, deleteProductImage)
 router.put('/:id/stock', protect, admin, updateStock)
+router.post('/:id/duplicate', protect, admin, duplicateProduct)
 
 export default router

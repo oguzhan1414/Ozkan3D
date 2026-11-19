@@ -1,0 +1,11 @@
+.sf-logo {
+  display: block;
+  width: 180px;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+  flex: none;
+}
+
+.sf-logo--symbol { width: 40px; aspect-ratio: 1; }
+.sf-logo-picture { display: block; flex: none; }

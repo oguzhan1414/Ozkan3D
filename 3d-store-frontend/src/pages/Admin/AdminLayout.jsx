@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   FiGrid, FiShoppingBag, FiPackage, FiUsers, FiTag, FiBarChart2,
-  FiSettings, FiMenu, FiX, FiLogOut, FiChevronRight, FiTrendingUp , FiMessageSquare
+  FiSettings, FiMenu, FiX, FiLogOut, FiChevronRight, FiTrendingUp , FiMessageSquare, FiLayers, FiLifeBuoy
 } from 'react-icons/fi'
 import { useAuth } from '../../context/AuthContext'
 import NotificationPanel from '../../components/NotificationPanel/NotificationPanel'
-import siteLogo from '../../images/logo-cropped.png'
+import BrandLogo from '../../storefront/components/BrandLogo'
+import { AdminUIProvider } from './ui/AdminUI'
 import './Admin.css'
 
 
@@ -14,7 +15,9 @@ const menuItems = [
   { path: '/admin',          label: 'Genel Bakış',  icon: FiGrid,         exact: true },
   { path: '/admin/orders',   label: 'Siparişler',   icon: FiShoppingBag },
   { path: '/admin/products', label: 'Ürünler',      icon: FiPackage },
-  { path: '/admin/reviews',  label: 'Yorumlar',     icon: FiMessageSquare }, // ← ekle
+  { path: '/admin/categories', label: 'Kategoriler', icon: FiLayers },
+  { path: '/admin/reviews',  label: 'Yorumlar',     icon: FiMessageSquare },
+  { path: '/admin/support',  label: 'Destek',       icon: FiLifeBuoy },
   { path: '/admin/customers',label: 'Müşteriler',   icon: FiUsers },
   { path: '/admin/coupons',  label: 'Kuponlar',     icon: FiTag },
   { path: '/admin/reports',  label: 'Raporlar',     icon: FiBarChart2 },
@@ -48,6 +51,7 @@ const AdminLayout = () => {
   }
 
   return (
+    <AdminUIProvider>
     <div className="admin-layout">
 
       {/* Mobile Overlay */}
@@ -61,7 +65,7 @@ const AdminLayout = () => {
         {/* Logo */}
         <div className="admin-logo">
           <Link to="/" className="admin-logo-link">
-            <img src={siteLogo} alt="Ozkan3D logo" className="admin-logo-image" />
+            <BrandLogo compact className="admin-logo-image" />
             {sidebarOpen && (
               <div className="admin-logo-text">
                 <span className="admin-logo-brand">Ozkan3D</span>
@@ -155,6 +159,7 @@ const AdminLayout = () => {
         </div>
       </div>
     </div>
+    </AdminUIProvider>
   )
 }
 

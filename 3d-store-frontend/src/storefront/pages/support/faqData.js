@@ -1,0 +1,80 @@
+export const FAQS = [
+  {
+    id: 'siparis-kargoya-ne-zaman-verilir',
+    filter: 'siparis',
+    q: 'Siparişim ne zaman kargoya verilir?',
+    a: 'Stokta olan ürünler sipariş onayından sonra genellikle 1-2 iş günü içinde kargoya verilir. Özel üretim 3D baskı siparişlerde hazırlık süresi modele göre ortalama 3-7 iş günüdür.',
+  },
+  {
+    id: 'siparis-iptal-degisiklik',
+    filter: 'siparis',
+    q: 'Siparişimde değişiklik veya iptal yapabilir miyim?',
+    a: 'Siparişiniz üretime alınmadan önce değişiklik veya iptal talebi oluşturabilirsiniz. Özel üretim siparişlerde baskı başladıktan sonra iptal/değişiklik mümkün olmayabilir.',
+  },
+  {
+    id: 'siparis-durumu-nereden-gorulur',
+    filter: 'siparis',
+    q: 'Sipariş durumumu nereden takip ederim?',
+    a: 'Üye girişi yaptıysanız Hesabım sayfanızdaki sipariş detayından anlık durum görebilirsiniz. Üyeliksiz siparişlerde kargo bilgilendirmesi e-posta üzerinden paylaşılır.',
+  },
+  {
+    id: 'kargo-hangi-firmalar',
+    filter: 'kargo',
+    q: 'Hangi kargo firmaları ile çalışıyorsunuz?',
+    a: 'Teslimatlarda anlaşmalı kargo firmalarıyla çalışıyoruz. Operasyon yoğunluğuna göre en hızlı teslimat sağlayacak firma seçilerek gönderim yapılır.',
+  },
+  {
+    id: 'kargo-ucreti-ve-ucretsiz-limit',
+    filter: 'kargo',
+    q: 'Kargo ücreti ne kadar, ücretsiz kargo limiti var mı?',
+    a: 'Kargo ücreti ödeme adımında açıkça gösterilir. Güncel süreçte ücretsiz kargo kampanyası bulunmamaktadır.',
+  },
+  {
+    id: 'kargo-takip-numarasi',
+    filter: 'kargo',
+    q: 'Kargomun takip numarası ne zaman paylaşılır?',
+    a: 'Siparişiniz kargoya teslim edildiğinde takip numarası sistemde görüntülenir ve bilgilendirme e-postasıyla tarafınıza iletilir.',
+  },
+  {
+    id: 'kargo-hasarli-teslimat',
+    filter: 'kargo',
+    q: 'Paketim hasarlı gelirse ne yapmalıyım?',
+    a: 'Hasarlı paketi teslim almadan önce kargo görevlisiyle hasar tespit tutanağı düzenlemenizi rica ederiz. Tutanak ve sipariş bilgilerinizle bize ulaştığınızda yenileme veya iade süreci hızla başlatılır.',
+  },
+  {
+    id: 'ozel-stl-dosya-gonderimi',
+    filter: 'ozel',
+    q: '.STL/.OBJ dosyamı gönderip üretim yaptırabilir miyim?',
+    a: 'Evet. Model bağlantısını Özel Baskı sayfasındaki forma ekleyebilirsiniz. Dosyanızı ise WhatsApp veya e-posta üzerinden paylaşabilirsiniz. Uygun malzeme, baskı süresi ve fiyat bilgisi dosya kontrolü sonrası netleştirilir.',
+  },
+  {
+    id: 'ozel-malzeme-secimi',
+    filter: 'ozel',
+    q: 'Özel baskıda hangi malzemeleri kullanıyorsunuz?',
+    a: 'Şu an üretimlerimizde PLA malzeme ile çalışıyoruz. Sipariş öncesinde ürünün kullanım amacına göre PLA için uygun duvar kalınlığı ve doluluk ayarı öneriyoruz.',
+  },
+  {
+    id: 'ozel-uretim-suresi',
+    filter: 'ozel',
+    q: 'Özel üretim siparişler ne kadar sürer?',
+    a: 'Modelin boyutu, adet ve son işlem ihtiyaçlarına göre değişmekle birlikte özel üretimler çoğunlukla 3-7 iş günü içinde hazırlanır.',
+  },
+  {
+    id: 'iade-kimler-yapabilir',
+    filter: 'iade',
+    q: 'Hangi siparişlerde iade hakkım var?',
+    a: 'Standart ürünlerde teslim tarihinden itibaren 14 gün içinde iade hakkı vardır. Kişiye özel veya siparişe göre üretilen ürünler yasal kapsam gereği iade dışında kalabilir.',
+  },
+  {
+    id: 'iade-nasil-baslatilir',
+    filter: 'iade',
+    q: 'İade sürecini nasıl başlatabilirim?',
+    a: 'Sipariş numaranızla birlikte iletişim formu veya e-posta üzerinden bize ulaşarak iade talebinizi iletebilirsiniz. Sipariş bilgilerinizi Hesabım sayfasından kontrol edebilirsiniz.',
+  },
+  {
+    id: 'iade-ucreti-ve-odeme',
+    filter: 'iade',
+    q: 'İade kargo ücreti ve para iadesi nasıl oluyor?',
+    a: 'Onaylanan iade taleplerinde anlaşmalı iade kodu ile gönderim yapılır. Ürün kontrolü tamamlandıktan sonra ücret iadesi ödeme yöntemine bağlı olarak genelde 1-3 iş günü içinde bankanıza yansır.',
+  },
+]

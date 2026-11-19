@@ -18,16 +18,28 @@ const PUBLIC_PREFIX = `${SUPABASE_URL}/storage/v1/object/public/${MEDIA_BUCKET}/
 // Klasöre göre maksimum boyut (px). Slider geniş, ürün görselleri kare ağırlıklı.
 const MAX_SIZE = {
   products: { width: 1200, height: 1200 },
+  support: { width: 2000, height: 2000 },
   'home-hero': { width: 1920, height: 1080 },
+  categories: { width: 1448, height: 1086 },
 }
+
+// Storage şişmesin diye: her görsel küçültülür ve WebP'ye çevrilir.
+// quality 80 + effort 5: gerçek ürün fotoğraflarında eski ayara (q82) göre ~%11 daha küçük,
+// gözle fark edilmez. (smartSubsample dosyayı büyüttüğü için kullanılmıyor; q78 ~%22
+// küçültür ama ürün netliği için 80'de kalındı.)
+// EXIF/konum gibi metadata sharp varsayılanıyla atılır.
+const WEBP_OPTIONS = { quality: 80, effort: 5 }
+
+// Çok büyük (ör. 100 MP) görseller sunucuyu yormasın
+const MAX_INPUT_PIXELS = 50_000_000
 
 /** Görseli küçültür, EXIF yönünü düzeltir, WebP'ye çevirir */
 export const optimizeImageBuffer = async (buffer, folder = 'products') => {
   const { width, height } = MAX_SIZE[folder] || MAX_SIZE.products
-  return sharp(buffer, { failOn: 'error' })
+  return sharp(buffer, { failOn: 'error', limitInputPixels: MAX_INPUT_PIXELS })
     .rotate()
     .resize({ width, height, fit: 'inside', withoutEnlargement: true })
-    .webp({ quality: 82 })
+    .webp(WEBP_OPTIONS)
     .toBuffer()
 }
 
@@ -75,4 +87,25 @@ export const deleteImage = async (path) => {
   const { error } = await supabase.storage.from(MEDIA_BUCKET).remove([path])
   if (error) throw new Error(error.message)
   return { result: 'ok' }
+}
+
+/**
+ * Görsel hâlâ bir siparişte ya da sepette kullanılıyorsa silmez
+ * (sipariş geçmişindeki küçük resimler kırılmasın). Dış URL'leri atlar.
+ * @returns {Promise<boolean>} silindiyse true
+ */
+export const deleteImageIfUnused = async (url) => {
+  const path = getPublicId(url)
+  if (!path) return false
+
+  // Kopyalanan ürünler aynı görseli paylaşabilir; başka üründe kullanılıyorsa silme
+  const [orders, carts, products] = await Promise.all([
+    supabase.from('orders').select('id', { count: 'exact', head: true }).contains('items', [{ image: url }]),
+    supabase.from('carts').select('id', { count: 'exact', head: true }).contains('items', [{ image: url }]),
+    supabase.from('products').select('id', { count: 'exact', head: true }).contains('images', [url]),
+  ])
+  if ((orders.count || 0) > 0 || (carts.count || 0) > 0 || (products.count || 0) > 0) return false
+
+  await deleteImage(path)
+  return true
 }

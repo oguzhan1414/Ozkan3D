@@ -1,5 +1,7 @@
+import { resolveSelection, hasStockFor, SelectionError } from '../utils/productOptions.js'
 import { supabase } from '../config/supabase.js'
-import { must, toApi, toApiList, isUuid, newSubId } from '../utils/db.js'
+import { getSettingsRow } from '../services/settingsService.js'
+import { must, toApi, toApiList, isUuid, newSubId, sanitizeSearch } from '../utils/db.js'
 import { generateOrderNo } from '../utils/generateOrderNo.js'
 import { sendOrderConfirmEmail, sendOrderNotifyAdmin, sendShippingEmail } from '../utils/sendEmail.js'
 import { generateInvoicePDF } from '../utils/pdfGenerator.js'
@@ -7,7 +9,7 @@ import { calculateShippingQuote } from '../utils/shippingCalculator.js'
 import { broadcast, adminChannel, userChannel } from '../utils/realtime.js'
 import { findUserById } from '../services/userService.js'
 import { getShippingConfig } from '../services/settingsService.js'
-import { findCouponRowByCode, couponIsValid, couponDiscount, adjustCouponUsage } from '../services/couponService.js'
+import { findCouponRowByCode, couponIsValid, couponDiscount, adjustCouponUsage, couponUserCheck } from '../services/couponService.js'
 import {
   findOrderRow,
   updateOrderRow,
@@ -87,7 +89,9 @@ export const createOrder = async (req, res) => {
   }
 
   const products = must(
-    await supabase.from('products').select('id, name, images, price, stock').in('id', productIds)
+    await supabase.from('products')
+      .select('id, name, images, price, stock, is_active, made_to_order, option_groups, personalization')
+      .in('id', productIds)
   )
   const productMap = new Map(products.map((p) => [p.id, p]))
 
@@ -105,17 +109,27 @@ export const createOrder = async (req, res) => {
 
     const product = productMap.get(productId)
 
-    if (!product) {
+    if (!product || !product.is_active) {
       res.status(404)
       throw new Error(`Ürün bulunamadı: ${productId}`)
     }
 
-    if (product.stock < quantity) {
+    // Seçenek fiyatları sunucuda hesaplanır
+    let selection
+    try {
+      selection = resolveSelection(product, { options: item.options, personalization: item.personalization })
+    } catch (err) {
+      if (!(err instanceof SelectionError)) throw err
+      res.status(400)
+      throw err
+    }
+
+    if (!hasStockFor(product, quantity)) {
       res.status(400)
       throw new Error(`${product.name} için yeterli stok yok. Mevcut stok: ${product.stock}`)
     }
 
-    const price = Number(product.price)
+    const price = selection.unitPrice
     orderItems.push({
       _id: newSubId(),
       product: product.id,
@@ -123,8 +137,10 @@ export const createOrder = async (req, res) => {
       image: product.images?.[0] || '',
       price,
       quantity,
-      material: item.material,
-      color: item.color,
+      material: item.material || null,
+      color: item.color || null,
+      options: selection.options,
+      personalization: selection.personalization,
     })
 
     subtotal += price * quantity
@@ -145,11 +161,18 @@ export const createOrder = async (req, res) => {
   if (couponCode) {
     const coupon = await findCouponRowByCode(couponCode)
 
+    // Geçersiz kod sessizce yok sayılmaz: müşteri indirim aldığını sanmasın
+    if (!coupon) {
+      res.status(400)
+      throw new Error('Kupon kodu geçerli değil. Kuponu kaldırıp tekrar deneyin.')
+    }
+
     if (coupon) {
-      const { valid, message } = couponIsValid(coupon, subtotal)
-      if (!valid) {
-        res.status(400)
-        throw new Error(message)
+      for (const { valid, message } of [couponIsValid(coupon, subtotal), await couponUserCheck(coupon, req.user._id)]) {
+        if (!valid) {
+          res.status(400)
+          throw new Error(message)
+        }
       }
 
       discount = couponDiscount(coupon, subtotal)
@@ -180,7 +203,7 @@ export const createOrder = async (req, res) => {
         shipping_cost: shippingCost,
         total_price: totalPrice,
         coupon_id: couponId,
-        coupon_code: couponCode || null,
+        coupon_code: couponId ? String(couponCode).trim().toUpperCase() : null,
         customer_note: customerNote || null,
         status_history: [historyEntry('Bekliyor', 'Sipariş alındı')],
       })
@@ -204,9 +227,10 @@ export const createOrder = async (req, res) => {
     }
   }
 
-  // Admin'e sipariş mail bildirimi gönder
+  // Admin'e sipariş mail bildirimi (Ayarlar > Bildirimler'den kapatılabilir)
   try {
-    await sendOrderNotifyAdmin(order, user)
+    const { notify_new_order: notifyOrder } = await getSettingsRow('notify_new_order')
+    if (notifyOrder !== false) await sendOrderNotifyAdmin(order, user)
   } catch (err) {
     console.log('Admin siparis maili gönderilemedi:', err.message)
   }
@@ -324,7 +348,9 @@ export const getOrder = async (req, res) => {
 // @route   GET /api/orders
 // @access  Admin
 export const getOrders = async (req, res) => {
-  const { status, page = 1, limit = 20, sort = 'createdAt', order = 'desc' } = req.query
+  const {
+    status, payment, userId, keyword, page = 1, limit = 20, sort = 'createdAt', order = 'desc',
+  } = req.query
 
   const pageNum = Math.max(1, Number(page) || 1)
   const limitNum = Math.min(200, Math.max(1, Number(limit) || 20))
@@ -334,6 +360,22 @@ export const getOrders = async (req, res) => {
     .from('orders')
     .select('*, user:users(id, first_name, last_name, email)', { count: 'exact' })
   if (status) query = query.eq('status', status)
+  if (isUuid(userId)) query = query.eq('user_id', userId)
+
+  // Ödeme filtresi: ödendi / ödenmedi / havale onayı bekleyen
+  if (payment === 'paid') query = query.eq('is_paid', true)
+  if (payment === 'unpaid') query = query.eq('is_paid', false).neq('status', 'İptal')
+  if (payment === 'transfer') {
+    query = query.eq('payment_method', 'transfer').eq('is_paid', false).neq('status', 'İptal')
+  }
+
+  // Sipariş no, alıcı adı veya telefonla arama (tüm siparişlerde)
+  const term = keyword ? sanitizeSearch(keyword) : ''
+  if (term) {
+    query = query.or(
+      `order_no.ilike."*${term}*",shipping_address->>fullName.ilike."*${term}*",shipping_address->>phone.ilike."*${term}*"`
+    )
+  }
 
   const { data, count, error } = await query
     .order(ORDER_SORT_COLUMNS[sort] || 'created_at', { ascending: order !== 'desc' })
@@ -379,6 +421,11 @@ export const updateOrderStatus = async (req, res) => {
   if (status === 'İptal' && previousStatus !== 'İptal') {
     await adjustStock(row.items, 1)
     await rollbackCouponUsage(row.coupon_id)
+  }
+  // İptal edilmiş sipariş yeniden açılırsa stok ve kupon kullanımı tekrar düşülür
+  if (previousStatus === 'İptal' && status !== 'İptal') {
+    await adjustStock(row.items, -1)
+    if (row.coupon_id) await adjustCouponUsage(row.coupon_id, 1)
   }
 
   const updated = await updateOrderRow(row.id, fields)
@@ -429,6 +476,12 @@ export const cancelOrder = async (req, res) => {
     throw new Error(`"${row.status}" aşamasındaki siparişler iptal edilemez.`)
   }
 
+  // Kart iadesi PayTR panelinden elle yapıldığı için ödenmiş sipariş müşteri tarafından iptal edilemez
+  if (row.is_paid) {
+    res.status(400)
+    throw new Error('Ödemesi alınmış siparişin iptali için bizimle iletişime geç; iadeyi biz başlatalım.')
+  }
+
   await adjustStock(row.items, 1)
   await rollbackCouponUsage(row.coupon_id)
 
@@ -461,15 +514,25 @@ export const getInvoicePDF = async (req, res) => {
 // Kart ödemeleri PayTR callback'i ile işaretlendiği için bu uç artık sadece admin'e açık.
 export const updateOrderToPaid = async (req, res) => {
   const row = await requireOrderRow(req.params.id, res)
-  const now = new Date().toISOString()
 
+  if (row.status === 'İptal') {
+    res.status(400)
+    throw new Error('İptal edilmiş sipariş ödendi olarak işaretlenemez.')
+  }
+  if (row.is_paid) {
+    res.status(400)
+    throw new Error('Bu siparişin ödemesi zaten alınmış.')
+  }
+
+  const now = new Date().toISOString()
+  const note = String(req.body?.note || '').trim().slice(0, 200)
   const updated = await updateOrderRow(row.id, {
     is_paid: true,
     paid_at: now,
-    payment_result: { id: req.body.id, status: req.body.status, paidAt: now },
+    payment_result: { id: req.body?.id || null, status: 'manual', paidAt: now, by: req.user?._id || null },
     status_history: [
       ...(row.status_history || []),
-      historyEntry(row.status, 'Odeme alindi, uretim planlama asamasinda.'),
+      historyEntry(row.status, note ? `Ödeme alındı: ${note}` : 'Ödeme alındı (havale/EFT onaylandı).'),
     ],
   })
 

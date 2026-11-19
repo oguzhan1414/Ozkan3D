@@ -19,6 +19,24 @@ const saveLocalCart = (items) => {
   localStorage.setItem(CART_KEY, JSON.stringify(items))
 }
 
+/** Sepet satırı kimliği: ürün + malzeme + renk + fiyatlı seçenekler + kişiselleştirme */
+export const lineKey = (i) => [
+  i.productId,
+  i.material || '',
+  i.color || '',
+  (i.options || []).map((o) => `${o.groupId}:${o.valueId}`).sort().join(','),
+  i.personalization?.text || '',
+].join('|')
+
+const toServerItem = (i) => ({
+  productId: i.productId,
+  quantity: i.quantity,
+  material: i.material,
+  color: i.color,
+  options: (i.options || []).map((o) => ({ groupId: o.groupId, valueId: o.valueId })),
+  personalization: i.personalization?.text || '',
+})
+
 const cartItemToLocal = (item) => ({
   _id: item._id,
   productId: item.product?._id?.toString() || item.product?.toString(),
@@ -28,6 +46,8 @@ const cartItemToLocal = (item) => ({
   quantity: item.quantity,
   material: item.material,
   color: item.color,
+  options: item.options || [],
+  personalization: item.personalization || null,
   slug: item.product?.slug,
 })
 
@@ -75,20 +95,10 @@ export const CartProvider = ({ children }) => {
       const backendCart = res.data.data?.items || []
       const localCart = loadLocalCart()
 
-      console.log('🔄 Sync — Local:', localCart.length, 'Backend:', backendCart.length)
-
       if (localCart.length > 0) {
         for (const item of localCart) {
           try {
-            await api.post('/cart', {
-              productId: item.productId,
-              quantity: item.quantity,
-              material: item.material,
-              color: item.color,
-              name: item.name,
-              image: item.image,
-              price: item.price,
-            })
+            await api.post('/cart', toServerItem(item))
           } catch (err) {
             console.log('❌ Item sync hatası:', err.response?.data?.message)
           }
@@ -138,115 +148,73 @@ export const CartProvider = ({ children }) => {
   }, [isAuthenticated, userId, syncWithBackend, fetchBackendCart])
 
   // Sepete ekle
-  const addToCart = useCallback(async (product, quantity = 1, material = null, color = null) => {
+  // extras: { options: [{groupId, valueId, group, value, priceDelta}], personalization: {label, text}, unitPrice }
+  const addToCart = useCallback(async (product, quantity = 1, material = null, color = null, extras = {}) => {
     const newItem = {
       productId: product._id?.toString() || product.id?.toString(),
       name: product.name,
       image: product.images?.[0] || product.image || null,
-      price: product.price,
+      // Gösterim için; asıl fiyatı sunucu siparişte yeniden hesaplar
+      price: extras.unitPrice ?? product.price,
       quantity,
       material: material || product.material?.[0] || null,
       color: color || product.colors?.[0] || null,
+      options: extras.options || [],
+      personalization: extras.personalization?.text ? extras.personalization : null,
       slug: product.slug,
     }
+    const key = lineKey(newItem)
 
-    // Önce local güncelle
-    setItems(prev => {
-      const existing = prev.find(i =>
-        i.productId === newItem.productId &&
-        i.material === newItem.material &&
-        i.color === newItem.color
-      )
+    setItems((prev) => {
+      const existing = prev.find((i) => lineKey(i) === key)
       if (existing) {
-        return prev.map(i =>
-          i.productId === newItem.productId &&
-          i.material === newItem.material &&
-          i.color === newItem.color
-            ? { ...i, quantity: i.quantity + quantity }
-            : i
-        )
+        return prev.map((i) => (lineKey(i) === key ? { ...i, quantity: i.quantity + quantity, price: newItem.price } : i))
       }
       return [...prev, newItem]
     })
 
-    // Giriş yapıldıysa backend'e de ekle
+    // Giriş yapıldıysa sunucu sepetine de ekle; hata çağırana iletilir
     if (isAuthenticated) {
+      let res
       try {
-        const res = await api.post('/cart', {
-          productId: newItem.productId,
-          quantity,
-          material: newItem.material,
-          color: newItem.color,
-          name: newItem.name,
-          image: newItem.image,
-          price: newItem.price,
-        })
-        // Backend'den gelen _id'yi ekle
-        const backendItem = res.data.data?.items?.find(i =>
-          i.product?.toString() === newItem.productId &&
-          i.material === newItem.material &&
-          i.color === newItem.color
-        )
-        if (backendItem?._id) {
-          setItems(prev => prev.map(i =>
-            i.productId === newItem.productId &&
-            i.material === newItem.material &&
-            i.color === newItem.color
-              ? { ...i, _id: backendItem._id }
-              : i
-          ))
-        }
+        res = await api.post('/cart', toServerItem(newItem))
       } catch (err) {
-        console.log('Backend sepet eklenemedi:', err.response?.data?.message)
+        // Sunucu reddettiyse (stok, eksik seçim) yerel eklemeyi geri al
+        setItems((prev) => prev
+          .map((i) => (lineKey(i) === key ? { ...i, quantity: i.quantity - quantity } : i))
+          .filter((i) => i.quantity > 0))
+        throw new Error(err.response?.data?.message || 'Sepete eklenemedi.')
+      }
+      const backendItem = (res.data.data?.items || []).map(cartItemToLocal).find((i) => lineKey(i) === key)
+      if (backendItem?._id) {
+        setItems((prev) => prev.map((i) => (lineKey(i) === key ? { ...i, _id: backendItem._id, price: backendItem.price } : i)))
       }
     }
   }, [isAuthenticated])
 
-  // Adet güncelle
-  const updateQuantity = useCallback(async (productId, quantity, material, color) => {
+  // Adet güncelle (satır nesnesiyle)
+  const updateQuantity = useCallback(async (line, quantity) => {
     if (quantity < 1) return
+    const key = lineKey(line)
+    setItems((prev) => prev.map((i) => (lineKey(i) === key ? { ...i, quantity } : i)))
 
-    setItems(prev => prev.map(i =>
-      i.productId === productId && i.material === material && i.color === color
-        ? { ...i, quantity }
-        : i
-    ))
-
-    if (isAuthenticated) {
+    if (isAuthenticated && line._id) {
       try {
-        const currentItems = loadLocalCart()
-        const item = currentItems.find(i =>
-          i.productId === productId &&
-          i.material === material &&
-          i.color === color
-        )
-        if (item?._id) {
-          await api.put(`/cart/${item._id}`, { quantity })
-        }
+        await api.put(`/cart/${line._id}`, { quantity })
       } catch (err) {
         console.log('Backend adet güncellenemedi:', err.message)
       }
     }
   }, [isAuthenticated])
 
-  // Ürün sil
-  const removeFromCart = useCallback(async (productId, material, color) => {
-    const currentItems = loadLocalCart()
-    const item = currentItems.find(i =>
-      i.productId === productId &&
-      i.material === material &&
-      i.color === color
-    )
+  // Ürün sil (satır nesnesiyle)
+  const removeFromCart = useCallback(async (line) => {
+    const key = lineKey(line)
+    setItems((prev) => prev.filter((i) => lineKey(i) !== key))
 
-    setItems(prev => prev.filter(i =>
-      !(i.productId === productId &&
-        i.material === material &&
-        i.color === color)
-    ))
-
-    if (isAuthenticated && item?._id) {
+    if (isAuthenticated && line._id) {
       try {
-        await api.delete(`/cart/${item._id}`)
+        await api.delete(`/cart/${line._id}`)
       } catch (err) {
         console.log('Backend ürün silinemedi:', err.message)
       }

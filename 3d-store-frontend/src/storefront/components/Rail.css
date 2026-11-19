@@ -1,0 +1,41 @@
+:root {
+  /* Görünür kart sayısı: mobil ~1.6, tablet ~3.2, masaüstü 5 */
+  --sf-rail-item: calc((100% - 16px) / 1.6);
+}
+
+@media (min-width: 640px) {
+  :root { --sf-rail-item: calc((100% - 3 * 20px) / 3.2); }
+}
+
+@media (min-width: 1024px) {
+  :root { --sf-rail-item: calc((100% - 4 * 24px) / 5); }
+}
+
+/* Geniş ekranda kartlar büyümesin, daha çok ürün sığsın */
+@media (min-width: 1440px) {
+  :root { --sf-rail-item: calc((100% - 5 * 24px) / 6); }
+}
+
+@media (min-width: 1760px) {
+  :root { --sf-rail-item: calc((100% - 6 * 24px) / 7); }
+}
+
+.sf-rail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--sf-item-w);
+  gap: 16px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  /* gölgeler ve odak çizgisi kırpılmasın */
+  padding: 4px 4px 8px;
+  margin: -4px -4px 0;
+}
+
+.sf-rail::-webkit-scrollbar { display: none; }
+
+.sf-rail > * { scroll-snap-align: start; }
+
+@media (min-width: 640px) { .sf-rail { gap: 20px; } }
+@media (min-width: 1024px) { .sf-rail { gap: 24px; } }

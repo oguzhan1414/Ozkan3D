@@ -12,9 +12,9 @@ import {
   FiTrendingUp,
 } from 'react-icons/fi'
 import SEO from '../components/SEO'
-import siteLogo from '../images/logo-wordmark.png'
 import './BlogPage.css'
 
+const siteLogo = `${import.meta.env.BASE_URL}brand/ozkan3d-logo-horizontal.png`
 const heroVisual = siteLogo
 const cardVisualOne = siteLogo
 const cardVisualTwo = siteLogo

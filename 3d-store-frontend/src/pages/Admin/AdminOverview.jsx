@@ -1,360 +1,361 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, BarChart, Bar, AreaChart, Area
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import {
-  FiShoppingBag, FiDollarSign, FiUsers, FiPackage,
-  FiStar, FiArrowUp, FiArrowDown, FiAlertTriangle,
-  FiClock, FiMessageSquare, FiTrendingUp, FiRefreshCw
+  FiPrinter, FiCreditCard, FiTruck, FiStar, FiAlertTriangle, FiLayers,
+  FiArrowUpRight, FiArrowDownRight, FiRefreshCw, FiTrendingUp, FiPackage, FiCheckCircle,
 } from 'react-icons/fi'
 import { getDashboardStatsApi } from '../../api/userApi'
 import { getOrdersApi } from '../../api/orderApi'
-import { getProductsApi } from '../../api/productApi'
+import { formatPrice } from '../../storefront/catalog'
 import './AdminOverview.css'
 
-const categoryData = [
-  { name: 'Figürler', value: 35, color: '#2563eb' },
-  { name: 'Dekorasyon', value: 28, color: '#16a34a' },
-  { name: 'Aksesuar', value: 22, color: '#f59e0b' },
-  { name: 'Diğer', value: 15, color: '#8b5cf6' },
+const PERIODS = [
+  { id: 'today', label: 'Bugün' },
+  { id: 'week', label: '7 gün' },
+  { id: 'month', label: '30 gün' },
+  { id: 'quarter', label: '3 ay' },
+  { id: 'year', label: '12 ay' },
 ]
 
-const statusColors = {
-  'Bekliyor': '#f59e0b',
-  'Basımda': '#8b5cf6',
-  'Hazırlanıyor': '#2563eb',
-  'Kargoda': '#06b6d4',
-  'Teslim Edildi': '#16a34a',
-  'İptal': '#e53e3e',
+const STATUS = [
+  { key: 'Bekliyor', color: '#f59e0b' },
+  { key: 'Basımda', color: '#8b5cf6' },
+  { key: 'Hazırlanıyor', color: '#2563eb' },
+  { key: 'Kargoda', color: '#06b6d4' },
+  { key: 'Teslim Edildi', color: '#16a34a' },
+  { key: 'İptal', color: '#e53e3e' },
+]
+const statusColor = Object.fromEntries(STATUS.map((s) => [s.key, s.color]))
+
+const MONTHS = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara']
+/** Grafik etiketleri: 2026-11-15 → 15 Kas, 2026-11 → Kas 26, 14:00 aynen */
+const formatBucket = (b = '') => {
+  const day = b.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (day) return `${Number(day[3])} ${MONTHS[Number(day[2]) - 1]}`
+  const month = b.match(/^(\d{4})-(\d{2})$/)
+  if (month) return `${MONTHS[Number(month[2]) - 1]} ${month[1].slice(2)}`
+  return b
 }
 
-const CustomTooltip = ({ active, payload, label }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="chart-tooltip">
-        <p className="chart-tooltip-label">{label}</p>
-        {payload.map((p, i) => (
-          <p key={i} style={{ color: p.color }}>
-            {p.name}: {typeof p.value === 'number' ? `${p.value.toLocaleString('tr-TR')}${p.name?.includes('Ciro') ? '₺' : ''}` : p.value}
-          </p>
-        ))}
-      </div>
-    )
-  }
-  return null
+const compact = new Intl.NumberFormat('tr-TR', { notation: 'compact', maximumFractionDigits: 1 })
+const dateTime = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+
+const ChartTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null
+  const row = payload[0].payload
+  return (
+    <div className="ov-tooltip">
+      <span className="ov-tooltip-label">{label}</span>
+      <strong>{formatPrice(row.revenue)}</strong>
+      <span>{row.orders} sipariş</span>
+    </div>
+  )
+}
+
+const Change = ({ value }) => {
+  if (value === null || value === undefined) return <span className="ov-change ov-change--flat">yeni</span>
+  if (value === 0) return <span className="ov-change ov-change--flat">%0</span>
+  const up = value > 0
+  return (
+    <span className={`ov-change ${up ? 'ov-change--up' : 'ov-change--down'}`}>
+      {up ? <FiArrowUpRight size={12} /> : <FiArrowDownRight size={12} />}%{Math.abs(value)}
+    </span>
+  )
 }
 
 const AdminOverview = () => {
   const [period, setPeriod] = useState('month')
-  const [stats, setStats] = useState(null)
-  const [recentOrders, setRecentOrders] = useState([])
-  const [lowStockProducts, setLowStockProducts] = useState([])
-  const [loading, setLoading] = useState(true)
 
-  const fetchData = useCallback(async (selectedPeriod = period) => {
-    setLoading(true)
-    try {
-      const [statsRes, ordersRes, productsRes] = await Promise.all([
-        getDashboardStatsApi({ period: selectedPeriod }),
-        getOrdersApi({ limit: 8, sort: 'createdAt', order: 'desc' }),
-        getProductsApi({ limit: 50 }),
-      ])
+  const statsQuery = useQuery({
+    queryKey: ['admin', 'dashboard', period],
+    queryFn: () => getDashboardStatsApi({ period }).then((r) => r.data),
+    placeholderData: (prev) => prev,
+  })
+  const ordersQuery = useQuery({
+    queryKey: ['admin', 'dashboard', 'recent-orders'],
+    queryFn: () => getOrdersApi({ limit: 6, sort: 'createdAt', order: 'desc' }).then((r) => r.data || []),
+  })
 
-      setStats(statsRes.data)
-      setRecentOrders(ordersRes.data || [])
+  const stats = statsQuery.data
+  const recentOrders = ordersQuery.data || []
+  const refresh = () => { statsQuery.refetch(); ordersQuery.refetch() }
 
-      // Düşük stoklu ürünler
-      const lowStock = (productsRes.data || []).filter(p => p.stock < 10)
-      setLowStockProducts(lowStock)
-    } catch (err) {
-      console.log('Dashboard veri hatası:', err.message)
-    } finally {
-      setLoading(false)
-    }
-  }, [period])
-
-  useEffect(() => {
-    fetchData(period)
-  }, [period, fetchData])
-
-  // Satış grafiği verisi
-  const salesChartData = stats?.recentSales?.map(s => ({
-    label: s._id,
-    Ciro: s.revenue,
-    Sipariş: s.orders,
-  })) || []
-
-  const periodLabel = stats?.periodLabel || 'Bu Ay'
-
-  // Sipariş durumu bar chart
-  const orderStatusData = [
-    { name: 'Bekliyor', value: stats?.pendingOrders || 0, color: '#f59e0b' },
-    { name: 'Hazırlanıyor', value: stats?.processingOrders || 0, color: '#2563eb' },
-    { name: 'Teslim', value: (stats?.totalOrders || 0) - (stats?.pendingOrders || 0) - (stats?.processingOrders || 0), color: '#16a34a' },
-  ]
-
-  const kpis = [
-    {
-      label: `${periodLabel} Sipariş`,
-      value: stats?.totalOrders?.toLocaleString('tr-TR') || '0',
-      change: '+12%', up: true,
-      icon: FiShoppingBag, color: '#2563eb', bg: '#eff6ff'
-    },
-    {
-      label: `${periodLabel} Ciro`,
-      value: `${(stats?.totalRevenue || 0).toLocaleString('tr-TR')}₺`,
-      change: '+18%', up: true,
-      icon: FiDollarSign, color: '#16a34a', bg: '#f0fdf4'
-    },
-    {
-      label: 'Toplam Müşteri',
-      value: stats?.totalUsers?.toLocaleString('tr-TR') || '0',
-      change: '+8%', up: true,
-      icon: FiUsers, color: '#8b5cf6', bg: '#f5f3ff'
-    },
-    {
-      label: 'Bekleyen Sipariş',
-      value: stats?.pendingOrders?.toString() || '0',
-      change: `${stats?.processingOrders || 0} işlemde`,
-      warn: true,
-      icon: FiPackage, color: '#f59e0b', bg: '#fffbeb'
-    },
-    {
-      label: 'Düşük Stok',
-      value: lowStockProducts.length.toString(),
-      change: 'ürün kritik',
-      warn: lowStockProducts.length > 0,
-      icon: FiAlertTriangle,
-      color: lowStockProducts.length > 0 ? '#e53e3e' : '#16a34a',
-      bg: lowStockProducts.length > 0 ? '#fff0f0' : '#f0fdf4'
-    },
-  ]
-
-  if (loading) return (
-    <div className="admin-overview">
-      <div className="overview-loading">
-        <FiRefreshCw size={24} className="spin" />
-        <span>Veriler yükleniyor...</span>
+  if (statsQuery.isPending) {
+    return (
+      <div className="admin-overview">
+        <div className="ov-loading"><FiRefreshCw size={22} className="spin" /> Veriler yükleniyor...</div>
       </div>
-    </div>
-  )
+    )
+  }
+
+  if (statsQuery.isError || !stats) {
+    return (
+      <div className="admin-overview">
+        <div className="ov-loading">
+          İstatistikler alınamadı.
+          <button type="button" className="ov-btn" onClick={refresh}>Tekrar dene</button>
+        </div>
+      </div>
+    )
+  }
+
+  const todo = stats.todo || {}
+  const todoItems = [
+    { key: 'toPrint', label: 'Basıma alınacak', hint: 'Ödemesi alınmış, bekleyen', icon: FiPrinter, to: '/admin/orders?status=Bekliyor' },
+    { key: 'awaitingTransfer', label: 'Havale bekleniyor', hint: 'Ödeme onayı gerekiyor', icon: FiCreditCard, to: '/admin/orders?payment=transfer' },
+    { key: 'printing', label: 'Basımda', hint: 'Yazıcıda olan siparişler', icon: FiLayers, to: '/admin/orders?status=Basımda' },
+    { key: 'toShip', label: 'Kargoya verilecek', hint: 'Hazırlanıyor durumunda', icon: FiTruck, to: '/admin/orders?status=Hazırlanıyor' },
+    { key: 'pendingReviews', label: 'Onay bekleyen yorum', hint: 'Yayına alınmayı bekliyor', icon: FiStar, to: '/admin/reviews' },
+    { key: 'lowStock', label: 'Stoğu azalan ürün', hint: `${stats.lowStockThreshold ?? 10} adet ve altı`, icon: FiAlertTriangle, to: '/admin/products' },
+  ]
+  // "Basımda" devam eden iş; bekleyen iş sayısına katılmaz
+  const openTasks = todoItems.reduce((sum, t) => sum + (t.key === 'printing' ? 0 : todo[t.key] || 0), 0)
+
+  const kpis = stats.kpis || {}
+  const kpiCards = [
+    { key: 'revenue', label: 'Ciro', value: formatPrice(kpis.revenue?.value), note: 'Ödenmiş siparişler' },
+    { key: 'orders', label: 'Sipariş', value: (kpis.orders?.value || 0).toLocaleString('tr-TR'), note: 'İptaller hariç' },
+    { key: 'avgOrder', label: 'Ortalama sepet', value: formatPrice(kpis.avgOrder?.value), note: 'Sipariş başına' },
+    { key: 'newCustomers', label: 'Yeni müşteri', value: (kpis.newCustomers?.value || 0).toLocaleString('tr-TR'), note: `Toplam ${(stats.totalUsers || 0).toLocaleString('tr-TR')}` },
+  ]
+
+  const chartData = (stats.recentSales || []).map((s) => ({ ...s, label: formatBucket(s._id) }))
+  const hasSales = chartData.some((s) => s.revenue > 0 || s.orders > 0)
+
+  const statusCounts = stats.statusCounts || {}
+  const statusTotal = Object.values(statusCounts).reduce((a, b) => a + b, 0)
+
+  const topProducts = stats.topProducts || []
+  const maxQty = Math.max(1, ...topProducts.map((p) => p.quantity))
+  const lowStock = stats.lowStock || []
 
   return (
     <div className="admin-overview">
-
-      {/* Header */}
       <div className="admin-page-header">
         <div>
           <h1 className="admin-page-title">Genel Bakış</h1>
-          <p className="admin-page-sub">Mağazanın genel durumunu buradan takip edin.</p>
+          <p className="admin-page-sub">
+            {openTasks > 0 ? `Bekleyen ${openTasks} iş var. Önce aşağıdakilerle başlayın.` : 'Bekleyen iş yok, her şey yolunda.'}
+          </p>
         </div>
-        <div className="admin-header-actions">
-          <div className="admin-period-tabs">
-            {[
-              { id: 'today', label: 'Bugün' },
-              { id: 'week', label: 'Bu Hafta' },
-              { id: 'month', label: 'Bu Ay' },
-              { id: 'year', label: 'Bu Yıl' },
-            ].map(p => (
+        <div className="ov-head-actions">
+          <div className="ov-segment" role="tablist" aria-label="Dönem">
+            {PERIODS.map((p) => (
               <button
                 key={p.id}
-                className={`admin-period-tab ${period === p.id ? 'admin-period-active' : ''}`}
+                type="button"
+                role="tab"
+                aria-selected={period === p.id}
+                className={period === p.id ? 'is-active' : ''}
                 onClick={() => setPeriod(p.id)}
               >
                 {p.label}
               </button>
             ))}
           </div>
-          <button className="admin-refresh-btn" onClick={() => fetchData(period)}>
-            <FiRefreshCw size={15} />
+          <button
+            type="button"
+            className="ov-icon-btn"
+            onClick={refresh}
+            aria-label="Yenile"
+            title="Yenile"
+          >
+            <FiRefreshCw size={15} className={statsQuery.isFetching ? 'spin' : ''} />
           </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="overview-kpi-grid">
-        {kpis.map((k, i) => (
-          <div key={i} className="overview-kpi-card">
-            <div className="overview-kpi-top">
-              <div className="overview-kpi-icon" style={{ background: k.bg, color: k.color }}>
-                <k.icon size={20} />
+      {/* Yapılacaklar: döneme bağlı değil, şu anki durum */}
+      <section aria-labelledby="ov-todo-title">
+        <h2 id="ov-todo-title" className="ov-section-title">Yapılacaklar</h2>
+        <div className="ov-todo-grid">
+          {todoItems.map((t) => {
+            const count = todo[t.key] || 0
+            return (
+              <Link key={t.key} to={t.to} className={`ov-todo ${count > 0 ? 'is-open' : ''} ${t.key === 'lowStock' && count > 0 ? 'is-warn' : ''}`}>
+                <span className="ov-todo-icon"><t.icon size={16} /></span>
+                <span className="ov-todo-count">{count}</span>
+                <span className="ov-todo-label">{t.label}</span>
+                <span className="ov-todo-hint">{count > 0 ? t.hint : 'Bekleyen yok'}</span>
+              </Link>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* Dönem göstergeleri */}
+      <section aria-label={`${stats.periodLabel} göstergeleri`}>
+        <h2 className="ov-section-title">
+          {stats.periodLabel} <span>önceki dönemle karşılaştırma</span>
+        </h2>
+        <div className="ov-kpi-grid">
+          {kpiCards.map((k) => (
+            <div key={k.key} className="ov-kpi">
+              <div className="ov-kpi-top">
+                <span className="ov-kpi-label">{k.label}</span>
+                <Change value={kpis[k.key]?.change} />
               </div>
-              <span className={`overview-kpi-change ${k.warn ? 'kpi-warn' : k.neutral ? 'kpi-neutral' : k.up ? 'kpi-up' : 'kpi-down'}`}>
-                {!k.neutral && !k.warn && (k.up ? <FiArrowUp size={11} /> : <FiArrowDown size={11} />)}
-                {k.change}
-              </span>
+              <strong className="ov-kpi-value">{k.value}</strong>
+              <span className="ov-kpi-note">{k.note}</span>
             </div>
-            <div className="overview-kpi-value">{k.value}</div>
-            <div className="overview-kpi-label">{k.label}</div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </section>
 
-      {/* Charts Row */}
-      <div className="overview-charts-row">
-
-        {/* Sales Area Chart */}
-        <div className="admin-card overview-chart-main">
+      <div className="ov-row ov-row--chart">
+        <div className="admin-card ov-card">
           <div className="admin-card-header">
-            <div className="overview-chart-title">
-              <FiTrendingUp size={16} />
-              <h3>{stats?.salesTitle || `${periodLabel} Satış`}</h3>
-            </div>
+            <h3><FiTrendingUp size={15} /> {stats.salesTitle}</h3>
+            <span className="ov-muted">Ödenmiş siparişlerin cirosu</span>
           </div>
-          <div className="overview-chart-body">
-            {salesChartData.length > 0 ? (
+          <div className="ov-chart">
+            {hasSales ? (
               <ResponsiveContainer width="100%" height={260}>
-                <AreaChart data={salesChartData}>
+                <AreaChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="ciroGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                    <linearGradient id="ovRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#2563eb" stopOpacity={0.18} />
+                      <stop offset="100%" stopColor="#2563eb" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#aaaaaa' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: '#aaaaaa' }} axisLine={false} tickLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" dataKey="Ciro" stroke="#2563eb" strokeWidth={2.5} fill="url(#ciroGrad)" dot={false} />
+                  <CartesianGrid stroke="#f1f1f1" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9a9a9a' }} axisLine={false} tickLine={false} minTickGap={16} />
+                  <YAxis tick={{ fontSize: 11, fill: '#9a9a9a' }} axisLine={false} tickLine={false} width={44} tickFormatter={(v) => compact.format(v)} />
+                  <Tooltip content={<ChartTooltip />} cursor={{ stroke: '#d4d4d4' }} />
+                  <Area type="monotone" dataKey="revenue" stroke="#2563eb" strokeWidth={2} fill="url(#ovRevenue)" dot={false} activeDot={{ r: 4 }} />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="chart-empty">
-                <FiTrendingUp size={32} />
-                <p>Henüz satış verisi yok</p>
-              </div>
+              <div className="ov-empty"><FiTrendingUp size={26} /><p>Bu dönemde satış yok</p></div>
             )}
           </div>
         </div>
 
-        {/* Category Pie */}
-        <div className="admin-card overview-chart-side">
+        <div className="admin-card ov-card">
           <div className="admin-card-header">
-            <h3>Kategori Dağılımı</h3>
+            <h3>Sipariş durumları</h3>
+            <span className="ov-muted">{statusTotal} sipariş</span>
           </div>
-          <div className="overview-chart-body">
-            <ResponsiveContainer width="100%" height={180}>
-              <PieChart>
-                <Pie data={categoryData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
-                  {categoryData.map((entry, index) => (
-                    <Cell key={index} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => `%${value}`} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="pie-legend">
-              {categoryData.map((c, i) => (
-                <div key={i} className="pie-legend-item">
-                  <span className="legend-dot" style={{ background: c.color }} />
-                  <span className="pie-legend-name">{c.name}</span>
-                  <span className="pie-legend-value">%{c.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <ul className="ov-status-list">
+            {STATUS.map((s) => {
+              const count = statusCounts[s.key] || 0
+              const pct = statusTotal ? Math.round((count / statusTotal) * 100) : 0
+              return (
+                <li key={s.key}>
+                  <Link to={`/admin/orders?status=${encodeURIComponent(s.key)}`}>
+                    <span className="ov-status-name"><i style={{ background: s.color }} />{s.key}</span>
+                    <span className="ov-status-count">{count}</span>
+                    <span className="ov-status-bar"><span style={{ width: `${pct}%`, background: s.color }} /></span>
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
         </div>
       </div>
 
-      {/* Bottom Row */}
-      <div className="overview-bottom-row">
-
-        {/* Sipariş Durumları */}
-        <div className="admin-card overview-bar-card">
+      <div className="ov-row">
+        <div className="admin-card ov-card">
           <div className="admin-card-header">
-            <h3>Sipariş Durumları</h3>
+            <h3>En çok satanlar</h3>
+            <span className="ov-muted">{stats.periodLabel}</span>
           </div>
-          <div className="overview-chart-body">
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={orderStatusData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#aaaaaa' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#aaaaaa' }} axisLine={false} tickLine={false} />
-                <Tooltip />
-                <Bar dataKey="value" name="Sipariş" radius={[6, 6, 0, 0]}>
-                  {orderStatusData.map((entry, index) => (
-                    <Cell key={index} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Aktiviteler */}
-        <div className="admin-card overview-activity-card">
-          <div className="admin-card-header">
-            <h3>Son Aktiviteler</h3>
-            <Link to="/admin/orders" className="admin-card-link">Tümü →</Link>
-          </div>
-
-          {/* Son Siparişler */}
-          <div className="activity-section">
-            <div className="activity-section-title">
-              <FiClock size={13} />
-              <span>Son Siparişler</span>
-            </div>
-            <div className="activity-list">
-              {recentOrders.length > 0 ? recentOrders.map((o, i) => (
-                <div key={i} className="activity-item">
-                  <div className="activity-avatar">
-                    {o.user?.firstName?.[0]}{o.user?.lastName?.[0]}
+          {topProducts.length > 0 ? (
+            <ol className="ov-top-list">
+              {topProducts.map((p, i) => (
+                <li key={p.product || p.name}>
+                  <span className="ov-rank">{i + 1}</span>
+                  {p.image ? <img src={p.image} alt="" loading="lazy" /> : <span className="ov-thumb"><FiPackage size={14} /></span>}
+                  <div className="ov-top-info">
+                    <span className="ov-top-name">{p.name}</span>
+                    <span className="ov-top-bar"><span style={{ width: `${(p.quantity / maxQty) * 100}%` }} /></span>
                   </div>
-                  <div className="activity-info">
-                    <span className="activity-name">
-                      {o.user?.firstName} {o.user?.lastName}
-                    </span>
-                    <span className="activity-product">
-                      {o.items?.[0]?.name}
-                      {o.items?.length > 1 && ` +${o.items.length - 1}`}
-                    </span>
+                  <div className="ov-top-nums">
+                    <strong>{p.quantity} adet</strong>
+                    <span>{formatPrice(p.revenue)}</span>
                   </div>
-                  <div className="activity-right">
-                    <span className="activity-price">{o.totalPrice?.toLocaleString('tr-TR')}₺</span>
-                    <span
-                      className="activity-status"
-                      style={{ color: statusColors[o.status] }}
-                    >
-                      {o.status}
-                    </span>
-                  </div>
-                </div>
-              )) : (
-                <div className="activity-empty">Henüz sipariş yok</div>
-              )}
-            </div>
-          </div>
-
-          {/* Düşük Stok */}
-          {lowStockProducts.length > 0 && (
-            <div className="activity-section">
-              <div className="activity-section-title">
-                <FiAlertTriangle size={13} />
-                <span>Düşük Stok Uyarısı</span>
-              </div>
-              <div className="activity-list">
-                {lowStockProducts.slice(0, 4).map((p, i) => (
-                  <div key={i} className="activity-item">
-                    <div className="activity-avatar" style={{ background: p.stock === 0 ? '#ef4444' : '#f59e0b' }}>
-                      {p.stock}
-                    </div>
-                    <div className="activity-info">
-                      <span className="activity-name">{p.name}</span>
-                      <span className="activity-product">{p.category}</span>
-                    </div>
-                    <div className="activity-right">
-                      <span className={`stock-warn-badge ${p.stock === 0 ? 'stock-out' : 'stock-low'}`}>
-                        {p.stock === 0 ? 'Tükendi' : 'Kritik'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div className="ov-empty ov-empty--sm"><FiPackage size={22} /><p>Bu dönemde satılan ürün yok</p></div>
           )}
         </div>
+
+        <div className="admin-card ov-card">
+          <div className="admin-card-header">
+            <h3>Stoğu azalanlar</h3>
+            <Link to="/admin/products" className="admin-card-link">Ürünler →</Link>
+          </div>
+          {lowStock.length > 0 ? (
+            <ul className="ov-stock-list">
+              {lowStock.map((p) => (
+                <li key={p._id}>
+                  {p.image ? <img src={p.image} alt="" loading="lazy" /> : <span className="ov-thumb"><FiPackage size={14} /></span>}
+                  <span className="ov-stock-name">{p.name}</span>
+                  <span className={`ov-stock-badge ${p.stock === 0 ? 'is-out' : ''}`}>
+                    {p.stock === 0 ? 'Tükendi' : `${p.stock} adet`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="ov-empty ov-empty--sm"><FiCheckCircle size={22} /><p>Stoklar yeterli</p></div>
+          )}
+        </div>
+      </div>
+
+      <div className="admin-card ov-card">
+        <div className="admin-card-header">
+          <h3>Son siparişler</h3>
+          <Link to="/admin/orders" className="admin-card-link">Tümü →</Link>
+        </div>
+        {recentOrders.length > 0 ? (
+          <div className="admin-table-wrap">
+            <table className="admin-table ov-orders">
+              <thead>
+                <tr>
+                  <th>Sipariş</th>
+                  <th>Müşteri</th>
+                  <th>Ürünler</th>
+                  <th>Ödeme</th>
+                  <th>Durum</th>
+                  <th className="ov-num">Tutar</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentOrders.map((o) => (
+                  <tr key={o._id}>
+                    <td>
+                      <span className="ov-order-no">{o.orderNo || '—'}</span>
+                      <span className="ov-sub">{o.createdAt ? dateTime.format(new Date(o.createdAt)) : ''}</span>
+                    </td>
+                    <td>{[o.user?.firstName, o.user?.lastName].filter(Boolean).join(' ') || o.shippingAddress?.fullName || 'Misafir'}</td>
+                    <td className="ov-items">
+                      {o.items?.[0]?.name}
+                      {o.items?.length > 1 && <span className="ov-sub"> +{o.items.length - 1} ürün</span>}
+                    </td>
+                    <td>
+                      <span className={`ov-pay ${o.isPaid ? 'is-paid' : ''}`}>
+                        {o.isPaid ? 'Ödendi' : o.paymentMethod === 'transfer' ? 'Havale bekleniyor' : 'Ödenmedi'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="ov-status-pill" style={{ '--c': statusColor[o.status] || '#888' }}>{o.status}</span>
+                    </td>
+                    <td className="ov-num"><strong>{formatPrice(o.totalPrice)}</strong></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="ov-empty ov-empty--sm"><p>Henüz sipariş yok</p></div>
+        )}
       </div>
     </div>
   )

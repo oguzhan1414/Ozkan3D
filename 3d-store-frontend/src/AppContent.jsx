@@ -1,35 +1,38 @@
 import { lazy, Suspense } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
-import Header from './components/Header/Header'
-import Footer from './components/Footer/Footer'
+import SiteShell from './storefront/components/SiteShell'
+import SiteFooter from './storefront/components/SiteFooter'
+import './storefront/storefront.css'
 import ScrollToTop from './components/ScrollToTop'
 import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
 import WhatsAppButton from './components/WhatsAppButton'
 import SEO from './components/SEO'
 
-const HomePage = lazy(() => import('./pages/HomePage'))
-const ShopPage = lazy(() => import('./pages/ShopPage'))
+const HomePage = lazy(() => import('./storefront/pages/HomePage'))
+const ShopPage = lazy(() => import('./storefront/pages/ShopPage'))
 const ThreeDPrintingPage = lazy(() => import('./pages/ThreeDPrintingPage'))
-const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage'))
-const CartPage = lazy(() => import('./pages/CartPage'))
-const LoginPage = lazy(() => import('./pages/LoginPage'))
-const RegisterPage = lazy(() => import('./pages/RegisterPage'))
-const VerifyPendingPage = lazy(() => import('./pages/VerifyPendingPage'))
-const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'))
-const ContactPage = lazy(() => import('./pages/ContactPage'))
-const CustomPrintPage = lazy(() => import('./pages/CustomPrintPage'))
-const AccountPage = lazy(() => import('./pages/AccountPage'))
-const CheckoutPage = lazy(() => import('./pages/CheckoutPage'))
+const ProductDetailPage = lazy(() => import('./storefront/pages/ProductDetailPage'))
+const CartPage = lazy(() => import('./storefront/pages/CartPage'))
+const LoginPage = lazy(() => import('./storefront/pages/auth/LoginPage'))
+const RegisterPage = lazy(() => import('./storefront/pages/auth/RegisterPage'))
+const ForgotPasswordPage = lazy(() => import('./storefront/pages/auth/ForgotPasswordPage'))
+const ResetPasswordPage = lazy(() => import('./storefront/pages/auth/ResetPasswordPage'))
+const VerifyPendingPage = lazy(() => import('./storefront/pages/auth/VerifyPendingPage'))
+const VerifyEmailPage = lazy(() => import('./storefront/pages/auth/VerifyEmailPage'))
+const ContactPage = lazy(() => import('./storefront/pages/support/ContactPage'))
+const CustomPrintPage = lazy(() => import('./storefront/pages/CustomPrintPage'))
+const AccountPage = lazy(() => import('./storefront/pages/account/AccountPage'))
+const CheckoutPage = lazy(() => import('./storefront/pages/CheckoutPage'))
 const OrderSuccessPage = lazy(() => import('./pages/OrderSuccessPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
-const AboutPage = lazy(() => import('./pages/AboutPage'))
-const ScanServicePage = lazy(() => import('./pages/ScanServicePage'))
+const AboutPage = lazy(() => import('./storefront/pages/AboutPage'))
+const ScanServicePage = lazy(() => import('./storefront/pages/ScanServicePage'))
 
 const KvkkPage = lazy(() => import('./pages/KvkkPage'))
 const DistanceSellingPage = lazy(() => import('./pages/DistanceSellingPage'))
-const DeliveryPage = lazy(() => import('./pages/DeliveryPage'))
-const ReturnsPage = lazy(() => import('./pages/ReturnsPage'))
-const FaqPage = lazy(() => import('./pages/FaqPage'))
+const DeliveryPage = lazy(() => import('./storefront/pages/support/DeliveryPage'))
+const ReturnsPage = lazy(() => import('./storefront/pages/support/ReturnsPage'))
+const FaqPage = lazy(() => import('./storefront/pages/support/FaqPage'))
 const BlogPage = lazy(() => import('./pages/BlogPage'))
 const BlogDetailPage = lazy(() => import('./pages/BlogDetailPage'))
 
@@ -37,6 +40,9 @@ const AdminLayout = lazy(() => import('./pages/Admin/AdminLayout'))
 const AdminOverview = lazy(() => import('./pages/Admin/AdminOverview'))
 const AdminOrders = lazy(() => import('./pages/Admin/AdminOrders'))
 const AdminProducts = lazy(() => import('./pages/Admin/AdminProducts'))
+const AdminCategories = lazy(() => import('./pages/Admin/AdminCategories'))
+const AdminProductEditor = lazy(() => import('./pages/Admin/AdminProductEditor'))
+const AdminSupport = lazy(() => import('./pages/Admin/AdminSupport'))
 const AdminCustomers = lazy(() => import('./pages/Admin/AdminCustomers'))
 const AdminCoupons = lazy(() => import('./pages/Admin/AdminCoupons'))
 const AdminReports = lazy(() => import('./pages/Admin/AdminReports'))
@@ -70,6 +76,14 @@ export const AppContent = () => {
       return {
         title: 'E-posta Doğrulama',
         description: 'Hesabınızı güvenli şekilde aktifleştirmek için e-posta doğrulama adımını tamamlayın.',
+        noIndex: true,
+      }
+    }
+
+    if (pathname.startsWith('/reset-password/')) {
+      return {
+        title: 'Yeni Şifre Belirle',
+        description: 'Hesabınız için yeni ve güvenli bir şifre belirleyin.',
         noIndex: true,
       }
     }
@@ -160,6 +174,11 @@ export const AppContent = () => {
         description: 'Hesabınıza giriş yaparak siparişlerinizi yönetebilir ve alışverişe devam edebilirsiniz.',
         noIndex: true,
       },
+      '/forgot-password': {
+        title: 'Şifremi Unuttum',
+        description: 'E-posta adresinize şifre sıfırlama bağlantısı gönderin.',
+        noIndex: true,
+      },
       '/register': {
         title: 'Üye Ol',
         description: 'Hizlica hesap olusturun ve Ozkan3D ayricaliklarindan yararlanin.',
@@ -186,8 +205,8 @@ export const AppContent = () => {
         />
       )}
       <ScrollToTop />
-      {!isAdmin && <Header />}
-      <main style={!isAdmin ? { paddingTop: '64px' } : {}}>
+      {!isAdmin && <SiteShell />}
+      <main className={isAdmin ? undefined : 'sf-main'}>
         <Suspense fallback={<div style={{ padding: '28px', textAlign: 'center' }}>Yükleniyor...</div>}>
           <Routes>
             {/* Public Routes */}
@@ -200,6 +219,8 @@ export const AppContent = () => {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
             <Route path="/verify-pending" element={<VerifyPendingPage />} />
             <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
             <Route path="/scan" element={<ScanServicePage />} />
@@ -234,11 +255,15 @@ export const AppContent = () => {
               <Route index element={<AdminOverview />} />
               <Route path="orders" element={<AdminOrders />} />
               <Route path="products" element={<AdminProducts />} />
+              <Route path="products/new" element={<AdminProductEditor />} />
+              <Route path="products/:id" element={<AdminProductEditor />} />
+              <Route path="categories" element={<AdminCategories />} />
               <Route path="customers" element={<AdminCustomers />} />
               <Route path="coupons" element={<AdminCoupons />} />
               <Route path="reports" element={<AdminReports />} />
               <Route path="settings" element={<AdminSettings />} />
               <Route path="reviews" element={<AdminReviews />} />
+              <Route path="support" element={<AdminSupport />} />
             </Route>
 
             {/* 404 */}
@@ -247,7 +272,7 @@ export const AppContent = () => {
         </Suspense>
       </main>
       {!isAdmin && <WhatsAppButton />}
-      {!isAdmin && <Footer />}
+      {!isAdmin && <SiteFooter />}
     </>
   )
 }

@@ -46,3 +46,18 @@ export const updateStockApi = async (id, stock) => {
   const res = await api.put(`/products/${id}/stock`, { stock })
   return res.data
 }
+// ---- Admin
+export const getProductsAdminApi = async (params = {}) => {
+  const res = await api.get('/products/admin/list', { params })
+  return res.data
+}
+
+export const getProductAdminApi = async (id) => {
+  const res = await api.get(`/products/admin/${id}`)
+  return res.data
+}
+
+export const duplicateProductApi = async (id) => {
+  const res = await api.post(`/products/${id}/duplicate`)
+  return res.data
+}

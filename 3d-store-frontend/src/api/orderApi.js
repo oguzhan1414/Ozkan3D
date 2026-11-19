@@ -49,3 +49,8 @@ export const getShippingQuoteApi = async (payload) => {
   const res = await api.post('/orders/shipping-quote', payload)
   return res.data
 }
+// Admin: havale/EFT ödemesini onayla
+export const markOrderPaidApi = async (id, note) => {
+  const res = await api.put(`/orders/${id}/pay`, { note })
+  return res.data
+}

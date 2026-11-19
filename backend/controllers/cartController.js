@@ -1,6 +1,7 @@
 import { supabase } from '../config/supabase.js'
 import { must, toApi, isUuid, newSubId } from '../utils/db.js'
 import { populateItemProducts } from '../services/orderService.js'
+import { resolveSelection, selectionKey, hasStockFor, SelectionError } from '../utils/productOptions.js'
 
 const CART_TTL_MS = 7 * 24 * 60 * 60 * 1000
 
@@ -48,43 +49,61 @@ export const getCart = async (req, res) => {
 // @route   POST /api/cart
 // @access  Private
 export const addToCart = async (req, res) => {
-  const { productId, material, color, name, image, price } = req.body
-  const quantity = Math.max(1, Number(req.body.quantity) || 1)
+  const { productId, material, color } = req.body
+  const quantity = Math.max(1, Math.min(99, Math.trunc(Number(req.body.quantity)) || 1))
 
   const product = isUuid(productId)
-    ? must(await supabase.from('products').select('id, name, images, price, stock').eq('id', productId).maybeSingle())
+    ? must(await supabase
+      .from('products')
+      .select('id, name, images, price, stock, made_to_order, option_groups, personalization, is_active')
+      .eq('id', productId)
+      .maybeSingle())
     : null
 
-  if (!product) {
+  if (!product || !product.is_active) {
     res.status(404)
     throw new Error('Ürün bulunamadı.')
   }
 
-  if (product.stock < quantity) {
+  // Fiyat ve seçimler sunucuda, ürünün güncel verisine göre hesaplanır
+  let selection
+  try {
+    selection = resolveSelection(product, { options: req.body.options, personalization: req.body.personalization })
+  } catch (err) {
+    if (!(err instanceof SelectionError)) throw err
     res.status(400)
-    throw new Error(`Yeterli stok yok. Mevcut: ${product.stock}`)
+    throw err
   }
 
   const cartRow = await getOrCreateCartRow(req.user._id)
   const items = [...(cartRow.items || [])]
 
-  // Aynı ürün, malzeme ve renk varsa adet artır
-  const existingIndex = items.findIndex(
-    (i) => i.product === productId && i.material === material && i.color === color
-  )
+  const line = {
+    product: productId,
+    material: material || null,
+    color: color || null,
+    options: selection.options,
+    personalization: selection.personalization,
+  }
+  const key = selectionKey(line)
+  const existingIndex = items.findIndex((i) => selectionKey(i) === key)
+  const nextQty = (existingIndex > -1 ? items[existingIndex].quantity : 0) + quantity
+
+  if (!hasStockFor(product, nextQty)) {
+    res.status(400)
+    throw new Error(`Yeterli stok yok. Mevcut: ${product.stock}`)
+  }
 
   if (existingIndex > -1) {
-    items[existingIndex] = { ...items[existingIndex], quantity: items[existingIndex].quantity + quantity }
+    items[existingIndex] = { ...items[existingIndex], quantity: nextQty, price: selection.unitPrice }
   } else {
     items.push({
       _id: newSubId(),
-      product: productId,
-      name: name || product.name,
-      image: image || product.images?.[0] || '',
-      price: price || Number(product.price),
+      ...line,
+      name: product.name,
+      image: product.images?.[0] || '',
+      price: selection.unitPrice,
       quantity,
-      material,
-      color,
     })
   }
 

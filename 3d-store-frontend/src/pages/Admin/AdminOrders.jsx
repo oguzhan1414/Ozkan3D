@@ -1,591 +1,413 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import {
-  FiSearch, FiEye, FiTruck, FiX,
-  FiCheck, FiFilter, FiRefreshCw, FiAlertTriangle
+  FiSearch, FiDownload, FiCheckCircle, FiTruck, FiPhone, FiMapPin, FiMail, FiCopy, FiShoppingBag,
+  FiRefreshCw, FiArrowRight, FiXCircle, FiCreditCard,
 } from 'react-icons/fi'
 import {
-  getOrdersApi, updateOrderStatusApi,
-  updateTrackingApi, getInvoicePDFApi
+  getOrdersApi, updateOrderStatusApi, updateTrackingApi, getInvoicePDFApi, markOrderPaidApi,
 } from '../../api/orderApi'
+import { getSettingsApi } from '../../api/settingsApi'
+import LineOptions from '../../storefront/components/LineOptions'
+import {
+  PageHeader, Segment, Drawer, Pager, Empty, StatusPill, useToast, useConfirm, useDebounced,
+  ORDER_STATUS, tl, dateTime,
+} from './ui/AdminUI'
+import '../../storefront/storefront.css'
 import './AdminOrders.css'
 
-const statusOptions = ['Tümü', 'Bekliyor', 'Basımda', 'Hazırlanıyor', 'Kargoda', 'Teslim Edildi', 'İptal']
-const carrierOptions = ['Yurtiçi Kargo', 'MNG Kargo', 'Aras Kargo', 'PTT Kargo', 'Sürat Kargo']
-
-const statusColors = {
-  'Bekliyor': '#f59e0b',
-  'Basımda': '#8b5cf6',
-  'Hazırlanıyor': '#2563eb',
-  'Kargoda': '#06b6d4',
-  'Teslim Edildi': '#16a34a',
-  'İptal': '#e53e3e',
+const STATUS_TABS = [{ id: '', label: 'Tümü' }, ...ORDER_STATUS.map((s) => ({ id: s.key, label: s.key }))]
+const PAYMENT_FILTERS = [
+  { id: '', label: 'Tüm ödemeler' },
+  { id: 'transfer', label: 'Havale onayı bekleyen' },
+  { id: 'unpaid', label: 'Ödenmemiş' },
+  { id: 'paid', label: 'Ödenmiş' },
+]
+// Normal akış: her durumdan bir sonrakine tek tıkla geçilir
+const NEXT = {
+  Bekliyor: { to: 'Basımda', label: 'Basıma al' },
+  Basımda: { to: 'Hazırlanıyor', label: 'Paketlemeye al' },
+  Kargoda: { to: 'Teslim Edildi', label: 'Teslim edildi' },
 }
 
-const AdminOrders = () => {
-  const [orders, setOrders] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [total, setTotal] = useState(0)
-  const [pages, setPages] = useState(1)
-  const [currentPage, setCurrentPage] = useState(1)
+const customerName = (o) =>
+  o.shippingAddress?.fullName || [o.user?.firstName, o.user?.lastName].filter(Boolean).join(' ') || 'Misafir'
 
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('Tümü')
-  const [showFilters, setShowFilters] = useState(false)
-  const [minPrice, setMinPrice] = useState('')
-  const [maxPrice, setMaxPrice] = useState('')
+const PaymentCell = ({ o }) => {
+  if (o.isPaid) return <span className="ak-tag ak-tag--ok">{o.paymentMethod === 'card' ? 'Kart · ödendi' : 'Havale · ödendi'}</span>
+  if (o.status === 'İptal') return <span className="ak-tag">{o.paymentMethod === 'card' ? 'Kart' : 'Havale'}</span>
+  return o.paymentMethod === 'transfer'
+    ? <span className="ak-tag ak-tag--warn">Havale bekleniyor</span>
+    : <span className="ak-tag ak-tag--danger">Kart · ödenmedi</span>
+}
 
-  const [selectedOrder, setSelectedOrder] = useState(null)
-  const [editingOrder, setEditingOrder] = useState(null)
-  const [trackingData, setTrackingData] = useState({ trackingNo: '', carrier: '' })
-  const [adminNote, setAdminNote] = useState('')
-  const [updating, setUpdating] = useState(false)
-  const [statusUpdatingOrderId, setStatusUpdatingOrderId] = useState(null)
-  const [statusChangeDialog, setStatusChangeDialog] = useState({
-    open: false,
-    orderId: null,
-    orderNo: '',
-    currentStatus: '',
-    nextStatus: '',
-  })
-  const [statusUpdateError, setStatusUpdateError] = useState('')
+/* ================================================================ Sipariş detayı */
+const OrderDetail = ({ order, carriers, onChanged, onClose }) => {
+  const toast = useToast()
+  const confirm = useConfirm()
+  const [busy, setBusy] = useState('')
+  const [carrier, setCarrier] = useState(order.carrier || carriers[0] || '')
+  const [trackingNo, setTrackingNo] = useState(order.trackingNo || '')
+  const [note, setNote] = useState('')
 
-  const fetchOrders = useCallback(async () => {
-    setLoading(true)
+  const run = async (key, fn, okText) => {
+    setBusy(key)
     try {
-      const params = {
-        page: currentPage,
-        limit: 15,
-        sort: 'createdAt',
-        order: 'desc',
-      }
-      if (statusFilter !== 'Tümü') params.status = statusFilter
-
-      const res = await getOrdersApi(params)
-      setOrders(res.data || [])
-      setTotal(res.total || 0)
-      setPages(res.pages || 1)
+      const res = await fn()
+      toast.ok(okText)
+      onChanged(res.data)
     } catch (err) {
-      console.log('Siparişler yüklenemedi:', err.message)
+      toast.error(err)
     } finally {
-      setLoading(false)
+      setBusy('')
     }
-  }, [statusFilter, currentPage])
+  }
 
-  useEffect(() => {
-    fetchOrders()
-  }, [fetchOrders])
+  const setStatus = async (status) => {
+    if (status === 'İptal') {
+      const ok = await confirm({
+        title: `${order.orderNo} iptal edilsin mi?`,
+        message: order.isPaid
+          ? 'Bu siparişin ödemesi alınmış. İptalden sonra iadeyi PayTR panelinden ya da havale ile ayrıca yapmanız gerekir.\nStoklar ve kupon kullanımı geri alınır.'
+          : 'Stoklar ve kupon kullanımı geri alınır.',
+        confirmLabel: 'Siparişi iptal et',
+        danger: true,
+      })
+      if (!ok) return
+    } else if (status === 'Basımda' && !order.isPaid) {
+      const ok = await confirm({
+        title: 'Ödeme henüz alınmadı',
+        message: 'Bu siparişin ödemesi onaylanmamış. Yine de basıma alınsın mı?',
+        confirmLabel: 'Yine de basıma al',
+      })
+      if (!ok) return
+    }
+    run(`status-${status}`, () => updateOrderStatusApi(order._id, status, note.trim() || undefined), `Durum: ${status}`)
+    setNote('')
+  }
 
-  const handleStatusUpdate = async (orderId, newStatus) => {
-    const order = orders.find((item) => item._id === orderId)
-    const currentStatus = order?.status
-
-    if (!currentStatus || currentStatus === newStatus) return
-
-    setStatusUpdateError('')
-    setStatusChangeDialog({
-      open: true,
-      orderId,
-      orderNo: order?.orderNo || 'Sipariş',
-      currentStatus,
-      nextStatus: newStatus,
+  const markPaid = async () => {
+    const ok = await confirm({
+      title: 'Havale ödemesi alındı mı?',
+      message: `${tl(order.totalPrice)} tutarındaki ödemenin hesaba geçtiğini kontrol ettiyseniz onaylayın.`,
+      confirmLabel: 'Ödemeyi onayla',
     })
+    if (ok) run('pay', () => markOrderPaidApi(order._id), 'Ödeme onaylandı.')
   }
 
-  const closeStatusChangeDialog = () => {
-    setStatusChangeDialog({
-      open: false,
-      orderId: null,
-      orderNo: '',
-      currentStatus: '',
-      nextStatus: '',
-    })
-  }
-
-  const confirmStatusUpdate = async () => {
-    if (!statusChangeDialog.orderId || !statusChangeDialog.nextStatus) return
-
-    const { orderId, nextStatus } = statusChangeDialog
-    closeStatusChangeDialog()
-
-    setStatusUpdatingOrderId(orderId)
-    try {
-      await updateOrderStatusApi(orderId, nextStatus)
-      setOrders(prev => prev.map(o =>
-        o._id === orderId ? { ...o, status: nextStatus } : o
-      ))
-      if (selectedOrder?._id === orderId) {
-        setSelectedOrder(prev => ({ ...prev, status: nextStatus }))
-      }
-    } catch (err) {
-      console.log('Durum güncellenemedi:', err.message)
-      setStatusUpdateError('Sipariş durumu güncellenemedi. Lütfen tekrar deneyin.')
-    } finally {
-      setStatusUpdatingOrderId(null)
+  const ship = () => {
+    if (!carrier.trim() || !trackingNo.trim()) {
+      toast.error('Kargo firması ve takip numarası girin.')
+      return
     }
+    run('ship', () => updateTrackingApi(order._id, { carrier: carrier.trim(), trackingNo: trackingNo.trim() }), 'Kargo bilgisi kaydedildi, müşteriye e-posta gönderildi.')
   }
 
-  const handleSaveTracking = async () => {
-    if (!trackingData.trackingNo || !trackingData.carrier) return
-    setUpdating(true)
+  const downloadPdf = async () => {
     try {
-      await updateTrackingApi(editingOrder._id, trackingData)
-      setOrders(prev => prev.map(o =>
-        o._id === editingOrder._id
-          ? { ...o, trackingNo: trackingData.trackingNo, carrier: trackingData.carrier, status: 'Kargoda' }
-          : o
-      ))
-      setEditingOrder(null)
-    } catch (err) {
-      console.log('Kargo güncellenemedi:', err.message)
-    } finally {
-      setUpdating(false)
-    }
-  }
-
-  const handleDownloadPDF = async (orderId) => {
-    try {
-      const blob = await getInvoicePDFApi(orderId)
+      const blob = await getInvoicePDFApi(order._id)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `fatura-${orderId}.pdf`
+      a.download = `fatura-${order.orderNo}.pdf`
       a.click()
       URL.revokeObjectURL(url)
     } catch (err) {
-      console.log('PDF indirilemedi:', err.message)
+      toast.error(err, 'PDF indirilemedi.')
     }
   }
 
-  const filteredOrders = orders.filter(o => {
-    const matchSearch = search === '' ||
-      o.orderNo?.toLowerCase().includes(search.toLowerCase()) ||
-      `${o.user?.firstName} ${o.user?.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
-      o.items?.[0]?.name?.toLowerCase().includes(search.toLowerCase())
-    const matchMin = minPrice === '' || o.totalPrice >= Number(minPrice)
-    const matchMax = maxPrice === '' || o.totalPrice <= Number(maxPrice)
-    return matchSearch && matchMin && matchMax
-  })
+  const copy = (text) => {
+    navigator.clipboard?.writeText(text)
+    toast.info('Kopyalandı')
+  }
+
+  const addr = order.shippingAddress || {}
+  const addressText = [addr.fullName, addr.phone, addr.address, [addr.neighborhood, addr.district, addr.city].filter(Boolean).join(' / ')].filter(Boolean).join('\n')
+  const next = NEXT[order.status]
+  const cancelled = order.status === 'İptal'
 
   return (
-    <div className="admin-orders">
+    <Drawer
+      open
+      wide
+      onClose={onClose}
+      title={order.orderNo}
+      sub={`${dateTime(order.createdAt)} · ${customerName(order)}`}
+      footer={(
+        <>
+          <button type="button" className="ak-btn" onClick={downloadPdf}><FiDownload size={14} /> Fatura PDF</button>
+          {!cancelled && (
+            <button type="button" className="ak-btn ak-btn--ghost-danger" onClick={() => setStatus('İptal')} disabled={Boolean(busy)}>
+              <FiXCircle size={14} /> İptal et
+            </button>
+          )}
+        </>
+      )}
+    >
+      {/* Durum akışı */}
+      <section className="ao-flow">
+        <ol className="ao-steps">
+          {ORDER_STATUS.filter((s) => s.key !== 'İptal').map((s, i, arr) => {
+            const idx = arr.findIndex((x) => x.key === order.status)
+            const state = cancelled ? '' : i < idx ? 'is-done' : i === idx ? 'is-current' : ''
+            return <li key={s.key} className={state}>{s.key}</li>
+          })}
+        </ol>
+        {cancelled && <p className="ao-cancelled"><FiXCircle /> Bu sipariş iptal edildi.</p>}
 
-      <div className="admin-page-header">
-        <div>
-          <h1 className="admin-page-title">Siparişler</h1>
-          <p className="admin-page-sub">{total} sipariş listeleniyor</p>
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            className={`orders-filter-toggle ${showFilters ? 'filter-toggle-active' : ''}`}
-            onClick={() => setShowFilters(p => !p)}
+        <div className="ao-actions">
+          {!order.isPaid && !cancelled && order.paymentMethod === 'transfer' && (
+            <button type="button" className="ak-btn ak-btn--success" onClick={markPaid} disabled={Boolean(busy)}>
+              <FiCheckCircle size={15} /> Havale ödemesini onayla
+            </button>
+          )}
+          {next && (
+            <button type="button" className="ak-btn ak-btn--primary" onClick={() => setStatus(next.to)} disabled={Boolean(busy)}>
+              {busy === `status-${next.to}` ? 'Kaydediliyor…' : next.label} <FiArrowRight size={14} />
+            </button>
+          )}
+          <select
+            className="ak-select"
+            value=""
+            onChange={(e) => e.target.value && setStatus(e.target.value)}
+            disabled={Boolean(busy)}
+            aria-label="Durumu değiştir"
           >
-            <FiFilter size={15} /> Gelişmiş Filtre
-          </button>
-          <button className="admin-add-btn" onClick={fetchOrders}>
-            <FiRefreshCw size={15} /> Yenile
-          </button>
+            <option value="">Durumu değiştir…</option>
+            {ORDER_STATUS.filter((s) => s.key !== order.status && s.key !== 'İptal').map((s) => (
+              <option key={s.key} value={s.key}>{s.key}</option>
+            ))}
+          </select>
         </div>
-      </div>
+        {!cancelled && (
+          <input
+            className="ak-input ao-note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Durum notu (isteğe bağlı, geçmişte görünür)"
+            maxLength={200}
+          />
+        )}
+      </section>
 
-      {/* Status Tabs */}
-      <div className="orders-status-tabs">
-        {statusOptions.map(s => (
-          <button
-            key={s}
-            className={`admin-filter-tab ${statusFilter === s ? 'admin-filter-active' : ''}`}
-            onClick={() => { setStatusFilter(s); setCurrentPage(1) }}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
-
-      {/* Advanced Filters */}
-      {showFilters && (
-        <div className="orders-advanced-filters">
-          <div className="filter-row">
-            <div className="filter-group">
-              <label>Müşteri / Sipariş Ara</label>
-              <div className="admin-search-wrap">
-                <FiSearch size={15} className="admin-search-icon" />
-                <input
-                  type="text"
-                  placeholder="Sipariş no, müşteri adı..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="admin-search-input"
-                />
-              </div>
-            </div>
-            <div className="filter-group">
-              <label>Fiyat Aralığı</label>
-              <div className="price-filter-row">
-                <input
-                  type="number"
-                  placeholder="Min ₺"
-                  value={minPrice}
-                  onChange={e => setMinPrice(e.target.value)}
-                  className="admin-input price-filter-input"
-                />
-                <span>—</span>
-                <input
-                  type="number"
-                  placeholder="Max ₺"
-                  value={maxPrice}
-                  onChange={e => setMaxPrice(e.target.value)}
-                  className="admin-input price-filter-input"
-                />
-              </div>
-            </div>
-            <button className="filter-clear-btn" onClick={() => {
-              setSearch('')
-              setMinPrice('')
-              setMaxPrice('')
-              setStatusFilter('Tümü')
-            }}>
-              <FiX size={14} /> Temizle
+      {/* Kargo */}
+      {!cancelled && (order.status === 'Hazırlanıyor' || order.status === 'Kargoda' || order.trackingNo) && (
+        <section className="ak-section">
+          <h4><FiTruck /> Kargo</h4>
+          <div className="ao-ship">
+            <select className="ak-select" value={carrier} onChange={(e) => setCarrier(e.target.value)} aria-label="Kargo firması">
+              {[...new Set([...carriers, order.carrier].filter(Boolean))].map((c) => <option key={c}>{c}</option>)}
+            </select>
+            <input className="ak-input" value={trackingNo} onChange={(e) => setTrackingNo(e.target.value)} placeholder="Takip numarası" />
+            <button type="button" className="ak-btn ak-btn--primary" onClick={ship} disabled={Boolean(busy)}>
+              {order.trackingNo ? 'Güncelle' : 'Kargoya ver'}
             </button>
           </div>
-        </div>
+          <p className="ak-hint">Kaydedince sipariş “Kargoda” olur ve müşteriye takip numarasıyla e-posta gider.</p>
+        </section>
       )}
 
-      {/* Table */}
-      <div className="admin-card">
-        {loading ? (
-          <div className="admin-table-loading">
-            <FiRefreshCw size={20} className="spin" />
-            <span>Yükleniyor...</span>
+      {/* Ürünler */}
+      <section className="ak-section">
+        <h4>Ürünler</h4>
+        <ul className="ao-items">
+          {(order.items || []).map((it, i) => (
+            <li key={it._id || i}>
+              {it.image ? <img src={it.image} alt="" /> : <span className="ao-thumb" />}
+              <div>
+                <strong>{it.name}</strong>
+                <LineOptions item={it} />
+              </div>
+              <span className="ao-qty">{it.quantity} ×</span>
+              <span className="ak-num">{tl(it.price * it.quantity)}</span>
+            </li>
+          ))}
+        </ul>
+        <dl className="ao-totals">
+          <div><dt>Ara toplam</dt><dd>{tl(order.subtotal)}</dd></div>
+          {order.discount > 0 && <div><dt>İndirim {order.couponCode && <span className="ak-tag">{order.couponCode}</span>}</dt><dd>−{tl(order.discount)}</dd></div>}
+          <div><dt>Kargo {order.shippingMethod === 'express' && <span className="ak-tag ak-tag--info">Ekspres</span>}</dt><dd>{order.shippingCost ? tl(order.shippingCost) : 'Ücretsiz'}</dd></div>
+          <div className="is-total"><dt>Toplam</dt><dd>{tl(order.totalPrice)}</dd></div>
+        </dl>
+      </section>
+
+      {/* Müşteri, adres, ödeme */}
+      <div className="ak-grid-2">
+        <section className="ak-section">
+          <h4>Teslimat adresi</h4>
+          <div className="ao-address">
+            <strong>{addr.fullName}</strong>
+            {addr.phone && <a href={`tel:${addr.phone}`}><FiPhone size={13} /> {addr.phone}</a>}
+            {order.user?.email && <a href={`mailto:${order.user.email}`}><FiMail size={13} /> {order.user.email}</a>}
+            <span><FiMapPin size={13} /> {addr.address}<br />{[addr.neighborhood, addr.district, addr.city].filter(Boolean).join(' / ')}</span>
+            <button type="button" className="ak-link" onClick={() => copy(addressText)}><FiCopy size={12} /> Adresi kopyala</button>
           </div>
+        </section>
+        <section className="ak-section">
+          <h4><FiCreditCard /> Ödeme</h4>
+          <dl className="ak-dl ao-dl">
+            <dt>Yöntem</dt><dd>{order.paymentMethod === 'card' ? 'Kredi kartı (PayTR)' : 'Havale / EFT'}</dd>
+            <dt>Durum</dt><dd><PaymentCell o={order} /></dd>
+            {order.paidAt && <><dt>Ödeme tarihi</dt><dd>{dateTime(order.paidAt)}</dd></>}
+          </dl>
+        </section>
+      </div>
+
+      {order.customerNote && (
+        <section className="ak-section">
+          <h4>Müşteri notu</h4>
+          <p className="ao-customer-note">{order.customerNote}</p>
+        </section>
+      )}
+
+      <section className="ak-section">
+        <h4>Geçmiş</h4>
+        <ol className="ao-history">
+          {[...(order.statusHistory || [])].reverse().map((h, i) => (
+            <li key={h._id || i}>
+              <StatusPill status={h.status} />
+              <span>{h.note}</span>
+              <time>{dateTime(h.date)}</time>
+            </li>
+          ))}
+        </ol>
+      </section>
+    </Drawer>
+  )
+}
+
+/* ================================================================ Liste */
+const AdminOrders = () => {
+  const queryClient = useQueryClient()
+  const [params, setParams] = useSearchParams()
+  const status = params.get('status') || ''
+  const payment = params.get('payment') || ''
+  const page = Number(params.get('page')) || 1
+  const [search, setSearch] = useState(params.get('q') || '')
+  const keyword = useDebounced(search.trim())
+  const [openOrder, setOpenOrder] = useState(null)
+
+  const setParam = (key, value) => {
+    const next = new URLSearchParams(params)
+    if (value) next.set(key, value)
+    else next.delete(key)
+    if (key !== 'page') next.delete('page')
+    setParams(next, { replace: true })
+  }
+
+  const listQuery = useQuery({
+    queryKey: ['admin', 'orders', { status, payment, page, keyword }],
+    queryFn: () => getOrdersApi({
+      status: status || undefined,
+      payment: payment || undefined,
+      keyword: keyword || undefined,
+      page,
+      limit: 20,
+      sort: 'createdAt',
+      order: 'desc',
+    }),
+    placeholderData: keepPreviousData,
+  })
+  const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: getSettingsApi, staleTime: 5 * 60 * 1000 })
+  const carriers = settingsQuery.data?.data?.carriers || ['Yurtiçi Kargo', 'MNG Kargo', 'Aras Kargo']
+
+  const orders = listQuery.data?.data || []
+
+  const onChanged = (updated) => {
+    // Açık panel güncel kalsın (filtre dışına düşse bile); liste ve genel bakış yenilensin
+    setOpenOrder((prev) => (prev ? { ...prev, ...updated, user: prev.user } : prev))
+    queryClient.invalidateQueries({ queryKey: ['admin', 'orders'] })
+    queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard'] })
+  }
+
+  return (
+    <div className="ak-page">
+      <PageHeader title="Siparişler" sub={`${(listQuery.data?.total || 0).toLocaleString('tr-TR')} sipariş`}>
+        <button type="button" className="ak-btn" onClick={() => listQuery.refetch()} aria-label="Yenile">
+          <FiRefreshCw size={14} className={listQuery.isFetching ? 'spin' : ''} /> Yenile
+        </button>
+      </PageHeader>
+
+      <Segment items={STATUS_TABS} value={status} onChange={(v) => setParam('status', v)} label="Durum" />
+
+      <div className="ak-toolbar">
+        <label className="ak-search">
+          <FiSearch size={15} />
+          <input
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); if (page !== 1) setParam('page', '') }}
+            placeholder="Sipariş no, alıcı adı veya telefon"
+            aria-label="Sipariş ara"
+          />
+        </label>
+        <select className="ak-select" value={payment} onChange={(e) => setParam('payment', e.target.value)} aria-label="Ödeme">
+          {PAYMENT_FILTERS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+        </select>
+      </div>
+
+      <div className="ak-card">
+        {listQuery.isPending ? (
+          <div className="ak-loading"><FiRefreshCw className="spin" /> Yükleniyor…</div>
+        ) : listQuery.isError ? (
+          <Empty title="Siparişler alınamadı"><button type="button" className="ak-link" onClick={() => listQuery.refetch()}>Tekrar dene</button></Empty>
+        ) : orders.length === 0 ? (
+          <Empty icon={FiShoppingBag} title={keyword || status || payment ? 'Bu filtreye uyan sipariş yok' : 'Henüz sipariş yok'} />
         ) : (
-          <div className="admin-table-wrap">
-            <table className="admin-table">
+          <div className="ak-table-wrap">
+            <table className="ak-table">
               <thead>
                 <tr>
-                  <th>Sipariş No</th>
+                  <th>Sipariş</th>
                   <th>Müşteri</th>
-                  <th>Ürün(ler)</th>
-                  <th>Tutar</th>
+                  <th>Ürünler</th>
+                  <th>Ödeme</th>
                   <th>Durum</th>
-                  <th>Kargo</th>
-                  <th>Tarih</th>
-                  <th>İşlem</th>
+                  <th className="ak-num">Tutar</th>
                 </tr>
               </thead>
-              <tbody>
-                {filteredOrders.length > 0 ? filteredOrders.map((order) => (
-                  <tr key={order._id}>
-                    <td><span className="order-id-badge">{order.orderNo}</span></td>
+              <tbody className={listQuery.isFetching ? 'is-fetching' : ''}>
+                {orders.map((o) => (
+                  <tr
+                    key={o._id}
+                    className="is-clickable"
+                    onClick={() => setOpenOrder(o)}
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter') setOpenOrder(o) }}
+                  >
                     <td>
-                      <div className="td-customer">
-                        <div className="orders-customer-avatar">
-                          {order.user?.firstName?.[0]}{order.user?.lastName?.[0]}
-                        </div>
-                        <div>
-                          <strong>{order.user?.firstName} {order.user?.lastName}</strong>
-                          <span>{order.user?.email}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="td-product">
-                      {order.items?.[0]?.name}
-                      {order.items?.length > 1 && (
-                        <span className="items-more"> +{order.items.length - 1}</span>
-                      )}
-                    </td>
-                    <td className="td-price">{order.totalPrice?.toLocaleString('tr-TR')}₺</td>
-                    <td>
-                      <select
-                        className="status-select-inline"
-                        value={order.status}
-                        onChange={e => handleStatusUpdate(order._id, e.target.value)}
-                        disabled={statusUpdatingOrderId === order._id}
-                        style={{ color: statusColors[order.status] }}
-                      >
-                        {statusOptions.filter(s => s !== 'Tümü').map(s => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
+                      <span className="ak-strong">{o.orderNo}</span>
+                      <span className="ak-sub">{dateTime(o.createdAt)}</span>
                     </td>
                     <td>
-                      {order.trackingNo ? (
-                        <span className="tracking-badge">
-                          <FiTruck size={11} /> {order.trackingNo}
-                        </span>
-                      ) : (
-                        <button
-                          className="add-tracking-btn"
-                          onClick={() => {
-                            setEditingOrder(order)
-                            setTrackingData({ trackingNo: '', carrier: '' })
-                          }}
-                        >
-                          + Takip No
-                        </button>
-                      )}
+                      {customerName(o)}
+                      <span className="ak-sub">{o.shippingAddress?.city}</span>
                     </td>
-                    <td className="td-date">
-                      {new Date(order.createdAt).toLocaleDateString('tr-TR')}
+                    <td className="ao-items-cell">
+                      {o.items?.[0]?.name}
+                      {o.items?.length > 1 && <span className="ak-sub">+{o.items.length - 1} ürün daha</span>}
                     </td>
-                    <td>
-                      <div className="td-actions">
-                        <button
-                          className="td-action-btn"
-                          onClick={() => {
-                            setSelectedOrder(order)
-                            setAdminNote(order.adminNote || '')
-                          }}
-                        >
-                          <FiEye size={14} />
-                        </button>
-                      </div>
-                    </td>
+                    <td><PaymentCell o={o} /></td>
+                    <td><StatusPill status={o.status} /></td>
+                    <td className="ak-num ak-strong">{tl(o.totalPrice)}</td>
                   </tr>
-                )) : (
-                  <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: '#aaaaaa' }}>
-                      Sipariş bulunamadı
-                    </td>
-                  </tr>
-                )}
+                ))}
               </tbody>
             </table>
           </div>
         )}
-
-        {/* Pagination */}
-        {pages > 1 && (
-          <div className="admin-pagination">
-            {Array.from({ length: pages }).map((_, i) => (
-              <button
-                key={i}
-                className={`pagination-btn ${currentPage === i + 1 ? 'pagination-active' : ''}`}
-                onClick={() => setCurrentPage(i + 1)}
-              >
-                {i + 1}
-              </button>
-            ))}
-          </div>
-        )}
+        <Pager page={page} pages={listQuery.data?.pages || 1} onChange={(p) => setParam('page', String(p))} />
       </div>
 
-      {/* Order Detail Modal */}
-      {selectedOrder && (
-        <div className="admin-modal-overlay" onClick={() => setSelectedOrder(null)}>
-          <div className="admin-modal admin-modal-lg" onClick={e => e.stopPropagation()}>
-            <div className="admin-modal-header">
-              <h3>Sipariş — {selectedOrder.orderNo}</h3>
-              <button className="admin-modal-close" onClick={() => setSelectedOrder(null)}>✕</button>
-            </div>
-            <div className="admin-modal-body">
-              <div className="order-detail-grid">
-
-                <div className="order-detail-section">
-                  <h4 className="order-detail-section-title">👤 Müşteri</h4>
-                  <div className="modal-rows">
-                    <div className="modal-row">
-                      <span>Ad Soyad</span>
-                      <strong>{selectedOrder.user?.firstName} {selectedOrder.user?.lastName}</strong>
-                    </div>
-                    <div className="modal-row">
-                      <span>E-posta</span>
-                      <strong>{selectedOrder.user?.email}</strong>
-                    </div>
-                    <div className="modal-row">
-                      <span>Telefon</span>
-                      <strong>{selectedOrder.shippingAddress?.phone}</strong>
-                    </div>
-                    <div className="modal-row">
-                      <span>Adres</span>
-                      <strong>
-                        {selectedOrder.shippingAddress?.address}, {selectedOrder.shippingAddress?.district} / {selectedOrder.shippingAddress?.city}
-                      </strong>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="order-detail-section">
-                  <h4 className="order-detail-section-title">📦 Ürünler</h4>
-                  <div className="modal-rows">
-                    {selectedOrder.items?.map((item, i) => (
-                      <div key={i} className="modal-row">
-                        <span>{item.name} x{item.quantity}</span>
-                        <strong>{(item.price * item.quantity).toLocaleString('tr-TR')}₺</strong>
-                      </div>
-                    ))}
-                    <div className="modal-row">
-                      <span>Kargo</span>
-                      <strong>{selectedOrder.shippingCost === 0 ? 'Ücretsiz' : `${selectedOrder.shippingCost}₺`}</strong>
-                    </div>
-                    {selectedOrder.discount > 0 && (
-                      <div className="modal-row">
-                        <span>İndirim</span>
-                        <strong style={{ color: '#16a34a' }}>-{selectedOrder.discount}₺</strong>
-                      </div>
-                    )}
-                    <div className="modal-row" style={{ fontWeight: 700 }}>
-                      <span>Toplam</span>
-                      <strong>{selectedOrder.totalPrice?.toLocaleString('tr-TR')}₺</strong>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="order-detail-section">
-                  <h4 className="order-detail-section-title">🚚 Kargo</h4>
-                  <div className="modal-rows">
-                    <div className="modal-row">
-                      <span>Firma</span>
-                      <strong>{selectedOrder.carrier || '—'}</strong>
-                    </div>
-                    <div className="modal-row">
-                      <span>Takip No</span>
-                      <strong>{selectedOrder.trackingNo || '—'}</strong>
-                    </div>
-                    <div className="modal-row">
-                      <span>Durum</span>
-                      <span
-                        className="order-status-badge"
-                        style={{
-                          color: statusColors[selectedOrder.status],
-                          background: `${statusColors[selectedOrder.status]}15`
-                        }}
-                      >
-                        {selectedOrder.status}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    className="add-tracking-btn-lg"
-                    onClick={() => {
-                      setSelectedOrder(null)
-                      setEditingOrder(selectedOrder)
-                      setTrackingData({
-                        trackingNo: selectedOrder.trackingNo || '',
-                        carrier: selectedOrder.carrier || ''
-                      })
-                    }}
-                  >
-                    <FiTruck size={14} />
-                    {selectedOrder.trackingNo ? 'Kargoyu Güncelle' : 'Kargo Ekle'}
-                  </button>
-                </div>
-
-                <div className="order-detail-section">
-                  <h4 className="order-detail-section-title">💬 Notlar</h4>
-                  {selectedOrder.customerNote && (
-                    <div className="customer-note-box">
-                      <span>Müşteri Notu:</span>
-                      <p>{selectedOrder.customerNote}</p>
-                    </div>
-                  )}
-                  <div className="admin-form-group" style={{ marginTop: '12px' }}>
-                    <label>Yönetici Notu</label>
-                    <textarea
-                      className="admin-textarea"
-                      value={adminNote}
-                      onChange={e => setAdminNote(e.target.value)}
-                      placeholder="İç not..."
-                      rows={3}
-                    />
-                  </div>
-                </div>
-
-              </div>
-            </div>
-            <div className="admin-modal-footer">
-              <button className="admin-cancel-btn" onClick={() => setSelectedOrder(null)}>Kapat</button>
-              <button className="invoice-btn" onClick={() => handleDownloadPDF(selectedOrder._id)}>
-                📄 Fatura İndir
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tracking Modal */}
-      {editingOrder && (
-        <div className="admin-modal-overlay" onClick={() => setEditingOrder(null)}>
-          <div className="admin-modal admin-modal-sm" onClick={e => e.stopPropagation()}>
-            <div className="admin-modal-header">
-              <h3>Kargo — {editingOrder.orderNo}</h3>
-              <button className="admin-modal-close" onClick={() => setEditingOrder(null)}>✕</button>
-            </div>
-            <div className="admin-modal-body">
-              <div className="admin-form">
-                <div className="admin-form-group">
-                  <label>Kargo Firması</label>
-                  <select
-                    className="admin-input"
-                    value={trackingData.carrier}
-                    onChange={e => setTrackingData(p => ({ ...p, carrier: e.target.value }))}
-                  >
-                    <option value="">Seçin</option>
-                    {carrierOptions.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div className="admin-form-group">
-                  <label>Takip Numarası</label>
-                  <input
-                    className="admin-input"
-                    value={trackingData.trackingNo}
-                    onChange={e => setTrackingData(p => ({ ...p, trackingNo: e.target.value }))}
-                    placeholder="YK123456789TR"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="admin-modal-footer">
-              <button className="admin-cancel-btn" onClick={() => setEditingOrder(null)}>İptal</button>
-              <button className="admin-save-btn" onClick={handleSaveTracking} disabled={updating}>
-                <FiTruck size={14} /> {updating ? 'Kaydediliyor...' : 'Kaydet'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {statusChangeDialog.open && (
-        <div className="admin-modal-overlay" onClick={closeStatusChangeDialog}>
-          <div className="admin-modal admin-modal-sm admin-confirm-modal" onClick={e => e.stopPropagation()}>
-            <div className="admin-modal-body admin-confirm-body">
-              <div className="admin-confirm-icon admin-confirm-icon-danger">
-                <FiAlertTriangle size={18} />
-              </div>
-              <h4>Durum Değiştirilecek</h4>
-              <p>
-                {statusChangeDialog.orderNo} için durum
-                {' '}
-                <strong>{statusChangeDialog.currentStatus}</strong>
-                {' -> '}
-                <strong>{statusChangeDialog.nextStatus}</strong>
-                {' '}
-                olacak. Onaylıyor musunuz?
-              </p>
-            </div>
-            <div className="admin-modal-footer">
-              <button className="admin-cancel-btn" onClick={closeStatusChangeDialog}>İptal</button>
-              <button className="admin-save-btn" onClick={confirmStatusUpdate}>
-                <FiCheck size={14} /> Onayla
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {statusUpdateError && (
-        <div className="admin-modal-overlay" onClick={() => setStatusUpdateError('')}>
-          <div className="admin-modal admin-modal-sm admin-confirm-modal" onClick={e => e.stopPropagation()}>
-            <div className="admin-modal-body admin-confirm-body">
-              <div className="admin-confirm-icon admin-confirm-icon-info">
-                <FiAlertTriangle size={18} />
-              </div>
-              <h4>İşlem Başarısız</h4>
-              <p>{statusUpdateError}</p>
-            </div>
-            <div className="admin-modal-footer">
-              <button className="admin-save-btn" onClick={() => setStatusUpdateError('')}>Tamam</button>
-            </div>
-          </div>
-        </div>
+      {openOrder && (
+        <OrderDetail
+          key={openOrder._id}
+          order={openOrder}
+          carriers={carriers}
+          onChanged={onChanged}
+          onClose={() => setOpenOrder(null)}
+        />
       )}
     </div>
   )

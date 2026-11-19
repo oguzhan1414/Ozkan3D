@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import { OAuth2Client } from 'google-auth-library'
 import { supabase } from '../config/supabase.js'
 import { must, newSubId } from '../utils/db.js'
+import { getSettingsRow } from '../services/settingsService.js'
 import { sendTokenResponse, getAuthCookieOptions } from '../utils/generateToken.js'
 import {
   sendPasswordResetEmail,
@@ -66,7 +67,8 @@ const notifyNewVerifiedUser = async (user) => {
   }
 
   try {
-    await sendNewUserNotifyAdmin(user)
+    const { notify_new_customer: notifyUser } = await getSettingsRow('notify_new_customer')
+    if (notifyUser) await sendNewUserNotifyAdmin(user)
   } catch (err) {
     console.log('Admin bildirimi gönderilemedi:', err.message)
   }

@@ -75,6 +75,13 @@ export const generateInvoicePDF = (order, user) => {
     // Ürünler
     let y = 265
     order.items.forEach(item => {
+      // Seçimler: malzeme · Boyut: 18 cm · Yazı: "Ahmet"
+      const details = [
+        item.material,
+        ...(item.options || []).map((o) => `${o.group}: ${o.value}`),
+        item.personalization?.text ? `${item.personalization.label}: "${item.personalization.text}"` : null,
+      ].filter(Boolean).join(' · ')
+
       doc
         .fontSize(10)
         .font('Helvetica')
@@ -82,6 +89,10 @@ export const generateInvoicePDF = (order, user) => {
         .text(item.quantity.toString(), 300, y)
         .text(`${item.price}₺`, 370, y)
         .text(`${(item.price * item.quantity).toFixed(2)}₺`, 470, y)
+      if (details) {
+        doc.fontSize(8).fillColor('#666666').text(details, 50, y + 13, { width: 240 }).fillColor('#000000')
+        y += 12
+      }
       y += 25
     })
 

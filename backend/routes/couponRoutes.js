@@ -3,13 +3,13 @@ import {
   getCoupons, createCoupon,
   updateCoupon, deleteCoupon, validateCoupon
 } from '../controllers/couponController.js'
-import { protect } from '../middleware/authMiddleware.js'
+import { protect, optionalAuth } from '../middleware/authMiddleware.js'
 import { admin } from '../middleware/adminMiddleware.js'
 
 const router = express.Router()
 
 // validate — giriş yapmadan da kullanılabilir
-router.post('/validate', validateCoupon)
+router.post('/validate', optionalAuth, validateCoupon)
 
 router.get('/', protect, admin, getCoupons)
 router.post('/', protect, admin, createCoupon)

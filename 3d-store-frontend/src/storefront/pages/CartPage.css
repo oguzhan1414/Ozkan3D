@@ -1,0 +1,199 @@
+.sf-cart-head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 16px 0 8px;
+}
+
+.sf-cart-head h1,
+.sf-cart-empty h1 {
+  margin: 0;
+  font: 700 clamp(28px, 3vw, 40px)/1.1 var(--sf-font);
+  letter-spacing: -0.035em;
+}
+
+.sf-cart-head p { margin: 0; color: var(--sf-muted); }
+
+.sf-cart-layout {
+  display: grid;
+  gap: 32px;
+}
+
+@media (min-width: 960px) {
+  .sf-cart-layout {
+    grid-template-columns: minmax(0, 1fr) 380px;
+    gap: 64px;
+    align-items: start;
+  }
+
+  .sf-summary { position: sticky; top: calc(var(--sf-header-h) + 24px); }
+}
+
+/* ------------------------------------------------------------- Satırlar */
+.sf-cart-list { list-style: none; margin: 0; padding: 0; }
+
+.sf-line {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 16px;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--sf-line);
+}
+
+@media (min-width: 640px) {
+  .sf-line { grid-template-columns: 120px minmax(0, 1fr) auto; gap: 20px; }
+}
+
+.sf-line-img {
+  display: block;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--sf-r-card);
+  overflow: hidden;
+  background: var(--sf-line);
+}
+
+.sf-line-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.sf-line-name {
+  color: var(--sf-ink);
+  font: 600 16px/1.3 var(--sf-font);
+  text-decoration: none;
+}
+
+.sf-line-name:hover { text-decoration: underline; }
+
+.sf-line-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 0;
+  color: var(--sf-muted);
+  font-size: 14px;
+}
+
+.sf-line-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.sf-line-remove { font-weight: 500; color: var(--sf-muted); }
+.sf-line-remove:hover { color: var(--sf-ink); }
+
+.sf-line-total {
+  grid-column: 2;
+  margin: 0;
+  font: 600 16px/1.3 var(--sf-font);
+}
+
+@media (min-width: 640px) {
+  .sf-line-total { grid-column: auto; text-align: right; }
+}
+
+/* ------------------------------------------------------------- Özet kartı */
+.sf-summary {
+  padding: 24px;
+  border: 1px solid var(--sf-line);
+  border-radius: var(--sf-r-card);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  background: #fff;
+}
+
+.sf-summary h2 {
+  margin: 0 0 16px;
+  font: 600 20px/1.2 var(--sf-font);
+  letter-spacing: -0.02em;
+}
+
+.sf-summary-rows { margin: 0 0 14px; display: grid; gap: 10px; }
+
+.sf-summary-rows div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 15px;
+}
+
+.sf-summary-rows dt { color: var(--sf-ink); }
+.sf-summary-rows dd { margin: 0; text-align: right; }
+.sf-summary-rows .is-discount dd { font-weight: 600; }
+.sf-summary-muted { color: var(--sf-muted); }
+
+.sf-summary-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--sf-line);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.sf-summary-total strong { font-size: 22px; letter-spacing: -0.02em; }
+
+.sf-summary-note { margin: 4px 0 18px; color: var(--sf-muted); font-size: 13px; }
+
+.sf-summary-cta { width: 100%; height: 52px; font-size: 16px; }
+
+.sf-summary-secure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 12px 0 0;
+  color: var(--sf-muted);
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------------ Kupon */
+.sf-coupon-toggle { font-weight: 500; }
+
+.sf-coupon {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sf-coupon input {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--sf-faint);
+  border-radius: var(--sf-r-btn);
+  font: 500 15px var(--sf-mono);
+  letter-spacing: 0.04em;
+}
+
+.sf-coupon input:focus { outline: 2px solid var(--sf-ink); outline-offset: -1px; border-color: transparent; }
+
+.sf-coupon-applied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--sf-r-btn);
+  background: var(--sf-canvas);
+  font-size: 14px;
+}
+
+.sf-coupon-applied span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ------------------------------------------------------------------ Diğer */
+.sf-cart-back { display: inline-block; margin-top: 24px; font-weight: 500; }
+
+.sf-cart-empty {
+  min-height: 55vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.sf-cart-empty p { margin: 0 0 14px; color: var(--sf-muted); max-width: 40ch; }

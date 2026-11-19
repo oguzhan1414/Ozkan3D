@@ -1,0 +1,446 @@
+/* Ozkan3D mağaza tasarım sistemi
+   Referans: fotoğraf öncelikli, renksiz arayüz, tek vurgu rengi (mercan),
+   hap şeklinde kontroller. Tüm sınıflar "sf-" önekli; admin paneli eski CSS'iyle
+   çalışmaya devam ettiği için global sıfırlama yapılmaz. */
+@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Renk */
+  --sf-canvas: #f7f7f7;
+  --sf-surface: #ffffff;
+  --sf-ink: #222222;
+  --sf-muted: #6a6a6a;
+  --sf-faint: #c1c1c1;
+  --sf-line: #ebebeb;
+  --sf-fill: #f2f2f2;
+  --sf-accent: #ff385c;
+  --sf-accent-press: #e00b41;
+
+  /* Tipografi */
+  --sf-font: 'Figtree', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --sf-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  /* Şekil */
+  --sf-r-card: 12px;
+  --sf-r-panel: 20px;
+  --sf-r-btn: 8px;
+  --sf-r-pill: 9999px;
+
+  /* Gölge */
+  --sf-shadow-search: 0 0 0 1px rgba(0, 0, 0, 0.02), 0 2px 6px rgba(0, 0, 0, 0.04), 0 4px 8px rgba(0, 0, 0, 0.1);
+  --sf-shadow-float: 0 6px 20px rgba(0, 0, 0, 0.14);
+  --sf-shadow-arrow: 0 2px 8px rgba(0, 0, 0, 0.16);
+
+  /* Yerleşim */
+  --sf-max: 1760px;
+  --sf-gutter: clamp(16px, 3vw, 48px);
+  --sf-header-h: 76px;
+}
+
+.sf-root {
+  font-family: var(--sf-font);
+  color: var(--sf-ink);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+.sf-root *,
+.sf-root *::before,
+.sf-root *::after {
+  box-sizing: border-box;
+}
+
+.sf-container {
+  width: 100%;
+  max-width: var(--sf-max);
+  margin: 0 auto;
+  padding: 0 var(--sf-gutter);
+}
+
+/* Okuma ağırlıklı sayfalar (ürün detay vb.) daha dar */
+.sf-container--narrow { max-width: 1280px; }
+
+.sf-mono {
+  font-family: var(--sf-mono);
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.sf-visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.sf-root :focus-visible {
+  outline: 2px solid var(--sf-ink);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------ Butonlar */
+.sf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 22px;
+  border-radius: var(--sf-r-btn);
+  border: 1px solid transparent;
+  font: 600 15px/1 var(--sf-font);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.sf-btn:active { transform: scale(0.98); }
+
+.sf-btn--accent { background: var(--sf-accent); color: #fff; }
+.sf-btn--accent:hover { background: var(--sf-accent-press); }
+
+.sf-btn--ink { background: var(--sf-ink); color: #fff; }
+.sf-btn--ink:hover { background: #000; }
+
+.sf-btn--ghost { background: transparent; color: var(--sf-ink); border-color: var(--sf-ink); }
+.sf-btn--ghost:hover { background: var(--sf-canvas); }
+
+.sf-btn--light { background: #fff; color: var(--sf-ink); }
+.sf-btn--light:hover { background: var(--sf-line); }
+
+.sf-btn[disabled] { background: var(--sf-line); color: var(--sf-faint); cursor: not-allowed; transform: none; }
+
+.sf-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--sf-r-pill);
+  border: 0;
+  background: transparent;
+  color: var(--sf-ink);
+  cursor: pointer;
+  position: relative;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+.sf-icon-btn:hover { background: var(--sf-canvas); }
+
+.sf-count {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--sf-r-pill);
+  background: var(--sf-ink);
+  color: #fff;
+  font: 600 11px/18px var(--sf-font);
+  text-align: center;
+}
+
+/* ------------------------------------------------- Seçim hapları / metin buton */
+.sf-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.sf-chip {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--sf-line);
+  border-radius: var(--sf-r-pill);
+  background: #fff;
+  color: var(--sf-ink);
+  font: 500 14px/1 var(--sf-font);
+  cursor: pointer;
+}
+
+.sf-chip:hover { border-color: var(--sf-ink); }
+.sf-chip.is-active { border: 2px solid var(--sf-ink); padding: 0 15px; }
+
+.sf-link-btn {
+  padding: 4px 2px;
+  border: 0;
+  background: none;
+  color: var(--sf-ink);
+  font: 600 14px var(--sf-font);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------ Adet seçici */
+.sf-stepper {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  border: 1px solid var(--sf-line);
+  border-radius: var(--sf-r-btn);
+}
+
+.sf-stepper button {
+  width: 40px;
+  height: 100%;
+  border: 0;
+  background: none;
+  color: var(--sf-ink);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.sf-stepper button:disabled { color: var(--sf-faint); cursor: not-allowed; }
+
+.sf-stepper output {
+  min-width: 24px;
+  text-align: center;
+  font: 600 15px var(--sf-font);
+}
+
+.sf-stepper--sm { height: 36px; border-radius: var(--sf-r-pill); }
+.sf-stepper--sm button { width: 34px; }
+
+/* ------------------------------------------------------------ Onay kutusu */
+.sf-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.sf-check input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  accent-color: var(--sf-ink);
+}
+
+.sf-check a { color: var(--sf-ink); font-weight: 600; }
+
+/* -------------------------------------------------------- Seçenek kartları */
+.sf-addr-list,
+.sf-option-row {
+  display: grid;
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .sf-addr-list,
+  .sf-option-row { grid-template-columns: 1fr 1fr; }
+}
+
+.sf-addr-list { margin-bottom: 18px; }
+
+.sf-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 16px 18px;
+  border: 1px solid var(--sf-faint);
+  border-radius: var(--sf-r-card);
+  background: #fff;
+  color: var(--sf-muted);
+  font: 400 14px/1.4 var(--sf-font);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sf-option:hover { border-color: var(--sf-ink); }
+
+.sf-option.is-active {
+  border-color: var(--sf-ink);
+  box-shadow: inset 0 0 0 1px var(--sf-ink);
+}
+
+.sf-option strong { color: var(--sf-ink); font-size: 15px; font-weight: 600; }
+
+.sf-option-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  color: var(--sf-ink);
+}
+
+.sf-option--new {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--sf-ink);
+  font-weight: 600;
+  border-style: dashed;
+}
+
+/* --------------------------------------------------------------- Form */
+.sf-form-grid {
+  display: grid;
+  gap: 14px;
+}
+
+@media (min-width: 640px) {
+  .sf-form-grid { grid-template-columns: 1fr 1fr; }
+  .sf-form-grid .is-wide { grid-column: 1 / -1; }
+}
+
+.sf-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sf-co-step > .sf-field { margin-top: 20px; }
+
+.sf-field-label { font: 600 13px/1.2 var(--sf-font); }
+
+.sf-field input,
+.sf-field select,
+.sf-field textarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid var(--sf-faint);
+  border-radius: var(--sf-r-btn);
+  background: #fff;
+  color: var(--sf-ink);
+  font: 400 15px/1.4 var(--sf-font);
+}
+
+.sf-field textarea { resize: vertical; }
+
+.sf-field input:focus,
+.sf-field select:focus,
+.sf-field textarea:focus { outline: 2px solid var(--sf-ink); outline-offset: -1px; border-color: transparent; }
+
+.sf-field.has-error input,
+.sf-field.has-error select,
+.sf-field.has-error textarea { border-color: #c13515; background: #fff8f6; }
+
+.sf-accept { margin-top: 18px; }
+.sf-accept.has-error span { color: #c13515; }
+
+/* --------------------------------------------------------- Hata / renk noktası */
+.sf-field-error {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  color: #c13515;
+  font-size: 13px;
+}
+
+.sf-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--sf-r-pill);
+  background: var(--dot);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.sf-submit-error {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--sf-r-btn);
+  background: #fff1ee;
+  color: #c13515;
+  font-size: 14px;
+}
+
+/* --------------------------------------------------------- Bölüm başlığı */
+.sf-section { padding: 48px 0 0; }
+
+.sf-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.sf-section-title {
+  margin: 0;
+  font: 600 22px/1.2 var(--sf-font);
+  letter-spacing: -0.02em;
+}
+
+.sf-section-title a {
+  color: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sf-section-title a:hover { text-decoration: underline; text-underline-offset: 4px; }
+
+/* --------------------------------------------------------- Ok butonları */
+.sf-arrows { display: flex; gap: 8px; }
+
+.sf-arrow {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--sf-r-pill);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  color: var(--sf-ink);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.sf-arrow:hover { box-shadow: var(--sf-shadow-arrow); }
+.sf-arrow:active { transform: scale(0.94); }
+.sf-arrow[disabled] { color: var(--sf-faint); cursor: default; box-shadow: none; opacity: 0.6; }
+
+/* ------------------------------------------------------- İskelet (yükleme) */
+.sf-skeleton {
+  background: linear-gradient(90deg, var(--sf-line) 0%, #f4f4f4 50%, var(--sf-line) 100%);
+  background-size: 200% 100%;
+  animation: sf-shimmer 1.4s linear infinite;
+  border-radius: var(--sf-r-card);
+}
+
+@keyframes sf-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-root *,
+  .sf-root *::before,
+  .sf-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Sepet/sipariş satırındaki seçimler */
+.sf-line-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-top: 6px;
+}
+.sf-line-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--sf-r-pill);
+  background: var(--sf-surface-2, #f2f2f2);
+  color: var(--sf-ink-2, #3f3f3f);
+  font-size: 12px;
+  line-height: 18px;
+}
+.sf-line-opt .sf-dot { width: 10px; height: 10px; }
+.sf-line-opt--note { font-style: italic; }
+.sf-card-from { font-size: 12px; font-weight: 400; color: var(--sf-muted); margin-left: 2px; }

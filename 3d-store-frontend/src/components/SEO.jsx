@@ -28,7 +28,7 @@ const SEO = ({
   const defaultDesc = 'Ozkan3D ile yuksek kaliteli 3D baski, figur, ozel tasarim prototip ve 3D tarama hizmetleri.'
   const defaultKeywords = "3d baskı, 3d yazıcı, 3d modelleme, özel 3d tasarım, pla, abs, reçine baskı, 3d tarama, prototip üretimi"
   const defaultUrl = 'https://www.ozkan3d.com.tr'
-  const defaultImage = `${defaultUrl}/logo-wordmark.png`
+  const defaultImage = `${defaultUrl}/brand/ozkan3d-logo-horizontal.png`
 
   const canonicalUrl = url
     ? buildAbsoluteUrl(defaultUrl, url)

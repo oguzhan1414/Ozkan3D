@@ -22,6 +22,9 @@ import settingsRoutes from './routes/settingsRoutes.js'
 import contactRoutes from './routes/contactRoutes.js'
 import supportRoutes from './routes/supportRoutes.js'
 import homeRoutes from './routes/homeRoutes.js'
+import cronRoutes from './routes/cronRoutes.js'
+import colorRoutes from './routes/colorRoutes.js'
+import reportRoutes from './routes/reportRoutes.js'
 
 const app = express()
 
@@ -105,6 +108,9 @@ app.use('/api/settings', settingsRoutes)
 app.use('/api/contact', contactRoutes)
 app.use('/api/support', supportRoutes)
 app.use('/api/home', homeRoutes)
+app.use('/api/cron', cronRoutes)
+app.use('/api/colors', colorRoutes)
+app.use('/api/reports', reportRoutes)
 
 app.get('/api/health', async (req, res) => {
   const { error } = await supabase.from('settings').select('id', { head: true, count: 'exact' })

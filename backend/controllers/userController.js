@@ -24,18 +24,19 @@ const requireUserRow = async (id, res) => {
 // @route   GET /api/users
 // @access  Admin
 export const getUsers = async (req, res) => {
-  const { page = 1, limit = 20, search } = req.query
+  const { page = 1, limit = 20, search, role = 'user' } = req.query
 
   const pageNum = Math.max(1, Number(page) || 1)
   const limitNum = Math.min(200, Math.max(1, Number(limit) || 20))
   const from = (pageNum - 1) * limitNum
 
-  let query = supabase.from('users').select('*', { count: 'exact' }).eq('role', 'user')
+  let query = supabase.from('users').select('*', { count: 'exact' })
+  if (role === 'user' || role === 'admin') query = query.eq('role', role)
 
   const term = search ? sanitizeSearch(search) : ''
   if (term) {
     query = query.or(
-      `first_name.ilike."*${term}*",last_name.ilike."*${term}*",email.ilike."*${term}*"`
+      `first_name.ilike."*${term}*",last_name.ilike."*${term}*",email.ilike."*${term}*",phone.ilike."*${term}*"`
     )
   }
 
@@ -44,13 +45,31 @@ export const getUsers = async (req, res) => {
     .range(from, from + limitNum - 1)
   must({ data, error })
 
+  // Listedeki müşterilerin sipariş sayısı ve harcaması (iptaller hariç, ödenmiş tutar)
+  const ids = data.map((u) => u.id)
+  const stats = new Map()
+  if (ids.length) {
+    const orders = must(await supabase
+      .from('orders')
+      .select('user_id, total_price, is_paid, created_at')
+      .in('user_id', ids)
+      .neq('status', 'İptal'))
+    for (const o of orders) {
+      const st = stats.get(o.user_id) || { orderCount: 0, totalSpent: 0, lastOrderAt: null }
+      st.orderCount += 1
+      if (o.is_paid) st.totalSpent += Number(o.total_price) || 0
+      if (!st.lastOrderAt || o.created_at > st.lastOrderAt) st.lastOrderAt = o.created_at
+      stats.set(o.user_id, st)
+    }
+  }
+
   const total = count || 0
   res.status(200).json({
     success: true,
     count: data.length,
     total,
     pages: Math.ceil(total / limitNum),
-    data: data.map(userToApi),
+    data: data.map((u) => ({ ...userToApi(u), ...(stats.get(u.id) || { orderCount: 0, totalSpent: 0, lastOrderAt: null }) })),
   })
 }
 
@@ -61,8 +80,10 @@ export const getUser = async (req, res) => {
   const row = await requireUserRow(req.params.id, res)
 
   // Kullanıcının sipariş istatistikleri
-  const orders = must(await supabase.from('orders').select('total_price').eq('user_id', row.id))
-  const totalSpent = orders.reduce((sum, order) => sum + Number(order.total_price || 0), 0)
+  // İptaller sayılmaz; harcama sadece ödenmiş siparişlerden
+  const orders = must(await supabase.from('orders').select('total_price, is_paid').eq('user_id', row.id).neq('status', 'İptal'))
+  const paid = orders.filter((o) => o.is_paid)
+  const totalSpent = paid.reduce((sum, order) => sum + Number(order.total_price || 0), 0)
   const orderCount = orders.length
 
   res.status(200).json({
@@ -72,7 +93,7 @@ export const getUser = async (req, res) => {
       stats: {
         orderCount,
         totalSpent,
-        avgOrder: orderCount > 0 ? Math.round(totalSpent / orderCount) : 0,
+        avgOrder: paid.length > 0 ? Math.round(totalSpent / paid.length) : 0,
       },
     },
   })
@@ -84,6 +105,12 @@ export const getUser = async (req, res) => {
 export const updateUser = async (req, res) => {
   const { role, isActive } = req.body
   const row = await requireUserRow(req.params.id, res)
+
+  // Admin kendi yetkisini kaldırıp ya da hesabını kapatıp panele erişimini kaybetmesin
+  if (row.id === req.user._id && ((role !== undefined && role !== 'admin') || isActive === false)) {
+    res.status(400)
+    throw new Error('Kendi yetkinizi kaldıramaz veya hesabınızı kapatamazsınız.')
+  }
 
   const fields = {}
   if (role !== undefined) {
@@ -173,80 +200,171 @@ export const sendCustomerEmail = async (req, res) => {
 // @desc    Admin dashboard istatistikleri
 // @route   GET /api/users/stats
 // @access  Admin
-export const getDashboardStats = async (req, res) => {
-  const period = ['today', 'week', 'month', 'quarter', 'year'].includes(req.query.period)
-    ? req.query.period
-    : 'month'
+// Türkiye saati (UTC+3, yaz saati uygulaması yok). Sunucu (Vercel) UTC çalışır.
+const TR_OFFSET_MS = 3 * 60 * 60 * 1000
+const trParts = (date) => {
+  const d = new Date(date.getTime() + TR_OFFSET_MS)
+  return { y: d.getUTCFullYear(), m: d.getUTCMonth(), d: d.getUTCDate(), h: d.getUTCHours() }
+}
+const trMidnight = (y, m, d) => new Date(Date.UTC(y, m, d) - TR_OFFSET_MS)
+const pad = (n) => String(n).padStart(2, '0')
 
-  const now = new Date()
-  const startDate = new Date(now)
-  let groupFormat = 'YYYY-MM-DD'
-  let periodLabel = 'Bu Ay'
-  let salesTitle = 'Son 30 Gün Satış'
+const PERIODS = {
+  today: { label: 'Bugün', title: 'Bugün saatlik satış', format: 'HH24:00', unit: 'hour' },
+  week: { label: 'Son 7 gün', title: 'Son 7 gün satış', format: 'YYYY-MM-DD', unit: 'day', days: 7 },
+  month: { label: 'Son 30 gün', title: 'Son 30 gün satış', format: 'YYYY-MM-DD', unit: 'day', days: 30 },
+  quarter: { label: 'Son 3 ay', title: 'Son 3 ay satış', format: 'YYYY-MM', unit: 'month', months: 3 },
+  year: { label: 'Son 12 ay', title: 'Son 12 ay satış', format: 'YYYY-MM', unit: 'month', months: 12 },
+}
 
-  if (period === 'today') {
-    startDate.setHours(0, 0, 0, 0)
-    groupFormat = 'HH24:00'
-    periodLabel = 'Bugün'
-    salesTitle = 'Bugün Saatlik Satış'
-  } else if (period === 'week') {
-    startDate.setDate(now.getDate() - 6)
-    startDate.setHours(0, 0, 0, 0)
-    periodLabel = 'Bu Hafta'
-    salesTitle = 'Son 7 Gün Satış'
-  } else if (period === 'month') {
-    startDate.setDate(now.getDate() - 29)
-    startDate.setHours(0, 0, 0, 0)
-    periodLabel = 'Bu Ay'
-    salesTitle = 'Son 30 Gün Satış'
-  } else if (period === 'quarter') {
-    startDate.setMonth(now.getMonth() - 2, 1)
-    startDate.setHours(0, 0, 0, 0)
-    groupFormat = 'YYYY-MM'
-    periodLabel = 'Bu Çeyrek'
-    salesTitle = 'Son 3 Ay Satış'
-  } else if (period === 'year') {
-    startDate.setMonth(now.getMonth() - 11, 1)
-    startDate.setHours(0, 0, 0, 0)
-    groupFormat = 'YYYY-MM'
-    periodLabel = 'Bu Yıl'
-    salesTitle = 'Son 12 Ay Satış'
+/** Dönem başlangıcı (Türkiye saatine göre) ve grafikteki tüm aralık etiketleri */
+const periodRange = (period, now) => {
+  const cfg = PERIODS[period]
+  const t = trParts(now)
+  let start
+  const buckets = []
+  if (cfg.unit === 'hour') {
+    start = trMidnight(t.y, t.m, t.d)
+    for (let h = 0; h <= t.h; h++) buckets.push(`${pad(h)}:00`)
+  } else if (cfg.unit === 'day') {
+    start = trMidnight(t.y, t.m, t.d - (cfg.days - 1))
+    for (let i = 0; i < cfg.days; i++) {
+      const p = trParts(new Date(start.getTime() + i * 86400000))
+      buckets.push(`${p.y}-${pad(p.m + 1)}-${pad(p.d)}`)
+    }
+  } else {
+    start = trMidnight(t.y, t.m - (cfg.months - 1), 1)
+    for (let i = 0; i < cfg.months; i++) {
+      const dt = new Date(Date.UTC(t.y, t.m - (cfg.months - 1) + i, 1))
+      buckets.push(`${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}`)
+    }
   }
+  return { ...cfg, start, buckets }
+}
 
-  const from = startDate.toISOString()
-  const to = now.toISOString()
+const pctChange = (current, previous) => {
+  if (!previous) return current ? null : 0 // önceki dönem boşsa oran anlamsız
+  return Math.round(((current - previous) / previous) * 100)
+}
+
+export const getDashboardStats = async (req, res) => {
+  const period = PERIODS[req.query.period] ? req.query.period : 'month'
+  const now = new Date()
+  const range = periodRange(period, now)
+  const from = range.start
+  // Önceki dönem: aynı uzunlukta, hemen öncesi
+  const prevFrom = new Date(from.getTime() - (now.getTime() - from.getTime()))
   const countOnly = { count: 'exact', head: true }
 
-  const ordersInRange = () =>
-    supabase.from('orders').select('id', countOnly).gte('created_at', from).lte('created_at', to)
+  const settingsRow = must(await supabase.from('settings').select('low_stock_threshold').limit(1).maybeSingle())
+  const threshold = Number(settingsRow?.low_stock_threshold ?? 10)
 
-  const [usersRes, ordersRes, pendingRes, processingRes, salesRes] = await Promise.all([
+  const [
+    ordersRes, usersRes, newUsersRes, prevUsersRes, salesRes,
+    toPrintRes, transferRes, printingRes, toShipRes, reviewsRes, supportRes,
+    lowStockRes, lowStockCountRes,
+  ] = await Promise.all([
+    supabase
+      .from('orders')
+      .select('id, status, total_price, is_paid, created_at, items')
+      .gte('created_at', prevFrom.toISOString())
+      .lte('created_at', now.toISOString()),
     supabase.from('users').select('id', countOnly).eq('role', 'user'),
-    ordersInRange(),
-    ordersInRange().eq('status', 'Bekliyor'),
-    ordersInRange().in('status', ['Basımda', 'Hazırlanıyor']),
-    supabase.rpc('dashboard_sales', { p_start: from, p_end: to, p_format: groupFormat }),
+    supabase.from('users').select('id', countOnly).eq('role', 'user').gte('created_at', from.toISOString()),
+    supabase.from('users').select('id', countOnly).eq('role', 'user')
+      .gte('created_at', prevFrom.toISOString()).lt('created_at', from.toISOString()),
+    supabase.rpc('dashboard_sales', { p_start: from.toISOString(), p_end: now.toISOString(), p_format: range.format }),
+    // Yapılacaklar (döneme bağlı değil, şu anki durum)
+    supabase.from('orders').select('id', countOnly).eq('status', 'Bekliyor').eq('is_paid', true),
+    supabase.from('orders').select('id', countOnly).eq('payment_method', 'transfer').eq('is_paid', false).neq('status', 'İptal'),
+    supabase.from('orders').select('id', countOnly).eq('status', 'Basımda'),
+    supabase.from('orders').select('id', countOnly).eq('status', 'Hazırlanıyor'),
+    supabase.from('reviews').select('id', countOnly).eq('status', 'pending'),
+    supabase.from('support_requests').select('id', countOnly).eq('status', 'new'),
+    // Siparişe özel ürünlerin stoğu takip edilmez
+    supabase.from('products').select('id, name, slug, stock, images')
+      .eq('is_active', true).eq('made_to_order', false).lte('stock', threshold).order('stock').limit(6),
+    supabase.from('products').select('id', countOnly).eq('is_active', true).eq('made_to_order', false).lte('stock', threshold),
   ])
 
-  for (const r of [usersRes, ordersRes, pendingRes, processingRes]) must(r)
-  const recentSales = must(salesRes).map((s) => ({
-    _id: s._id,
-    revenue: Number(s.revenue) || 0,
-    orders: Number(s.orders) || 0,
+  const orders = must(ordersRes)
+  for (const r of [usersRes, newUsersRes, prevUsersRes, toPrintRes, transferRes, printingRes, toShipRes, reviewsRes, supportRes, lowStockCountRes]) must(r)
+  const lowStock = must(lowStockRes)
+
+  // Dönem metrikleri: ciro = ödenmiş siparişler, sipariş sayısı = iptal hariç
+  const inCurrent = (o) => new Date(o.created_at) >= from
+  const summarize = (list) => {
+    const active = list.filter((o) => o.status !== 'İptal')
+    const paid = list.filter((o) => o.is_paid)
+    const revenue = paid.reduce((sum, o) => sum + Number(o.total_price || 0), 0)
+    return { revenue, orders: active.length, avgOrder: paid.length ? revenue / paid.length : 0 }
+  }
+  const currentOrders = orders.filter(inCurrent)
+  const current = summarize(currentOrders)
+  const previous = summarize(orders.filter((o) => !inCurrent(o)))
+
+  const statusCounts = {}
+  for (const o of currentOrders) statusCounts[o.status] = (statusCounts[o.status] || 0) + 1
+
+  // En çok satanlar (dönemdeki ödenmiş siparişler)
+  const productStats = new Map()
+  for (const o of currentOrders.filter((x) => x.is_paid)) {
+    for (const it of o.items || []) {
+      const key = it.product || it.name
+      const row = productStats.get(key) || { product: it.product, name: it.name, image: it.image, quantity: 0, revenue: 0 }
+      row.quantity += Number(it.quantity) || 0
+      row.revenue += (Number(it.price) || 0) * (Number(it.quantity) || 0)
+      productStats.set(key, row)
+    }
+  }
+  const topProducts = [...productStats.values()]
+    .sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue)
+    .slice(0, 5)
+
+  // Grafik: satış olmayan aralıklar da sıfırla doldurulur
+  const salesMap = new Map(must(salesRes).map((s) => [s._id, s]))
+  const recentSales = range.buckets.map((b) => ({
+    _id: b,
+    revenue: Number(salesMap.get(b)?.revenue) || 0,
+    orders: Number(salesMap.get(b)?.orders) || 0,
   }))
+
+  const newCustomers = newUsersRes.count || 0
 
   res.status(200).json({
     success: true,
     data: {
+      // Eski alanlar (Raporlar sayfası da kullanıyor)
       totalUsers: usersRes.count || 0,
-      totalOrders: ordersRes.count || 0,
-      totalRevenue: recentSales.reduce((sum, s) => sum + s.revenue, 0),
-      pendingOrders: pendingRes.count || 0,
-      processingOrders: processingRes.count || 0,
+      totalOrders: current.orders,
+      totalRevenue: current.revenue,
+      pendingOrders: statusCounts['Bekliyor'] || 0,
+      processingOrders: (statusCounts['Basımda'] || 0) + (statusCounts['Hazırlanıyor'] || 0),
       recentSales,
       period,
-      periodLabel,
-      salesTitle,
+      periodLabel: range.label,
+      salesTitle: range.title,
+      // Önceki dönemle karşılaştırmalı göstergeler
+      kpis: {
+        revenue: { value: current.revenue, change: pctChange(current.revenue, previous.revenue) },
+        orders: { value: current.orders, change: pctChange(current.orders, previous.orders) },
+        avgOrder: { value: Math.round(current.avgOrder), change: pctChange(current.avgOrder, previous.avgOrder) },
+        newCustomers: { value: newCustomers, change: pctChange(newCustomers, prevUsersRes.count || 0) },
+      },
+      statusCounts,
+      topProducts,
+      // Şu an yapılması gerekenler
+      todo: {
+        toPrint: toPrintRes.count || 0,
+        awaitingTransfer: transferRes.count || 0,
+        printing: printingRes.count || 0,
+        toShip: toShipRes.count || 0,
+        pendingReviews: reviewsRes.count || 0,
+        newSupport: supportRes.count || 0,
+        lowStock: lowStockCountRes.count || 0,
+      },
+      lowStock: lowStock.map((p) => ({ _id: p.id, name: p.name, slug: p.slug, stock: p.stock, image: p.images?.[0] || null })),
+      lowStockThreshold: threshold,
     },
   })
 }

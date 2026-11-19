@@ -192,7 +192,7 @@ export const getMyReviews = async (req, res) => {
   const rows = must(
     await supabase
       .from('reviews')
-      .select('*, product:products(id, name, images)')
+      .select('*, product:products(id, name, images, slug)')
       .eq('user_id', req.user._id)
       .order('created_at', { ascending: false })
   )

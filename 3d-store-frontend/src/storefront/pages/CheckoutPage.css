@@ -1,0 +1,129 @@
+.sf-co-head { padding: 16px 0 8px; }
+
+.sf-co-head h1 {
+  margin: 10px 0 0;
+  font: 700 clamp(28px, 3vw, 40px)/1.1 var(--sf-font);
+  letter-spacing: -0.035em;
+}
+
+.sf-co-step {
+  padding: 28px 0;
+  border-bottom: 1px solid var(--sf-line);
+}
+
+.sf-co-step:last-child { border-bottom: 0; }
+
+.sf-co-step h2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 18px;
+  font: 600 22px/1.2 var(--sf-font);
+  letter-spacing: -0.02em;
+}
+
+/* Adım numarası: gerçek bir sıra olduğu için numaralı */
+.sf-step-no {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--sf-r-pill);
+  background: var(--sf-ink);
+  color: #fff;
+  font: 500 13px/1 var(--sf-mono);
+}
+
+/* ------------------------------------------------------------- Havale */
+.sf-bank {
+  margin-top: 16px;
+  padding: 18px 20px;
+  border-radius: var(--sf-r-card);
+  background: var(--sf-canvas);
+}
+
+.sf-bank dl { margin: 0; display: grid; gap: 10px; }
+
+.sf-bank dl div {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.sf-bank dt { color: var(--sf-muted); }
+.sf-bank dd { margin: 0; }
+
+.sf-iban {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.sf-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--sf-line);
+  border-radius: var(--sf-r-pill);
+  background: #fff;
+  font: 500 12px var(--sf-font);
+  cursor: pointer;
+}
+
+.sf-bank p { margin: 14px 0 0; color: var(--sf-muted); font-size: 13px; }
+
+/* ------------------------------------------------------ Özet mini liste */
+.sf-mini-list {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0 0 18px;
+  border-bottom: 1px solid var(--sf-line);
+  display: grid;
+  gap: 12px;
+}
+
+.sf-mini-list li {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.sf-mini-img {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  background: var(--sf-line);
+}
+
+.sf-mini-img img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; display: block; }
+
+.sf-mini-img em {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: var(--sf-r-pill);
+  background: var(--sf-ink);
+  color: #fff;
+  font: 600 11px/20px var(--sf-font);
+  font-style: normal;
+  text-align: center;
+}
+
+.sf-mini-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sf-summary .sf-summary-cta { margin-top: 16px; }

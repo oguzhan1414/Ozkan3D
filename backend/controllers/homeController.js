@@ -11,7 +11,7 @@ const clamp = (value, min, max, fallback) => {
 const cardColumns = [
   'id', 'name', 'slug', 'category', 'subcategory', 'price', 'old_price', 'stock',
   'images', 'image_variants', 'material', 'colors', 'badge', 'rating', 'review_count',
-  'featured', 'is_active', 'created_at',
+  'featured', 'is_active', 'created_at', 'made_to_order', 'option_groups',
 ].join(', ')
 
 // @desc    Home bootstrap verisi
@@ -22,7 +22,7 @@ export const getHomeBootstrap = async (req, res) => {
   const featuredLimit = clamp(req.query.featuredLimit, 1, 12, 8)
   const reviewsLimit = clamp(req.query.reviewsLimit, 1, 12, 6)
 
-  const [featured, products, settings, reviews] = await Promise.all([
+  const [featured, products, settings, reviews, stats] = await Promise.all([
     supabase
       .from('products')
       .select(cardColumns)
@@ -43,6 +43,7 @@ export const getHomeBootstrap = async (req, res) => {
       .eq('status', 'approved')
       .order('created_at', { ascending: false })
       .limit(reviewsLimit),
+    supabase.rpc('review_stats'),
   ])
 
   res.status(200).json({
@@ -54,6 +55,10 @@ export const getHomeBootstrap = async (req, res) => {
         heroSlides: settings?.hero_slides || [],
       },
       reviews: toApiList(must(reviews), ['user', 'product']),
+      reviewStats: (() => {
+        const row = must(stats)?.[0]
+        return { average: Number(row?.average) || 0, total: Number(row?.total) || 0 }
+      })(),
     },
   })
 }

@@ -1,0 +1,24 @@
+/* AdminSupport.css */
+.sp-list { list-style: none; margin: 0; padding: 0; }
+.sp-list li + li { border-top: 1px solid #f3f3f3; }
+.sp-list button {
+  width: 100%; display: flex; gap: 16px; justify-content: space-between; align-items: center;
+  padding: 14px 18px; border: 0; background: #fff; text-align: left; cursor: pointer; font-family: inherit;
+}
+.sp-list button:hover { background: #fafafa; }
+.sp-row-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.sp-snippet { font-size: 0.82rem; color: #777; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-row-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+
+.sp-meta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; font-size: 0.84rem; }
+.sp-meta a { color: #333; text-decoration: none; display: inline-flex; gap: 6px; align-items: center; }
+.sp-meta a:hover { color: #2563eb; }
+.sp-message { margin: 0 0 10px; padding: 12px 14px; border-radius: 12px; background: #f6f6f6; color: #222; font-size: 0.88rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+.sp-message--reply { background: #eff6ff; color: #1e3a8a; }
+.spin { animation: sp-spin 0.9s linear infinite; }
+@keyframes sp-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 640px) {
+  .sp-list button { flex-direction: column; align-items: flex-start; }
+  .sp-row-side { align-items: flex-start; }
+}

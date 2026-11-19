@@ -1,0 +1,476 @@
+/* Sol menü genişliği: masaüstünde içerik bu kadar sağdan başlar */
+:root {
+  --sf-rail-w: 0px;
+  --sf-tabbar-h: 64px;
+}
+
+@media (min-width: 1024px) {
+  :root { --sf-rail-w: 84px; }
+}
+
+@media (min-width: 1200px) {
+  :root { --sf-rail-w: 248px; }
+}
+
+/* main ve footer sol menünün yanından başlar; mobilde alt çubuk kadar boşluk */
+.sf-main,
+.sf-footer {
+  padding-left: var(--sf-rail-w);
+}
+
+.sf-main { padding-bottom: var(--sf-tabbar-h); }
+
+@media (min-width: 1024px) {
+  .sf-main { padding-bottom: 0; }
+}
+
+.sf-brand-word {
+  font: 700 20px/1 var(--sf-font);
+  letter-spacing: -0.03em;
+}
+
+/* ------------------------------------------------------------- Sol panel */
+.sf-rail-nav { display: none; }
+
+@media (min-width: 1024px) {
+  .sf-rail-nav {
+    position: fixed;
+    z-index: 100;
+    inset: 0 auto 0 0;
+    width: var(--sf-rail-w);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 18px 14px 14px;
+    background: #fff;
+    border-right: 1px solid var(--sf-line);
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+}
+
+.sf-rail-brand {
+  display: flex;
+  align-items: center;
+  height: 56px;
+  padding: 0 8px;
+}
+
+.sf-rail-logo-full { width: 150px; height: auto; }
+.sf-rail-logo-mini { display: none; width: 40px; }
+
+.sf-rail-groups { display: flex; flex-direction: column; gap: 22px; }
+
+.sf-rail-group { display: flex; flex-direction: column; gap: 2px; }
+
+.sf-rail-heading {
+  margin: 0 0 6px;
+  padding: 0 12px;
+  color: var(--sf-muted);
+  font: 500 11px/1 var(--sf-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.sf-rail-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 44px;
+  padding: 0 12px 0 22px;
+  border: 0;
+  border-radius: var(--sf-r-btn);
+  background: transparent;
+  color: var(--sf-muted);
+  font: 500 15px/1 var(--sf-font);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sf-rail-icon { flex: none; font-size: 19px; }
+
+.sf-rail-item:hover { color: var(--sf-ink); background: var(--sf-canvas); }
+.sf-rail-item.is-active { color: var(--sf-ink); font-weight: 600; }
+
+.sf-rail-item .sf-count { position: static; margin-left: auto; }
+
+/* Katman işareti: aktif öğede üç çizgi alttan üste dizilir */
+.sf-layer-mark {
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+  transform: translateY(-50%);
+}
+
+.sf-layer-mark i {
+  display: block;
+  width: 8px;
+  height: 3px;
+  border-radius: 1px;
+  background: var(--sf-ink);
+  opacity: 0;
+  transform: scaleX(0.2);
+  transform-origin: left center;
+  transition: opacity 0.2s ease, transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.sf-rail-item.is-active .sf-layer-mark i { opacity: 1; transform: none; }
+.sf-rail-item.is-active .sf-layer-mark i:nth-child(2) { transition-delay: 60ms; width: 7px; }
+.sf-rail-item.is-active .sf-layer-mark i:nth-child(3) { transition-delay: 120ms; width: 5px; }
+
+.sf-rail-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Alt kısım: atölye kartı + hesap */
+.sf-rail-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sf-workshop {
+  padding: 16px;
+  border-radius: var(--sf-r-card);
+  background: var(--sf-canvas);
+}
+
+.sf-workshop-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font: 600 14px/1.2 var(--sf-font);
+}
+
+.sf-workshop-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--sf-accent);
+}
+
+.sf-workshop-text {
+  margin: 6px 0 12px;
+  color: var(--sf-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.sf-workshop-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--sf-line);
+  border-radius: var(--sf-r-pill);
+  background: #fff;
+  color: var(--sf-ink);
+  font: 600 13px/1 var(--sf-font);
+  text-decoration: none;
+}
+
+.sf-workshop-btn:hover { border-color: var(--sf-ink); }
+
+.sf-rail-wa { display: none; }
+
+.sf-account-btn {
+  height: 56px;
+  padding: 0 10px;
+  border-top: 1px solid var(--sf-line);
+  border-radius: 0;
+}
+
+.sf-account-btn:hover { background: transparent; }
+
+.sf-account-btn .sf-rail-label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--sf-ink);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.sf-account-btn .sf-rail-label small { color: var(--sf-muted); font: 400 12px/1 var(--sf-font); }
+.sf-account-caret { margin-left: auto; color: var(--sf-muted); }
+
+/* 1024–1199: sadece ikonlar, isimler ipucu baloncuğunda */
+@media (min-width: 1024px) and (max-width: 1199px) {
+  .sf-rail-nav { padding-inline: 12px; align-items: center; }
+  .sf-rail-logo-full { display: none; }
+  .sf-rail-logo-mini { display: block; }
+  .sf-rail-brand { padding: 0; justify-content: center; }
+  .sf-rail-heading { display: none; }
+  .sf-rail-group + .sf-rail-group { padding-top: 14px; border-top: 1px solid var(--sf-line); }
+  .sf-rail-item { width: 48px; height: 48px; padding: 0; justify-content: center; }
+  .sf-rail-item.is-active { background: var(--sf-canvas); }
+  .sf-layer-mark { left: -8px; }
+  .sf-rail-item .sf-count { position: absolute; top: 4px; right: 2px; margin: 0; }
+  .sf-workshop { display: none; }
+  .sf-rail-wa { display: flex; }
+  .sf-account-btn { border-top: 0; }
+  .sf-account-caret { display: none; }
+
+  .sf-rail-item > .sf-rail-label {
+    position: absolute;
+    left: calc(100% + 14px);
+    top: 50%;
+    transform: translate(-4px, -50%);
+    padding: 7px 12px;
+    border-radius: var(--sf-r-btn);
+    background: var(--sf-ink);
+    color: #fff;
+    font: 500 13px/1 var(--sf-font);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+
+  .sf-rail-item > .sf-rail-label small { display: none; }
+
+  .sf-rail-item:hover > .sf-rail-label,
+  .sf-rail-item:focus-visible > .sf-rail-label { opacity: 1; transform: translate(0, -50%); }
+}
+
+.sf-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--sf-r-pill);
+  display: grid;
+  place-items: center;
+  background: var(--sf-line);
+  color: var(--sf-ink);
+  font: 600 13px/1 var(--sf-font);
+}
+
+.sf-avatar svg { width: 17px; height: 17px; }
+.sf-avatar.is-user { background: var(--sf-ink); color: #fff; }
+
+/* ------------------------------------------------------------- Hesap menüsü */
+.sf-account { position: relative; }
+
+.sf-menu {
+  position: absolute;
+  z-index: 120;
+  width: 240px;
+  padding: 8px 0;
+  border-radius: var(--sf-r-card);
+  background: #fff;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+}
+
+/* Sol paneldeki hesap menüsü: panel kaydırılabilir (overflow) olduğu için
+   içeride absolute konumlanan menü kırpılıyordu; ekrana sabitlenir */
+.sf-menu--right {
+  position: fixed;
+  left: calc(var(--sf-rail-w) + 8px);
+  bottom: 16px;
+}
+.sf-menu--up { right: 0; bottom: calc(100% + 12px); }
+
+.sf-menu a,
+.sf-menu button {
+  display: block;
+  width: 100%;
+  padding: 11px 16px;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: var(--sf-ink);
+  font: 400 14px/1.3 var(--sf-font);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.sf-menu a:hover,
+.sf-menu button:hover { background: var(--sf-canvas); }
+.sf-menu .is-strong { font-weight: 600; }
+
+.sf-menu hr {
+  margin: 8px 0;
+  border: 0;
+  border-top: 1px solid var(--sf-line);
+}
+
+.sf-menu-hello {
+  margin: 4px 16px 8px;
+  color: var(--sf-muted);
+  font-size: 13px;
+}
+
+/* --------------------------------------------------------------- Üst bar */
+.sf-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px var(--sf-gutter);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: saturate(1.4) blur(12px);
+}
+
+.sf-topbar-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--sf-ink);
+  text-decoration: none;
+  flex: none;
+}
+
+.sf-topbar-logo .sf-logo { width: 40px; height: 44px; }
+
+@media (min-width: 560px) {
+  .sf-topbar-logo .sf-logo { width: 160px; height: 58px; }
+}
+
+@media (min-width: 1024px) {
+  .sf-topbar {
+    justify-content: center;
+    padding: 14px var(--sf-gutter) 12px calc(var(--sf-rail-w) + var(--sf-gutter));
+  }
+  .sf-topbar-logo { display: none; }
+  .sf-topbar .sf-search-pill { width: 100%; }
+
+  /* Masaüstünde WhatsApp soru butonu panelde; yüzen buton gizlenir */
+  .whatsapp-float { display: none !important; }
+}
+
+.sf-search-pill {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 560px;
+  height: 52px;
+  padding: 0 6px 0 20px;
+  border-radius: var(--sf-r-pill);
+  background: #fff;
+  box-shadow: var(--sf-shadow-search);
+  transition: box-shadow 0.2s ease;
+}
+
+.sf-search-pill:focus-within { box-shadow: var(--sf-shadow-float); }
+
+.sf-search-icon { flex: none; color: var(--sf-muted); font-size: 18px; }
+
+.sf-search-pill input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: 400 15px var(--sf-font);
+  color: var(--sf-ink);
+}
+
+.sf-search-pill input::placeholder { color: var(--sf-muted); }
+.sf-search-pill input::-webkit-search-cancel-button { display: none; }
+
+.sf-search-pill button {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: var(--sf-r-pill);
+  background: var(--sf-accent);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 17px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(255, 56, 92, 0.35);
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.sf-search-pill button:hover { background: var(--sf-accent-press); }
+.sf-search-pill button:active { transform: scale(0.95); }
+
+/* ------------------------------------------------------- Mobil alt çubuk */
+.sf-tabbar {
+  position: fixed;
+  z-index: 100;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--sf-tabbar-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  background: #fff;
+  border-top: 1px solid var(--sf-line);
+}
+
+@media (min-width: 1024px) {
+  .sf-tabbar { display: none; }
+}
+
+.sf-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--sf-muted);
+  font: 500 11px/1 var(--sf-font);
+  text-decoration: none;
+}
+
+.sf-tab.is-active { color: var(--sf-accent); }
+
+.sf-tab-icon {
+  position: relative;
+  font-size: 22px;
+  line-height: 0;
+}
+
+.sf-tab-icon .sf-count { top: -6px; right: -12px; }
+
+/* Hesap sekmesi: AccountMenu düğmesini sekme görünümüne uydur */
+.sf-tab--account .sf-account { width: 100%; height: 100%; }
+
+.sf-tab--account .sf-rail-item {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font: 500 11px/1 var(--sf-font);
+  color: var(--sf-muted);
+}
+
+.sf-tab--account .sf-rail-item:hover { background: none; }
+
+.sf-tab--account .sf-avatar { width: 24px; height: 24px; font-size: 10px; }
+
+.sf-tab--account .sf-account-btn { border-top: 0; height: 100%; padding: 0; justify-content: center; }
+.sf-tab--account .sf-rail-label small,
+.sf-tab--account .sf-account-caret,
+.sf-tab--account .sf-layer-mark { display: none; }
+
+.sf-tab--account .sf-rail-label {
+  position: static;
+  transform: none;
+  opacity: 1;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
+/* Eski WhatsApp butonu mobilde alt çubuğun üstünde kalsın */
+@media (max-width: 1023px) {
+  .whatsapp-float { bottom: calc(var(--sf-tabbar-h) + 16px) !important; }
+}

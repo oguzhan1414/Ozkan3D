@@ -56,6 +56,8 @@
   display: block;
 }
 
+.admin-logo-link .sf-logo--symbol { width: 34px; height: 34px; }
+
 .admin-logo-icon {
   width: 32px;
   height: 32px;

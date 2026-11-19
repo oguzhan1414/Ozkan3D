@@ -1,0 +1,112 @@
+.sf-card {
+  display: block;
+  color: var(--sf-ink);
+  text-decoration: none;
+  min-width: 0;
+}
+
+.sf-card-media {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--sf-r-card);
+  overflow: hidden;
+  background: var(--sf-line);
+}
+
+.sf-card-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 0.35s ease, transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.sf-card-img--empty { background: var(--sf-line); }
+.sf-card-img--alt { opacity: 0; }
+
+@media (hover: hover) {
+  .sf-card:hover .sf-card-img--alt { opacity: 1; }
+  .sf-card:hover .sf-card-img { transform: scale(1.03); }
+}
+
+.sf-card-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 6px 12px;
+  border-radius: var(--sf-r-pill);
+  background: #fff;
+  color: var(--sf-ink);
+  font: 600 12px/1 var(--sf-font);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.sf-card-badge.is-muted { background: var(--sf-ink); color: #fff; }
+
+/* Favori kalbi: beyaz çizgi, aktifken mercan dolgu */
+.sf-heart {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: #fff;
+}
+
+.sf-heart svg {
+  width: 24px;
+  height: 24px;
+  fill: rgba(0, 0, 0, 0.45);
+  stroke: #fff;
+  stroke-width: 2;
+  transition: transform 0.15s ease, fill 0.15s ease;
+}
+
+.sf-heart:hover svg { transform: scale(1.08); }
+.sf-heart.is-on svg { fill: var(--sf-accent); }
+
+.sf-card-body { padding-top: 10px; }
+
+.sf-card-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sf-card-title {
+  margin: 0;
+  font: 500 15px/1.35 var(--sf-font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sf-card-meta {
+  margin: 2px 0 0;
+  color: var(--sf-muted);
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sf-card-meta .sf-mono { font-size: 12px; }
+
+.sf-card-price {
+  margin: 6px 0 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 15px;
+}
+
+.sf-card-price strong { font-weight: 600; }
+.sf-card-price s { color: var(--sf-muted); font-size: 13px; }
+.sf-card-off { color: var(--sf-ink); font-size: 13px; font-weight: 600; }
