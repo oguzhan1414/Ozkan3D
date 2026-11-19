@@ -189,7 +189,7 @@ export const sendCustomerEmail = async (req, res) => {
       <div style="font-family:Arial,Helvetica,sans-serif;line-height:1.6;color:#111;max-width:640px;margin:0 auto;padding:20px;">
         <p>Merhaba ${safeName},</p>
         <div style="background:#f8f8f8;border:1px solid #e5e5e5;border-radius:8px;padding:14px 16px;">${safeMessage}</div>
-        <p style="margin-top:16px;">Saygılarımızla,<br/>Ozkan3D Ekibi</p>
+        <p style="margin-top:16px;">Saygılarımızla,<br/>Ozkan3d Ekibi</p>
       </div>
     `,
   })

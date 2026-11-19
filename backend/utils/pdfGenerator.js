@@ -13,7 +13,7 @@ export const generateInvoicePDF = (order, user) => {
     doc
       .fontSize(24)
       .font('Helvetica-Bold')
-      .text('OZKAN3D.DESIGN', 50, 50)
+      .text('Ozkan3d', 50, 50)
 
     doc
       .fontSize(10)
@@ -127,7 +127,7 @@ export const generateInvoicePDF = (order, user) => {
     doc
       .fontSize(9)
       .font('Helvetica')
-      .text('Ozkan3D.design — Türkiye\'nin 3D Baskı Mağazası', 50, 700, {
+      .text('Ozkan3d — Türkiye\'nin 3D Baskı Mağazası', 50, 700, {
         align: 'center',
         width: 500,
       })

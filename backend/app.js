@@ -117,7 +117,7 @@ app.get('/api/health', async (req, res) => {
 
   res.status(error ? 503 : 200).json({
     status: error ? 'DEGRADED' : 'OK',
-    message: 'Ozkan3D API çalışıyor 🚀',
+    message: 'Ozkan3d API çalışıyor 🚀',
     dbState: error ? 'disconnected' : 'connected',
   })
 })

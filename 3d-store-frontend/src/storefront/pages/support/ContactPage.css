@@ -15,7 +15,7 @@
 .sf-contact-intro { max-width: 42ch; margin: 18px 0 26px; font-size: 15px; line-height: 1.75; color: var(--sf-muted); }
 .sf-contact-channels { border-top: 1px solid var(--sf-line); }
 .sf-contact-channels > a { display: flex; align-items: center; gap: 14px; padding: 14px 0; min-height: 66px; border-bottom: 1px solid var(--sf-line); }
-.sf-contact-channel-icon { display: grid; place-items: center; width: 30px; height: 30px; flex: none; font-size: 19px; color: #b76851; }
+.sf-contact-channel-icon { display: grid; place-items: center; width: 30px; height: 30px; flex: none; font-size: 19px; color: var(--sf-accent); }
 .sf-contact-channel-text { flex: 1; min-width: 0; }
 .sf-contact-channel-text small { display: block; margin-bottom: 3px; font-size: 11px; color: var(--sf-muted); }
 .sf-contact-channel-text strong { display: block; font-size: 14px; font-weight: 500; line-height: 1.5; overflow-wrap: anywhere; }

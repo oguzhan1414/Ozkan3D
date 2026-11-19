@@ -16,7 +16,6 @@ const STATIC_COLUMNS = [
     title: 'Hizmetler',
     links: [
       { to: '/custom', label: 'Özel tasarım ve baskı' },
-      { to: '/3d-baski', label: '3D baskı' },
       { to: '/scan', label: '3D tarama' },
       { to: '/blog', label: 'Blog' },
       { to: '/about', label: 'Hakkımızda' },
@@ -102,8 +101,8 @@ const SiteFooter = () => {
       </div>
 
       <div className="sf-footer-bottom">
-        <Link to="/" className="sf-footer-brand" aria-label="Özkan3D anasayfa"><BrandLogo /></Link>
-        <span className="sf-footer-copyright">© {new Date().getFullYear()} Özkan3D. Tüm hakları saklıdır.</span>
+        <Link to="/" className="sf-footer-brand" aria-label="Ozkan3d anasayfa"><BrandLogo /></Link>
+        <span className="sf-footer-copyright">© {new Date().getFullYear()} Ozkan3d. Tüm hakları saklıdır.</span>
         <nav className="sf-footer-legal" aria-label="Yasal bilgiler">
           <Link to="/kvkk">Gizlilik ve KVKK</Link>
           <Link to="/distance-selling">Mesafeli satış sözleşmesi</Link>

@@ -440,7 +440,7 @@ export const sendPasswordResetEmail = async (user, resetUrl) => {
 export const sendWelcomeEmail = async (user) => {
   await sendEmail({
     to: user.email,
-    subject: '🎉 Ozkan3D.design\'a Hoş Geldiniz!',
+    subject: '🎉 Ozkan3d\'ye Hoş Geldiniz!',
     templateName: 'welcome',
     variables: {
       firstName: user.firstName,

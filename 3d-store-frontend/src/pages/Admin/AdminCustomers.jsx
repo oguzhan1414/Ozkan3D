@@ -15,7 +15,7 @@ const initials = (u) => `${u.firstName?.[0] || ''}${u.lastName?.[0] || ''}`.toUp
 /* ================================================================ E-posta formu */
 const EmailForm = ({ customer, onDone }) => {
   const toast = useToast()
-  const [subject, setSubject] = useState('Ozkan3D')
+  const [subject, setSubject] = useState('Ozkan3d')
   const [message, setMessage] = useState(`Merhaba ${customer.firstName || ''},\n\n`)
   const [state, setState] = useState({ sending: false, error: '' })
 

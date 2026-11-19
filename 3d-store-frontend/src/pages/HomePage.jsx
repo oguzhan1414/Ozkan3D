@@ -424,7 +424,7 @@ const fetchData = async () => {
 
           <div className="reviews-score-card">
             <div className="score-logo">
-              <img src={siteLogo} alt="Ozkan3D logo" className="score-logo-image" />
+              <img src={siteLogo} alt="Ozkan3d logo" className="score-logo-image" />
               <div>
                 <div className="score-stars-row">
                   {[1,2,3,4,5].map(s => <FiStar key={s} size={14} fill="currentColor" className="star-filled" />)}

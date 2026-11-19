@@ -93,7 +93,7 @@ const Header = () => {
       <div className="midbar">
         <div className="midbar-container">
           <Link to="/" className="header-logo">
-            <img src={siteLogo} alt="Ozkan3D logo" className="header-logo-image" />
+            <img src={siteLogo} alt="Ozkan3d logo" className="header-logo-image" />
           </Link>
 
           <form className={`search-form ${searchFocused ? 'search-focused' : ''}`} onSubmit={handleSearch}>

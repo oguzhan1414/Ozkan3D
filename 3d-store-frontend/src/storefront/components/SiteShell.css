@@ -138,7 +138,8 @@
 .sf-workshop {
   padding: 16px;
   border-radius: var(--sf-r-card);
-  background: var(--sf-canvas);
+  background: var(--sf-cream);
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
 }
 
 .sf-workshop-title {
@@ -328,10 +329,10 @@
   flex: none;
 }
 
-.sf-topbar-logo .sf-logo { width: 40px; height: 44px; }
+.sf-topbar-logo .sf-logo { width: 40px; height: 40px; }
 
 @media (min-width: 560px) {
-  .sf-topbar-logo .sf-logo { width: 160px; height: 58px; }
+  .sf-topbar-logo .sf-logo { width: 150px; height: auto; }
 }
 
 @media (min-width: 1024px) {

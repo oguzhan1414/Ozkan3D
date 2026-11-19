@@ -2,7 +2,7 @@
    Referans: fotoğraf öncelikli, renksiz arayüz, tek vurgu rengi (mercan),
    hap şeklinde kontroller. Tüm sınıflar "sf-" önekli; admin paneli eski CSS'iyle
    çalışmaya devam ettiği için global sıfırlama yapılmaz. */
-@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Saira:wght@600;700&display=swap');
 
 :root {
   /* Renk */
@@ -16,15 +16,26 @@
   --sf-accent: #ff385c;
   --sf-accent-press: #e00b41;
 
+  /* Yüzey tonu: nötr, çok hafif sıcak taş grisi (eski adıyla "cream" değişkenleri) */
+  --sf-cream: #f5f5f3;
+  --sf-cream-2: #ebebe8;
+  --sf-cream-line: #e2e2de;
+  --sf-accent-soft: #ffe8ec;
+
   /* Tipografi */
   --sf-font: 'Figtree', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --sf-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  /* Başlıklar: logodaki yuvarlatılmış kare harflere yakın */
+  --sf-display: 'Saira', 'Figtree', system-ui, sans-serif;
 
   /* Şekil */
   --sf-r-card: 12px;
   --sf-r-panel: 20px;
   --sf-r-btn: 8px;
   --sf-r-pill: 9999px;
+
+  /* Logodaki "O" ve amblemdeki kesik köşe */
+  --sf-cut: 12px;
 
   /* Gölge */
   --sf-shadow-search: 0 0 0 1px rgba(0, 0, 0, 0.02), 0 2px 6px rgba(0, 0, 0, 0.04), 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -444,3 +455,44 @@
 .sf-line-opt .sf-dot { width: 10px; height: 10px; }
 .sf-line-opt--note { font-style: italic; }
 .sf-card-from { font-size: 12px; font-weight: 400; color: var(--sf-muted); margin-left: 2px; }
+
+
+/* ------------------------------------------------------------------
+   Marka imzası: kesik köşe (logodaki "O" harfinin sağ üst köşesi)
+   .sf-cut        → kutu/kart (sağ üst köşe kesik)
+   .sf-cut-tag    → küçük rozet
+   ------------------------------------------------------------------ */
+.sf-cut {
+  clip-path: polygon(0 0, calc(100% - var(--sf-cut)) 0, 100% var(--sf-cut), 100% 100%, 0 100%);
+}
+.sf-cut-tag {
+  --sf-cut: 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px 4px 9px;
+  border-radius: 6px 0 6px 6px;
+  font: 600 12px/1.2 var(--sf-font);
+  letter-spacing: 0.01em;
+  clip-path: polygon(0 0, calc(100% - var(--sf-cut)) 0, 100% var(--sf-cut), 100% 100%, 0 100%);
+}
+.sf-cut-tag--accent { background: var(--sf-accent); color: #fff; }
+.sf-cut-tag--ink { background: var(--sf-ink); color: #fff; }
+.sf-cut-tag--cream { background: var(--sf-cream-2); color: var(--sf-ink); }
+.sf-cut-tag--soft { background: var(--sf-accent-soft); color: #c1123a; }
+
+/* Krem zeminli bölüm */
+.sf-cream { background: var(--sf-cream); }
+
+/* ------------------------------------------------------------------
+   Başlık fontu: sayfa ve bölüm başlıkları logoyla aynı karakterde.
+   Bileşen dosyaları kendi "font" kısayolunu tanımladığı için aile burada
+   önceliklendirilir; boyut ve kalınlıklar bileşenlerde kalır.
+   ------------------------------------------------------------------ */
+.sf-root h1,
+.sf-root h2,
+.sf-root .sf-section-title,
+.sf-root .sf-hero-title {
+  font-family: var(--sf-display) !important;
+  letter-spacing: -0.01em;
+}

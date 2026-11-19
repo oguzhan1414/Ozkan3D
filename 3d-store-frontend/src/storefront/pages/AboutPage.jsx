@@ -51,7 +51,7 @@ const AboutPage = () => (
   <div className="sf-root sf-page">
     <SEO
       title="Hakkımızda"
-      description="Özkan3D, Bolu'da küçük ölçekli ve özenli üretim yapan yeni bir 3D baskı atölyesi. Katalog ürünleri ve kişiye özel siparişler."
+      description="Ozkan3d, Bolu'da küçük ölçekli ve özenli üretim yapan yeni bir 3D baskı atölyesi. Katalog ürünleri ve kişiye özel siparişler."
       url="/about"
     />
     <div className="sf-container sf-container--narrow">
@@ -61,7 +61,7 @@ const AboutPage = () => (
           <p className="ab-kicker sf-mono">Hakkımızda</p>
           <h1 id="ab-title">Bolu'da küçük bir atölye, katman katman büyüyor.</h1>
           <p className="ab-lead">
-            Özkan3D yeni kurulmuş bir 3D baskı markası. Bugün küçük ölçekte ve özenle üretiyoruz:
+            Ozkan3d yeni kurulmuş bir 3D baskı markası. Bugün küçük ölçekte ve özenle üretiyoruz:
             mağazadaki ürünleri ve sana özel parçaları kendi atölyemizde basıyoruz. İşler oturdukça
             ekipmanı ve ürün yelpazesini adım adım büyütüyoruz.
           </p>

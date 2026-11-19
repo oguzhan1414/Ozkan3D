@@ -155,7 +155,7 @@ const LayerMark = () => (
 
 const SideRail = () => (
   <aside className="sf-root sf-rail-nav" aria-label="Site menüsü">
-    <Link to="/" className="sf-rail-brand" aria-label="Özkan3D anasayfa">
+    <Link to="/" className="sf-rail-brand" aria-label="Ozkan3d anasayfa">
       <BrandLogo className="sf-rail-logo-full" />
       <BrandLogo compact className="sf-rail-logo-mini" />
     </Link>
@@ -201,7 +201,7 @@ const SideRail = () => (
 /* ------------------------------------------------------------- Üst bar */
 const TopBar = () => (
   <header className="sf-root sf-topbar">
-    <Link to="/" className="sf-topbar-logo" aria-label="Ozkan3D anasayfa">
+    <Link to="/" className="sf-topbar-logo" aria-label="Ozkan3d anasayfa">
       <BrandLogo responsive />
     </Link>
     <SearchPill />

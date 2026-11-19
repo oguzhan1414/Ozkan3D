@@ -187,7 +187,10 @@
   margin: 0;
   display: grid;
   grid-template-columns: 1fr;
-  border-top: 1px solid var(--sf-line);
+  padding: 4px 20px;
+  border-radius: var(--sf-r-card);
+  background: var(--sf-cream);
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
 }
 
 .sf-spec div {
@@ -195,8 +198,10 @@
   justify-content: space-between;
   gap: 16px;
   padding: 14px 0;
-  border-bottom: 1px dashed var(--sf-line);
+  border-bottom: 1px dashed var(--sf-cream-line);
 }
+
+.sf-spec div:last-child { border-bottom: 0; }
 
 .sf-spec dt { color: var(--sf-muted); font-size: 14px; }
 .sf-spec dd { margin: 0; font-family: var(--sf-mono); font-size: 14px; text-align: right; }

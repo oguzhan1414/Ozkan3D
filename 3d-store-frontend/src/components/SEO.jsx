@@ -7,7 +7,7 @@ const buildAbsoluteUrl = (baseUrl, value) => {
   return `${baseUrl}/${value}`
 }
 
-const normalizeBrandText = (value = '') => String(value).replace(/özkan3d/gi, 'Ozkan3D')
+const normalizeBrandText = (value = '') => String(value).replace(/özkan3d/gi, 'Ozkan3d')
 
 const SEO = ({
   title,
@@ -23,12 +23,12 @@ const SEO = ({
   const siteTitle = safeTitle
     ? (safeTitle.toLowerCase().includes('ozkan3d')
       ? safeTitle
-      : `${safeTitle} | Ozkan3D - 3D Baski ve Tasarim`)
-    : 'Ozkan3D - Profesyonel 3D Baski ve Tasarim Hizmetleri'
-  const defaultDesc = 'Ozkan3D ile yuksek kaliteli 3D baski, figur, ozel tasarim prototip ve 3D tarama hizmetleri.'
+      : `${safeTitle} | Ozkan3d - 3D Baski ve Tasarim`)
+    : 'Ozkan3d - Profesyonel 3D Baski ve Tasarim Hizmetleri'
+  const defaultDesc = 'Ozkan3d ile yuksek kaliteli 3D baski, figur, ozel tasarim prototip ve 3D tarama hizmetleri.'
   const defaultKeywords = "3d baskı, 3d yazıcı, 3d modelleme, özel 3d tasarım, pla, abs, reçine baskı, 3d tarama, prototip üretimi"
   const defaultUrl = 'https://www.ozkan3d.com.tr'
-  const defaultImage = `${defaultUrl}/brand/ozkan3d-logo-horizontal.png`
+  const defaultImage = `${defaultUrl}/brand/ozkan3d-og.jpg`
 
   const canonicalUrl = url
     ? buildAbsoluteUrl(defaultUrl, url)
@@ -58,12 +58,12 @@ const SEO = ({
       <meta property="og:type" content={type} />
       <meta property="og:title" content={siteTitle} />
       <meta property="og:description" content={description || defaultDesc} />
-      <meta property="og:site_name" content="Ozkan3D" />
+      <meta property="og:site_name" content="Ozkan3d" />
       <meta property="og:url" content={canonicalUrl} />
       {/* 🌟 YENİ: Hedef kitle lokasyonu */}
       <meta property="og:locale" content="tr_TR" />
       <meta property="og:image" content={metaImage} />
-      <meta property="og:image:alt" content={safeTitle || 'Ozkan3D'} />
+      <meta property="og:image:alt" content={safeTitle || 'Ozkan3d'} />
 
       {/* Twitter Optimizasyonu */}
       <meta name="twitter:card" content="summary_large_image" />

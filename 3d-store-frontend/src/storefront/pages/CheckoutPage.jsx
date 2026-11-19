@@ -10,7 +10,7 @@ import { addAddressApi } from '../../api/authApi'
 import VoxelMark from '../components/VoxelMark'
 import { formatPrice } from '../catalog'
 import { TR_CITIES } from '../trCities'
-import { BANK } from '../bank'
+import { useBank } from '../bank'
 import '../storefront.css'
 import './CartPage.css'
 import './CheckoutPage.css'
@@ -92,6 +92,7 @@ const Copy = ({ text }) => {
 
 /* ------------------------------------------------------------------ Sayfa */
 const CheckoutPage = () => {
+  const BANK = useBank()
   const { items, totalPrice, clearCart } = useCart()
   const { user, setUser } = useAuth()
   const navigate = useNavigate()
@@ -209,15 +210,8 @@ const CheckoutPage = () => {
       }
 
       await clearCart()
-      navigate('/order-success', {
-        state: {
-          orderId: order._id,
-          orderNo: order.orderNo,
-          totalPrice: order.totalPrice,
-          items: order.items,
-          shippingAddress: order.shippingAddress,
-        },
-      })
+      // Sonuç sayfası ödeme yöntemi ve tutarlara göre (havale bilgisi vb.) içerik gösterir
+      navigate('/order-success', { state: { ...order, orderId: order._id } })
     } catch (err) {
       setSubmitError(err.response?.data?.message || 'Sipariş oluşturulamadı. Tekrar dene.')
       setSubmitting(false)

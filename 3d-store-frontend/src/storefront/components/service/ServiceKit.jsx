@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom'
 import { FiArrowRight, FiArrowUpRight, FiCheck, FiChevronDown, FiMail } from 'react-icons/fi'
 import { FaWhatsapp } from 'react-icons/fa'
 import { sendContactMessageApi } from '../../../api/contactApi'
+import ProcessVideo from '../ProcessVideo'
 import './ServiceKit.css'
 
 /**
  * Hizmet sayfalarının (özel baskı, 3D tarama) ortak parçaları.
  * İki sayfa aynı iskeleti farklı içerikle kullanır:
- * Hero → Örnekler → Nasıl çalışır → Fiyatı ne belirler → Teklif formu → SSS → Çapraz bağlantı
+ * Video vitrini → Teklif formu (hızlı başla + fiyat) → SSS → Çapraz bağlantı
  */
 
 export const CONTACT = {
@@ -21,28 +22,66 @@ export const scrollToId = (id) => {
   document.getElementById(id)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
 }
 
-/* ------------------------------------------------------------------ Hero */
-export const ServiceHero = ({ title, lead, facts, media, onPrimary, primaryLabel, whatsappText }) => (
-  <section className="sv-hero" aria-labelledby="sv-title">
-    <div className="sv-hero-copy">
-      <h1 id="sv-title">{title}</h1>
-      <p className="sv-lead">{lead}</p>
-      <div className="sv-actions">
-        <button type="button" className="sf-btn sf-btn--accent" onClick={onPrimary}>
-          {primaryLabel} <FiArrowRight aria-hidden="true" />
-        </button>
-        <a className="sf-btn sf-btn--ghost" href={CONTACT.whatsapp(whatsappText)} target="_blank" rel="noopener noreferrer">
-          <FaWhatsapp aria-hidden="true" /> WhatsApp'tan yaz
-        </a>
+/* Video vitrini: metin ve teklif seçeneklerinin yanında bölümlü oynatıcı. */
+export const ServiceCinema = ({ kicker, title, lead, facts, film, primaryLabel, onPrimary, whatsappText }) => (
+  <section className={`svc svc--${film}`} aria-labelledby="sv-title">
+    <div className="svc-inner">
+      <div className="svc-topline">
+        <Link to="/">Ana sayfa</Link><span aria-hidden="true">/</span><span>{kicker}</span>
+        <span className="svc-edition">OZKAN3D ATÖLYE / {film === 'scan' ? '02' : '01'}</span>
       </div>
-      <dl className="sv-facts">
-        {facts.map(([k, v]) => (
-          <div key={k}><dt>{k}</dt><dd>{v}</dd></div>
-        ))}
+      <div className="svc-layout">
+        <header className="svc-head">
+          <span className="svc-eyebrow"><i aria-hidden="true" />{kicker}</span>
+          <h1 id="sv-title">{title}</h1>
+          <p>{lead}</p>
+          <div className="svc-actions">
+            <button type="button" className="sf-btn sf-btn--accent" onClick={onPrimary}>
+              {primaryLabel} <FiArrowRight aria-hidden="true" />
+            </button>
+            <a className="sf-btn svc-btn-line" href={CONTACT.whatsapp(whatsappText)} target="_blank" rel="noopener noreferrer">
+              <FaWhatsapp aria-hidden="true" /> WhatsApp'tan yaz
+            </a>
+          </div>
+          <span className="svc-note"><FiCheck aria-hidden="true" /> Önce teklif, sen onaylayınca başlarız.</span>
+        </header>
+        <div className="svc-screen">
+          <ProcessVideo film={film} tone="dark" />
+        </div>
+      </div>
+      <dl className="svc-facts">
+        {facts.map(([k, v], i) => <div key={k}><span aria-hidden="true">0{i + 1}</span><div><dt>{k}</dt><dd>{v}</dd></div></div>)}
       </dl>
     </div>
-    <div className="sv-hero-media">{media}</div>
   </section>
+)
+
+/* -------------------------------------------------------- Hızlı başla
+   Örneğe tıklayınca form o örneğe göre dolar */
+export const QuickPicks = ({ title = 'Hızlı başla', items, onPick }) => (
+  <div className="sv-picks">
+    <p className="sv-mini-title">{title}</p>
+    <div className="sv-picks-list">
+      {items.map((item) => (
+        <button key={item.title} type="button" className="sv-pick" onClick={() => onPick(item.prefill)}>
+          <span className="sv-pick-media">{item.media}</span>
+          <span className="sv-pick-text"><strong>{item.title}</strong><span>{item.text}</span></span>
+          <FiArrowRight className="sv-pick-arrow" aria-hidden="true" />
+        </button>
+      ))}
+    </div>
+  </div>
+)
+
+/* ------------------------------------------------- Fiyatı ne belirler (kısa) */
+export const FactorList = ({ title = 'Fiyatı ne belirler?', rows, note }) => (
+  <details className="sv-factor-list">
+    <summary className="sv-mini-title">{title}<FiChevronDown aria-hidden="true" /></summary>
+    <dl>
+      {rows.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
+    </dl>
+    {note && <p>{note}</p>}
+  </details>
 )
 
 /* --------------------------------------------------------------- Bölüm */
@@ -56,52 +95,11 @@ export const ServiceSection = ({ id, title, lead, children, tone }) => (
   </section>
 )
 
-/* ------------------------------------------------------------- Örnekler */
-export const ExampleCards = ({ items, onPick, pickLabel }) => (
-  <div className="sv-examples">
-    {items.map((item) => (
-      <article key={item.title} className="sv-example">
-        <div className="sv-example-media">{item.media}</div>
-        <h3>{item.title}</h3>
-        <p>{item.text}</p>
-        <button type="button" className="sf-link-btn" onClick={() => onPick(item.prefill)}>
-          {pickLabel} <FiArrowRight aria-hidden="true" />
-        </button>
-      </article>
-    ))}
-  </div>
-)
-
-/* ------------------------------------------------------- Nasıl çalışır */
-export const Steps = ({ items }) => (
-  <ol className="sv-steps">
-    {items.map((s, i) => (
-      <li key={s.title}>
-        <span className="sv-step-no" aria-hidden="true">{i + 1}</span>
-        <h3>{s.title}</h3>
-        <p>{s.text}</p>
-      </li>
-    ))}
-  </ol>
-)
-
-/* --------------------------------------------------- Fiyatı ne belirler */
-export const FactorTable = ({ rows, note }) => (
-  <div className="sv-factors">
-    <dl>
-      {rows.map(([k, v]) => (
-        <div key={k}><dt>{k}</dt><dd>{v}</dd></div>
-      ))}
-    </dl>
-    {note && <p className="sv-factors-note">{note}</p>}
-  </div>
-)
-
 /* -------------------------------------------------------------- Form */
 const Field = ({ label, optional, error, children, wide }) => (
   <label className={`sv-field ${wide ? 'is-wide' : ''} ${error ? 'has-error' : ''}`}>
     <span className="sv-field-label">
-      {label} {optional && <em>İsteğe bağlı</em>}
+      {label} {optional ? <em>İsteğe bağlı</em> : <span aria-hidden="true">*</span>}
     </span>
     {children}
     {error && <span className="sv-field-error">{error}</span>}
@@ -113,7 +111,7 @@ const Field = ({ label, optional, error, children, wide }) => (
  * buildMessage(values) → admin'e gidecek e-posta gövdesi
  */
 export const RequestForm = ({
-  id, title, lead, fields, values, onChange, subject, buildMessage, submitLabel, successTitle, whatsappText,
+  id, title, lead, fields, values, onChange, subject, buildMessage, submitLabel, successTitle, whatsappText, aside,
 }) => {
   const [contact, setContact] = useState({ name: '', email: '', phone: '' })
   const [errors, setErrors] = useState({})
@@ -183,8 +181,10 @@ export const RequestForm = ({
   return (
     <section className="sv-request" id={id} aria-labelledby={`${id}-title`}>
       <div className="sv-request-intro">
+        <p className="sv-mini-title">BİRLİKTE ÜRETELİM</p>
         <h2 id={`${id}-title`}>{title}</h2>
         <p>{lead}</p>
+        {aside}
         <ul className="sv-promise">
           <li><FiCheck aria-hidden="true" /> Teklif ücretsiz, sipariş veya ödeme oluşturmaz.</li>
           <li><FiCheck aria-hidden="true" /> Onayın olmadan işe başlamayız.</li>
@@ -211,6 +211,7 @@ export const RequestForm = ({
           </div>
         ) : (
           <form onSubmit={submit} noValidate>
+            <div className="sv-form-heading"><span>Projenin detayları</span><span>* Zorunlu alanlar</span></div>
             <fieldset disabled={status === 'sending'} className="sv-form-grid">
               <legend className="sf-visually-hidden">{title}</legend>
               {fields.map((f) => (

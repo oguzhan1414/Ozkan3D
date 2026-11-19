@@ -10,7 +10,7 @@ import './AuthPages.css'
 export const AuthShell = ({ title, lead, children, footer, wide = false }) => (
   <div className="sf-root sf-page sf-auth">
     <div className={`sf-auth-card ${wide ? 'sf-auth-card--wide' : ''}`}>
-      <Link to="/" className="sf-auth-mark" aria-label="Ozkan3D anasayfa">
+      <Link to="/" className="sf-auth-mark" aria-label="Ozkan3d anasayfa">
         <BrandLogo />
       </Link>
       <h1>{title}</h1>

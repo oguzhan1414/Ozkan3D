@@ -1,0 +1,72 @@
+/* 3D tarama filmi — ortak stiller FilmStage.css'te */
+
+/* Giriş: iki satırlık başlık */
+.sc-intro-title { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; font-weight: 700; line-height: 1.02; font-family: var(--sf-display, var(--sf-font)); letter-spacing: -0.03em; text-align: center; }
+.sc-intro-line { display: flex; gap: 20px; }
+.sc-intro-line.is-col { flex-direction: column; align-items: center; gap: 4px; }
+.sc-intro-line span { display: inline-block; }
+.sc-intro-line .is-accent { color: var(--sf-accent, #ff385c); }
+
+/* Telefon */
+.sc-phone { position: absolute; padding: 12px; border-radius: 44px; background: #1b1b1b; box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.4); }
+.sc-phone-screen { position: relative; width: 100%; height: 100%; border-radius: 34px; overflow: hidden; background: radial-gradient(circle at 50% 45%, #4a4a4a, #262626 70%); }
+.sc-viewfinder { position: absolute; inset: 22% 14%; border: 2px solid rgba(255, 255, 255, 0.5); border-radius: 12px; -webkit-mask: linear-gradient(#000 0 0) top/24% 24% no-repeat, linear-gradient(#000 0 0) bottom/24% 24% no-repeat; }
+.sc-viewfinder::before { content: ''; position: absolute; inset: 0; border-radius: 12px; }
+.sc-phone-obj { position: absolute; left: 14%; right: 14%; top: 32%; height: 34%; }
+.sc-phone-count { position: absolute; top: 18px; left: 50%; transform: translateX(-50%); display: inline-flex; gap: 6px; align-items: center; padding: 6px 12px; border-radius: 999px; background: rgba(0, 0, 0, 0.45); color: #fff; font: 600 15px/1 var(--sf-font); }
+.sc-shutter { position: absolute; left: 50%; bottom: 26px; width: 66px; height: 66px; margin-left: -33px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.35); transition: none; }
+.sc-flash { position: absolute; inset: 0; background: #fff; }
+
+/* Talep kartı */
+.sc-label { display: block; margin: 2px 0 10px; font: 600 17px/1.2 var(--sf-font); color: #555; }
+.sc-thumbs { display: flex; gap: 12px; height: 100px; margin-bottom: 16px; }
+.sc-thumb { flex: 1; border-radius: 14px; background: #f1f1ef; border: 2px dashed #d8d8d4; overflow: hidden; display: grid; place-items: center; }
+.sc-thumb-in { width: 100%; height: 100%; display: grid; place-items: center; padding: 14px; background: radial-gradient(circle, #4a4a4a, #262626); }
+.sc-field { width: 100%; height: 46px; margin-bottom: 20px; font-size: 18px; }
+
+/* Teklif sonrası gönderim notu */
+.sc-ship-chip { position: absolute; left: 50%; display: inline-flex; align-items: center; gap: 10px; padding: 14px 22px; border-radius: 999px; background: #222; color: #fff; font: 600 18px/1 var(--sf-font); white-space: nowrap; }
+.sc-ship-chip svg { color: var(--sf-accent, #ff385c); }
+
+/* Tarama */
+.sc-rig { position: absolute; width: 520px; height: 380px; }
+.sc-rig svg { position: absolute; inset: 0; }
+.sc-rig-obj { position: absolute; left: 210px; top: 165px; width: 180px; height: 126px; }
+.sc-cloud { position: absolute; display: flex; flex-direction: column; gap: 12px; padding: 20px 22px; border-radius: 22px; background: #fff; box-shadow: 0 24px 50px -20px rgba(0, 0, 0, 0.25); }
+.sc-cloud-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 16px; color: #777; }
+.sc-cloud-head strong { font: 700 34px/1 var(--sf-display, var(--sf-font)); color: #222; }
+.sc-cloud-svg { flex: 1; min-height: 0; width: 100%; border-radius: 14px; background: repeating-linear-gradient(0deg, #f6f6f4 0 1px, transparent 1px 22px), repeating-linear-gradient(90deg, #f6f6f4 0 1px, transparent 1px 22px), #fbfbfa; }
+.sc-cloud-count { font: 500 14px/1 var(--sf-mono, monospace); color: #888; }
+
+/* Düzenleme */
+.sc-view { position: absolute; border-radius: 26px; background: #fff; box-shadow: 0 30px 60px -24px rgba(0, 0, 0, 0.28); overflow: hidden; }
+.sc-view::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, #f2f2ef 0 1px, transparent 1px 28px), repeating-linear-gradient(90deg, #f2f2ef 0 1px, transparent 1px 28px); }
+.sc-view-tag { position: absolute; left: 20px; top: 18px; z-index: 2; padding: 6px 12px; border-radius: 8px; background: #222; color: #fff; font: 500 14px/1 var(--sf-mono, monospace); }
+.sc-view-obj { position: absolute; left: 12%; right: 12%; top: 26%; height: 52%; }
+.sc-view-obj > svg { position: absolute; inset: 0; }
+.sc-view-knob { position: absolute; inset: 0; }
+.sc-hole { position: absolute; left: 38%; top: 54%; width: 18%; height: 22%; border-radius: 40%; background: #fff; border: 3px dashed #ff385c; }
+.sc-steps { position: absolute; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+.sc-steps li { display: flex; align-items: center; gap: 14px; padding: 14px 22px 14px 14px; border-radius: 999px; background: #fff; box-shadow: 0 12px 30px -16px rgba(0, 0, 0, 0.3); font: 600 20px/1 var(--sf-font); color: #555; white-space: nowrap; }
+.sc-steps li > span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: #eee; color: #555; font-size: 16px; }
+.sc-steps li.is-done { color: #222; }
+.sc-steps li.is-done > span { background: #16a34a; color: #fff; }
+
+/* Teslim */
+.sc-mail { position: absolute; display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding: 24px 26px; border-radius: 24px; background: #fff; box-shadow: 0 30px 60px -24px rgba(0, 0, 0, 0.28); }
+.sc-mail-head { display: flex; align-items: center; gap: 14px; }
+.sc-mail-head div { display: flex; flex-direction: column; gap: 4px; }
+.sc-mail-head strong { font: 700 24px/1 var(--sf-display, var(--sf-font)); }
+.sc-mail-head span:not(.pf-bell) { color: #999; font-size: 14px; }
+.sc-mail p { margin: 0; font-size: 18px; line-height: 1.5; color: #444; }
+.sc-mail-file { display: inline-flex; align-items: center; gap: 10px; padding: 8px 16px 8px 8px; border-radius: 14px; background: #f3f3f1; font: 600 16px/1 var(--sf-font); transform-origin: left center; }
+.sc-mail-ship { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; background: #222; color: #fff; font: 600 16px/1 var(--sf-font); transform-origin: left center; }
+.sc-mail-ship svg { color: var(--sf-accent, #ff385c); }
+.sc-compare { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.sc-compare-title { margin: 0; font: 700 26px/1.2 var(--sf-display, var(--sf-font)); white-space: nowrap; }
+.sc-compare-row { display: flex; align-items: center; gap: 22px; }
+.sc-compare figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.sc-compare-obj { width: 170px; height: 120px; }
+.sc-compare figcaption { padding: 6px 14px; border-radius: 999px; background: #e8e8e5; font: 600 15px/1 var(--sf-font); color: #555; }
+.sc-compare figcaption.is-new { background: var(--sf-accent, #ff385c); color: #fff; }
+.sc-compare-arrow { font: 700 40px/1 var(--sf-display, var(--sf-font)); color: var(--sf-accent, #ff385c); }

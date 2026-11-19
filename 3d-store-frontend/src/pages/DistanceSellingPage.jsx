@@ -9,7 +9,7 @@ const DistanceSellingPage = () => {
       </div>
       <div className="policy-content">
         <h2>MADDE 1 - TARAFLAR</h2>
-        <p><strong>Satıcı:</strong> Ozkan3D.design<br/>
+        <p><strong>Satıcı:</strong> Ozkan3d<br/>
         <strong>E-posta:</strong> ozkan3d.design@gmail.com<br/>
         <strong>E-posta adresi:</strong> Alıcı tarafından sipariş anında sağlanan e-posta adresi.</p>
 

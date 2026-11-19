@@ -2,7 +2,7 @@ import { useState } from 'react'
 import SEO from '../../components/SEO'
 import examplesImage from '../../images/custom-print-examples.webp'
 import {
-  ServiceHero, ServiceSection, ExampleCards, Steps, FactorTable, RequestForm, Faq, CrossLink, scrollToId,
+  ServiceCinema, QuickPicks, FactorList, ServiceSection, RequestForm, Faq, CrossLink, scrollToId,
 } from '../components/service/ServiceKit'
 import '../storefront.css'
 import './CustomPrintPage.css'
@@ -33,12 +33,6 @@ const EXAMPLES = [
   },
 ]
 
-const STEPS = [
-  { title: 'Ne istediğini anlat', text: 'Bir cümle, fotoğraf, çizim ya da 3D model dosyası. Hangisi elindeyse onunla başla.' },
-  { title: 'Teklifini al', text: 'Ölçü, malzeme, renk, fiyat ve hazırlanma süresini yazılı olarak iletiriz.' },
-  { title: 'Onayla', text: 'Teklifi onaylarsan üretime alırız. Onayın olmadan baskıya başlamayız.' },
-  { title: 'Teslim al', text: 'Parçayı kontrol edip paketler, kargoya veririz.' },
-]
 
 const FACTORS = [
   ['Boyut ve ağırlık', 'Parça büyüdükçe kullanılan malzeme ve baskı süresi artar. Fiyatı en çok etkileyen şey budur.'],
@@ -81,43 +75,29 @@ const CustomPrintPage = () => {
         description="Aklındaki parçayı 3D yazıcıyla basalım. STL, OBJ, 3MF dosyanı gönder ya da ne istediğini anlat; PLA, PETG ve TPU ile tek parçadan seri üretime teklif al."
         url="/custom"
       />
+      <ServiceCinema
+        kicker="Özel 3D baskı"
+        title="Aklındaki parçayı basalım."
+        lead="3D model dosyan varsa gönder, yoksa ne istediğini anlat. Ölçüyü, malzemeyi ve fiyatı yazılı teklifle iletelim, onaylarsan basalım."
+        primaryLabel="Teklif iste"
+        onPrimary={() => scrollToId(FORM_ID)}
+        whatsappText={WA_TEXT}
+        facts={[
+          ['Dosya', 'STL · OBJ · 3MF ya da sadece bir fikir'],
+          ['Malzeme', 'PLA · PETG · TPU'],
+          ['Adet', 'Tek parçadan itibaren'],
+        ]}
+        film="print"
+      />
       <div className="sf-container">
-        <ServiceHero
-          title="Aklındaki parçayı basalım."
-          lead="3D model dosyan varsa gönder, yoksa ne istediğini anlat. Ölçüyü, malzemeyi ve fiyatı yazılı teklifle iletelim, onaylarsan basalım."
-          primaryLabel="Teklif iste"
-          onPrimary={() => scrollToId(FORM_ID)}
-          whatsappText={WA_TEXT}
-          facts={[
-            ['Dosya', 'STL · OBJ · 3MF ya da sadece bir fikir'],
-            ['Malzeme', 'PLA · PETG · TPU'],
-            ['Adet', 'Tek parçadan itibaren'],
-          ]}
-          media={
-            <img
-              src={examplesImage}
-              width="1536"
-              height="1024"
-              alt="Özel baskı örnekleri: telefon standı, isimlik ve bağlantı parçası"
-              fetchPriority="high"
-            />
-          }
-        />
-
-        <ServiceSection id="ornekler" title="Neler bastırabilirsin?" lead="Örneğe tıkla, form senin için dolsun.">
-          <ExampleCards items={EXAMPLES} onPick={pickExample} pickLabel="Buna benzer bir şey istiyorum" />
-        </ServiceSection>
-
-        <ServiceSection id="nasil" title="Nasıl çalışır?">
-          <Steps items={STEPS} />
-        </ServiceSection>
-
-        <ServiceSection id="fiyat" title="Fiyatı ne belirler?" lead="Her parça farklı olduğu için sabit fiyat yerine parçaya özel teklif veriyoruz.">
-          <FactorTable rows={FACTORS} note="Teklif istemek ücretsizdir ve seni hiçbir şeye bağlamaz." />
-        </ServiceSection>
-
         <RequestForm
           id={FORM_ID}
+          aside={(
+            <>
+              <QuickPicks items={EXAMPLES} onPick={pickExample} />
+              <FactorList rows={FACTORS} note="Teklif istemek ücretsizdir ve seni hiçbir şeye bağlamaz." />
+            </>
+          )}
           title="Teklif iste"
           lead="Ne istediğini kendi cümlelerinle yaz. Teknik terim bilmen gerekmiyor; eksik bir şey olursa biz sorarız."
           subject="Özel 3D Baskı Talebi"

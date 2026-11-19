@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Routes, Route, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import SiteShell from './storefront/components/SiteShell'
 import SiteFooter from './storefront/components/SiteFooter'
 import './storefront/storefront.css'
@@ -10,7 +10,6 @@ import SEO from './components/SEO'
 
 const HomePage = lazy(() => import('./storefront/pages/HomePage'))
 const ShopPage = lazy(() => import('./storefront/pages/ShopPage'))
-const ThreeDPrintingPage = lazy(() => import('./pages/ThreeDPrintingPage'))
 const ProductDetailPage = lazy(() => import('./storefront/pages/ProductDetailPage'))
 const CartPage = lazy(() => import('./storefront/pages/CartPage'))
 const LoginPage = lazy(() => import('./storefront/pages/auth/LoginPage'))
@@ -23,18 +22,18 @@ const ContactPage = lazy(() => import('./storefront/pages/support/ContactPage'))
 const CustomPrintPage = lazy(() => import('./storefront/pages/CustomPrintPage'))
 const AccountPage = lazy(() => import('./storefront/pages/account/AccountPage'))
 const CheckoutPage = lazy(() => import('./storefront/pages/CheckoutPage'))
-const OrderSuccessPage = lazy(() => import('./pages/OrderSuccessPage'))
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
+const OrderSuccessPage = lazy(() => import('./storefront/pages/OrderSuccessPage'))
+const NotFoundPage = lazy(() => import('./storefront/pages/NotFoundPage'))
 const AboutPage = lazy(() => import('./storefront/pages/AboutPage'))
 const ScanServicePage = lazy(() => import('./storefront/pages/ScanServicePage'))
 
-const KvkkPage = lazy(() => import('./pages/KvkkPage'))
-const DistanceSellingPage = lazy(() => import('./pages/DistanceSellingPage'))
+const KvkkPage = lazy(() => import('./storefront/pages/support/KvkkPage'))
+const DistanceSellingPage = lazy(() => import('./storefront/pages/support/DistanceSellingPage'))
 const DeliveryPage = lazy(() => import('./storefront/pages/support/DeliveryPage'))
 const ReturnsPage = lazy(() => import('./storefront/pages/support/ReturnsPage'))
 const FaqPage = lazy(() => import('./storefront/pages/support/FaqPage'))
-const BlogPage = lazy(() => import('./pages/BlogPage'))
-const BlogDetailPage = lazy(() => import('./pages/BlogDetailPage'))
+const BlogPage = lazy(() => import('./storefront/pages/blog/BlogPage'))
+const BlogDetailPage = lazy(() => import('./storefront/pages/blog/BlogDetailPage'))
 
 const AdminLayout = lazy(() => import('./pages/Admin/AdminLayout'))
 const AdminOverview = lazy(() => import('./pages/Admin/AdminOverview'))
@@ -67,7 +66,7 @@ export const AppContent = () => {
     if (pathname.startsWith('/admin')) {
       return {
         title: 'Yönetim Paneli',
-        description: 'Ozkan3D yonetim paneli.',
+        description: 'Ozkan3d yonetim paneli.',
         noIndex: true,
       }
     }
@@ -111,7 +110,7 @@ export const AppContent = () => {
       },
       '/about': {
         title: 'Hakkımızda',
-        description: 'Ozkan3D hikayesi, uretim yaklasimimiz ve kalite standartlarimiz hakkinda bilgi alin.',
+        description: 'Ozkan3d hikayesi, uretim yaklasimimiz ve kalite standartlarimiz hakkinda bilgi alin.',
       },
       '/scan': {
         title: '3D Tarama Hizmeti',
@@ -181,7 +180,7 @@ export const AppContent = () => {
       },
       '/register': {
         title: 'Üye Ol',
-        description: 'Hizlica hesap olusturun ve Ozkan3D ayricaliklarindan yararlanin.',
+        description: 'Hizlica hesap olusturun ve Ozkan3d ayricaliklarindan yararlanin.',
         noIndex: true,
       },
     }
@@ -212,7 +211,7 @@ export const AppContent = () => {
             {/* Public Routes */}
             <Route path="/" element={<HomePage />} />
             <Route path="/shop" element={<ShopPage />} />
-            <Route path="/3d-baski" element={<ThreeDPrintingPage />} />
+            <Route path="/3d-baski" element={<Navigate to="/custom" replace />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/custom" element={<CustomPrintPage />} />

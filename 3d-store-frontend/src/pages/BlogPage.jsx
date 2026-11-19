@@ -510,13 +510,13 @@ const BlogPage = () => {
   const blogStructuredData = {
     '@context': 'https://schema.org',
     '@type': 'Blog',
-    name: 'Ozkan3D Blog',
+    name: 'Ozkan3d Blog',
     description:
       '3D baskı, filament seçimi, prototipleme ve 3D tarama konularında uygulamalı rehberler ve güncel içerikler.',
     inLanguage: 'tr-TR',
     publisher: {
       '@type': 'Organization',
-      name: 'Ozkan3D',
+      name: 'Ozkan3d',
     },
     blogPost: allPosts.map((post) => ({
       '@type': 'BlogPosting',

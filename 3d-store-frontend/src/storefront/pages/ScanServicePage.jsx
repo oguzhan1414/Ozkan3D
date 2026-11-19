@@ -1,11 +1,10 @@
-import { useId, useState } from 'react'
+import { useState } from 'react'
 import { FiTool, FiBox, FiArchive } from 'react-icons/fi'
 import SEO from '../../components/SEO'
 import {
-  ServiceHero, ServiceSection, ExampleCards, Steps, FactorTable, RequestForm, Faq, CrossLink, scrollToId,
+  ServiceCinema, QuickPicks, FactorList, ServiceSection, RequestForm, Faq, CrossLink, scrollToId,
 } from '../components/service/ServiceKit'
 import '../storefront.css'
-import './ScanServicePage.css'
 
 const WA_TEXT = 'Merhaba, 3D tarama hakkında bilgi almak istiyorum.'
 const FORM_ID = 'tarama-talebi'
@@ -13,60 +12,6 @@ const FORM_ID = 'tarama-talebi'
 const INITIAL = { object: '', size: '', surface: '', purpose: '' }
 
 /* Yarısı fiziksel obje, yarısı dijital tel kafes; ortasından tarama çizgisi geçer */
-const VASE = 'M157 58 Q200 42 243 58 L232 105 C225 133 276 178 270 249 Q264 290 200 298 Q136 290 130 249 C124 178 175 133 168 105Z'
-
-const ScanVisual = () => {
-  const id = useId().replace(/:/g, '')
-  return (
-    <svg className="sc-visual" viewBox="0 0 400 340" role="img" aria-label="Bir vazonun sol yarısı fiziksel, sağ yarısı dijital tel kafes model olarak çizilmiş; ortasından tarama çizgisi geçiyor">
-      <defs>
-        <clipPath id={`${id}-left`}><rect x="0" y="0" width="200" height="340" /></clipPath>
-        <clipPath id={`${id}-right`}><rect x="200" y="0" width="200" height="340" /></clipPath>
-        <clipPath id={`${id}-body`}><path d={VASE} /></clipPath>
-      </defs>
-
-      <ellipse cx="200" cy="306" rx="96" ry="10" fill="#e4e4e4" />
-
-      {/* Fiziksel yarı */}
-      <path d={VASE} fill="#222" clipPath={`url(#${id}-left)`} />
-
-      {/* Dijital yarı: tel kafes */}
-      <g clipPath={`url(#${id}-right)`}>
-        <path d={VASE} fill="#fff" stroke="#222" strokeWidth="1.5" />
-        <g clipPath={`url(#${id}-body)`} fill="none" stroke="#222" strokeWidth="0.8" opacity="0.55">
-          {Array.from({ length: 17 }, (_, i) => (
-            <path key={`h${i}`} d={`M120 ${56 + i * 15} H280`} />
-          ))}
-          {[12, 26, 40, 54, 68].map((dx) => (
-            <path key={`v${dx}`} d={`M${200 + dx * 0.55} 46 C${200 + dx * 0.3} 125 ${200 + dx * 1.45} 185 ${200 + dx * 0.8} 300`} />
-          ))}
-        </g>
-        {[[214, 101], [236, 171], [247, 231], [222, 282], [229, 130]].map(([x, y]) => (
-          <circle key={`${x}-${y}`} cx={x} cy={y} r="2.6" fill="#fff" stroke="#222" strokeWidth="1.2" />
-        ))}
-      </g>
-
-      {/* Tarama çizgisi */}
-      <g className="sc-beam">
-        <path d="M70 170 H330" stroke="#ff385c" strokeWidth="2" />
-        <circle cx="70" cy="170" r="4" fill="#ff385c" />
-        <circle cx="330" cy="170" r="4" fill="#ff385c" />
-      </g>
-      <path d="M200 30 V316" stroke="#222" strokeWidth="1" strokeDasharray="3 5" opacity="0.35" />
-    </svg>
-  )
-}
-
-const ScanHeroMedia = () => (
-  <div className="sc-hero-media">
-    <ScanVisual />
-    <div className="sc-hero-labels" aria-hidden="true">
-      <span>Fiziksel obje</span>
-      <span>Dijital model</span>
-    </div>
-  </div>
-)
-
 const EXAMPLES = [
   {
     title: 'Kırık ya da eksik parça',
@@ -88,12 +33,6 @@ const EXAMPLES = [
   },
 ]
 
-const STEPS = [
-  { title: 'Fotoğraf gönder', text: 'Objenin birkaç açıdan fotoğrafını ve yaklaşık ölçüsünü paylaş. Taramaya uygun mu bakalım.' },
-  { title: 'Teklif ve gönderim', text: 'Fiyatı, süreyi ve objeyi bize nasıl ulaştıracağını yazılı olarak iletiriz.' },
-  { title: 'Tarama ve düzenleme', text: 'Objeyi tarar, oluşan modeldeki boşlukları ve gürültüyü temizleriz.' },
-  { title: 'Model teslimi', text: 'Dijital model dosyanı gönderir, objeni sana geri kargolarız.' },
-]
 
 const FACTORS = [
   ['Boyut', 'Büyük objeler daha fazla tarama ve birleştirme gerektirir.'],
@@ -134,35 +73,29 @@ const ScanServicePage = () => {
         description="Fiziksel objeni 3D tarama ile dijital modele çevirelim. Kırık parça kopyası, figür, prototip ve arşiv için STL, OBJ, PLY teslim; istersen baskısını da yapalım."
         url="/scan"
       />
+      <ServiceCinema
+        kicker="3D tarama"
+        title="Elindeki objeyi dijital modele çevirelim."
+        lead="Kopyasını bastırmak, ölçüsünü değiştirmek ya da arşivlemek için objenin yüzeyini 3D tarayıcıyla dijital modele aktarıyoruz."
+        primaryLabel="Tarama için teklif iste"
+        onPrimary={() => scrollToId(FORM_ID)}
+        whatsappText={WA_TEXT}
+        facts={[
+          ['Başlangıç', 'Birkaç fotoğraf ve yaklaşık ölçü'],
+          ['Teslim', 'STL · OBJ · PLY'],
+          ['Sonrası', 'İstersen baskısını da yaparız'],
+        ]}
+        film="scan"
+      />
       <div className="sf-container">
-        <ServiceHero
-          title="Elindeki objeyi dijital modele çevirelim."
-          lead="Kopyasını bastırmak, ölçüsünü değiştirmek ya da arşivlemek için objenin yüzeyini 3D tarayıcıyla dijital modele aktarıyoruz."
-          primaryLabel="Tarama için teklif iste"
-          onPrimary={() => scrollToId(FORM_ID)}
-          whatsappText={WA_TEXT}
-          facts={[
-            ['Başlangıç', 'Birkaç fotoğraf ve yaklaşık ölçü'],
-            ['Teslim', 'STL · OBJ · PLY'],
-            ['Sonrası', 'İstersen baskısını da yaparız'],
-          ]}
-          media={<ScanHeroMedia />}
-        />
-
-        <ServiceSection id="ornekler" title="Ne için taratılır?" lead="Örneğe tıkla, form senin için dolsun.">
-          <ExampleCards items={EXAMPLES} onPick={pickExample} pickLabel="Benimki de böyle" />
-        </ServiceSection>
-
-        <ServiceSection id="nasil" title="Nasıl çalışır?">
-          <Steps items={STEPS} />
-        </ServiceSection>
-
-        <ServiceSection id="fiyat" title="Fiyatı ne belirler?" lead="Her obje farklı olduğu için fotoğrafları gördükten sonra objeye özel teklif veriyoruz.">
-          <FactorTable rows={FACTORS} note="Fotoğrafla ön değerlendirme ücretsizdir." />
-        </ServiceSection>
-
         <RequestForm
           id={FORM_ID}
+          aside={(
+            <>
+              <QuickPicks items={EXAMPLES} onPick={pickExample} />
+              <FactorList rows={FACTORS} note="Fotoğrafla ön değerlendirme ücretsizdir." />
+            </>
+          )}
           title="Tarama için teklif iste"
           lead="Objeyi ve ne yapmak istediğini anlat. Fotoğrafları formdan sonra WhatsApp ya da e-postayla gönderebilirsin."
           subject="3D Tarama Talebi"

@@ -326,7 +326,7 @@ const ProductDetailPage = () => {
     image: galleryImages.slice(0, 8),
     brand: {
       '@type': 'Brand',
-      name: 'Ozkan3D',
+      name: 'Ozkan3d',
     },
     color: product.colors?.length ? product.colors : undefined,
     material: product.material?.length ? product.material.join(', ') : undefined,

@@ -5,7 +5,7 @@ import { FiChevronDown, FiCopy, FiCheck, FiTruck, FiPackage } from 'react-icons/
 import { getMyOrdersApi, cancelOrderApi } from '../../../api/orderApi'
 import VoxelMark from '../../components/VoxelMark'
 import { formatPrice } from '../../catalog'
-import { BANK } from '../../bank'
+import { useBank } from '../../bank'
 import { ORDER_STEPS, statusInfo, formatDateTime, itemHref, itemImage } from './accountUtils'
 import LineOptions from '../../components/LineOptions'
 
@@ -43,6 +43,7 @@ const LayerProgress = ({ status }) => {
 }
 
 const OrderCard = ({ order }) => {
+  const BANK = useBank()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)

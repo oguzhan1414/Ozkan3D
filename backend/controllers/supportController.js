@@ -227,7 +227,7 @@ export const updateSupportRequest = async (req, res) => {
           <p>Merhaba,</p>
           <div style="background:#f8f8f8;border:1px solid #e5e5e5;border-radius:8px;padding:14px 16px;">${escapeHtml(reply).replace(/\r?\n/g, '<br/>')}</div>
           <p style="color:#666;font-size:13px;margin-top:18px;">Talebiniz: “${escapeHtml(row.subject)}”</p>
-          <p style="margin-top:16px;">Saygılarımızla,<br/>Ozkan3D Ekibi</p>
+          <p style="margin-top:16px;">Saygılarımızla,<br/>Ozkan3d Ekibi</p>
         </div>
       `,
     })

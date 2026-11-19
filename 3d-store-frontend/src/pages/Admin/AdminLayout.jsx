@@ -65,12 +65,13 @@ const AdminLayout = () => {
         {/* Logo */}
         <div className="admin-logo">
           <Link to="/" className="admin-logo-link">
-            <BrandLogo compact className="admin-logo-image" />
-            {sidebarOpen && (
+            {sidebarOpen ? (
               <div className="admin-logo-text">
-                <span className="admin-logo-brand">Ozkan3D</span>
-                <span className="admin-logo-sub">Admin Panel</span>
+                <BrandLogo tone="light" className="admin-logo-wordmark" />
+                <span className="admin-logo-sub">Yönetim paneli</span>
               </div>
+            ) : (
+              <BrandLogo compact className="admin-logo-image" />
             )}
           </Link>
           <button className="admin-collapse-btn" onClick={() => setSidebarOpen(p => !p)}>

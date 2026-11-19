@@ -52,9 +52,11 @@
 
 .admin-logo-image {
   height: 34px;
-  width: auto;
+  width: 34px;
   display: block;
 }
+
+.admin-logo-wordmark { width: 128px; height: auto; display: block; }
 
 .admin-logo-link .sf-logo--symbol { width: 34px; height: 34px; }
 

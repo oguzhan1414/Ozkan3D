@@ -7,5 +7,5 @@
   flex: none;
 }
 
-.sf-logo--symbol { width: 40px; aspect-ratio: 1; }
+.sf-logo--symbol { width: 40px; aspect-ratio: 1; border-radius: 22%; }
 .sf-logo-picture { display: block; flex: none; }

@@ -21,3 +21,8 @@ export const uploadHeroImageApi = async (file) => {
 
   return res.data
 }
+/** Admin: tarayıcı önbelleğini atlayarak güncel ayarları getirir */
+export const getSettingsFreshApi = async () => {
+  const res = await api.get('/settings', { params: { _: Date.now() }, headers: { 'Cache-Control': 'no-cache' } })
+  return res.data
+}

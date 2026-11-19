@@ -8,3 +8,9 @@ build/
 .mcp.json
 design/
 .vercel
+
+.vercel
+.env*
+
+# Local design references and verification screenshots
+/output/

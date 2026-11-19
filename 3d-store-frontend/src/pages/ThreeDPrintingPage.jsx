@@ -37,7 +37,7 @@ const ThreeDPrintingPage = () => {
       url: 'https://www.ozkan3d.com.tr/3d-baski',
       isPartOf: {
         '@type': 'WebSite',
-        name: 'Ozkan3D',
+        name: 'Ozkan3d',
         url: 'https://www.ozkan3d.com.tr',
       },
     },
@@ -59,7 +59,7 @@ const ThreeDPrintingPage = () => {
     <div className="three-d-page">
       <SEO
         title="3D Baski Urunleri"
-        description="3D baski figur, anahtarlik, dekor ve ozel tasarim urunlerini tek sayfada kesfedin. Ozkan3D ile kalite, hizli uretim ve guvenli teslimat."
+        description="3D baski figur, anahtarlik, dekor ve ozel tasarim urunlerini tek sayfada kesfedin. Ozkan3d ile kalite, hizli uretim ve guvenli teslimat."
         keywords="3d baski, 3d baski urunleri, 3d figur, 3d baski anahtarlik, ozel 3d baski, ozkan3d"
         url="/3d-baski"
         structuredData={structuredData}
@@ -67,7 +67,7 @@ const ThreeDPrintingPage = () => {
 
       <section className="three-d-hero">
         <div className="three-d-hero-inner">
-          <p className="three-d-sup">Ozkan3D Rehber Sayfasi</p>
+          <p className="three-d-sup">Ozkan3d Rehber Sayfasi</p>
           <h1>3D Baski Urunleri</h1>
           <p>
             Guncel 3D baski koleksiyonumuzu kategori bazli inceleyin. Figurden anahtarliga,

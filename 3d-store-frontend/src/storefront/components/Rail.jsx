@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Children, useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi'
 import './Rail.css'
@@ -34,6 +34,9 @@ const Rail = ({ title, href, children, itemWidth = 'var(--sf-rail-item)', label 
     el.scrollBy({ left: dir * el.clientWidth * 0.9, behavior: 'smooth' })
   }
 
+  // İçerik yoksa başlık tek başına kalmasın
+  if (Children.toArray(children).length === 0) return null
+
   return (
     <section className="sf-section" aria-label={label || title}>
       <div className="sf-section-head">
@@ -44,7 +47,8 @@ const Rail = ({ title, href, children, itemWidth = 'var(--sf-rail-item)', label 
             </Link>
           ) : title}
         </h2>
-        <div className="sf-arrows">
+        {/* Kaydırılacak içerik yoksa oklar gizlenir */}
+        <div className="sf-arrows" hidden={!canPrev && !canNext}>
           <button type="button" className="sf-arrow" onClick={() => scroll(-1)} disabled={!canPrev} aria-label="Önceki ürünler">
             <FiChevronLeft />
           </button>

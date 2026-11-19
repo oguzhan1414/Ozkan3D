@@ -1,0 +1,48 @@
+/* 404 — yarım kalmış baskı */
+.sf-404 { padding-bottom: 80px; }
+.sf-404-wrap { max-width: 720px; display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 56px; }
+
+.sf-404-print {
+  position: relative; display: flex; gap: 6px; margin-bottom: 28px;
+  font: 800 clamp(96px, 16vw, 150px)/0.9 var(--sf-display, var(--sf-font)); letter-spacing: -0.04em; color: var(--sf-ink);
+}
+/* Katman çizgileri: rakamlar ince katmanlardan basılmış gibi */
+.sf-404-print span {
+  --layer: var(--sf-ink);
+  background-image: repeating-linear-gradient(to bottom, var(--layer) 0 7px, transparent 7px 9px);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+/* Son "4" yarıya kadar basılmış (mercan) */
+.sf-404-print .is-half {
+  --layer: var(--sf-accent);
+  -webkit-mask-image: linear-gradient(to top, #000 52%, transparent 52%);
+  mask-image: linear-gradient(to top, #000 52%, transparent 52%);
+}
+.sf-404-nozzle {
+  position: absolute; right: 0.04em; top: 38%; width: 0.36em; height: 0.12em;
+  background: var(--sf-ink); border-radius: 3px 3px 8px 8px;
+  animation: sf-404-move 2.4s ease-in-out infinite alternate;
+}
+.sf-404-nozzle::after {
+  content: ''; position: absolute; left: 50%; bottom: -0.05em; width: 0.06em; height: 0.06em; margin-left: -0.03em;
+  background: var(--sf-accent); border-radius: 0 0 50% 50%;
+}
+@keyframes sf-404-move { from { transform: translateX(-0.5em); } to { transform: translateX(0); } }
+@media (prefers-reduced-motion: reduce) { .sf-404-nozzle { animation: none; } }
+
+.sf-404-wrap h1 { margin: 0; font: 700 clamp(24px, 3vw, 34px)/1.2 var(--sf-display, var(--sf-font)); letter-spacing: -0.02em; }
+.sf-404-wrap > p { margin: 12px 0 0; max-width: 52ch; color: var(--sf-muted); font-size: 16px; line-height: 1.6; }
+
+.sf-404-search {
+  display: flex; align-items: center; gap: 10px; width: 100%; max-width: 520px; margin-top: 28px;
+  padding: 6px 6px 6px 18px; border-radius: var(--sf-r-pill); background: #fff; box-shadow: var(--sf-shadow-search);
+}
+.sf-404-search svg { color: var(--sf-muted); flex: none; }
+.sf-404-search input { flex: 1; min-width: 0; border: 0; outline: none; font: 400 15px/1.2 var(--sf-font); background: transparent; }
+.sf-404-search .sf-btn { height: 40px; border-radius: var(--sf-r-pill); }
+
+.sf-404-cats { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 20px; }
+.sf-404-cats a:hover { background: var(--sf-cream-line); }
+.sf-404-actions { display: flex; gap: 10px; margin-top: 32px; }

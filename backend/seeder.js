@@ -36,7 +36,7 @@ const run = async () => {
   must(
     await supabase.from('users').insert({
       first_name: 'Admin',
-      last_name: 'Ozkan3D',
+      last_name: 'Ozkan3d',
       email,
       password: await hashPassword(password),
       role: 'admin',

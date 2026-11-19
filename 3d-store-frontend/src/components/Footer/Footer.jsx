@@ -54,7 +54,7 @@ const Footer = () => {
           {/* Brand */}
           <div className="footer-brand">
             <Link to="/" className="footer-logo">
-              <img src={siteLogo} alt="Ozkan3D logo" className="footer-logo-image" />
+              <img src={siteLogo} alt="Ozkan3d logo" className="footer-logo-image" />
             </Link>
             <p className="footer-tagline">
               Türkiye'nin en yenilikçi 3D baskı mağazası.
@@ -124,7 +124,7 @@ const Footer = () => {
       <div className="footer-bottom">
         <div className="footer-bottom-inner">
           <p className="footer-copyright">
-            © {new Date().getFullYear()} Ozkan3D.design — Tüm hakları saklıdır. 🖨️ Bolu'dan sevgiyle
+            © {new Date().getFullYear()} Ozkan3d — Tüm hakları saklıdır. 🖨️ Bolu'dan sevgiyle
           </p>
 
           {/* Ödeme Yöntemleri */}

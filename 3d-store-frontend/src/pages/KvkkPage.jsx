@@ -9,7 +9,7 @@ const KvkkPage = () => {
       </div>
       <div className="policy-content">
         <h2>1. Veri Sorumlusu</h2>
-        <p>Ozkan3D.design olarak Kişisel Verilerin Korunması Kanunu uyarınca, veri sorumlusu sıfatıyla hareket etmekteyiz.</p>
+        <p>Ozkan3d olarak Kişisel Verilerin Korunması Kanunu uyarınca, veri sorumlusu sıfatıyla hareket etmekteyiz.</p>
 
         <h2>2. Kişisel Verilerin Toplanması, İşlenmesi ve İşleme Amaçları</h2>
         <p>Toplanan kişisel verileriniz (ad, soyad, e-posta, telefon, adres bilgileri vb.) şirketimiz tarafından sunulan ürün ve hizmetlerden sizleri faydalandırmak için gerekli çalışmaların iş birimlerimiz tarafından yapılması amacı ile işlenmektedir.</p>

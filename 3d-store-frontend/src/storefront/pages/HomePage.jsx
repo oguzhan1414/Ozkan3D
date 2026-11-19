@@ -33,6 +33,7 @@ const HeroBanner = ({ slides }) => {
   const isInternal = current.ctaHref?.startsWith('/')
 
   return (
+    <div className="sf-hero-frame">
     <section
       className="sf-hero"
       aria-roledescription="carousel"
@@ -87,6 +88,7 @@ const HeroBanner = ({ slides }) => {
         </>
       )}
     </section>
+    </div>
   )
 }
 
@@ -131,6 +133,8 @@ const HeroShowcase = ({ slides, newest, loading }) => (
 /* ------------------------------------------------------------- Bölümler */
 const CategoryTiles = () => {
   const { categories, isLoading } = useCategories()
+  // Kategori yoksa (ya da okunamadıysa) başlık boş kalmasın
+  if (!isLoading && categories.length === 0) return null
   return (
     <section className="sf-section" aria-labelledby="sf-cats-title">
       <div className="sf-section-head">
@@ -226,7 +230,7 @@ const ratingFmt = new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 1, max
 const TrustPanel = ({ stats }) => {
   const hasReviews = stats?.total > 0
   return (
-    <section className={`sf-trust ${hasReviews ? '' : 'is-compact'}`} aria-label="Neden Özkan3D">
+    <section className={`sf-trust ${hasReviews ? '' : 'is-compact'}`} aria-label="Neden Ozkan3d">
       {hasReviews && (
         <div className="sf-trust-proof">
           <p className="sf-trust-score">
@@ -286,7 +290,7 @@ const HomePage = () => {
       />
 
       <div className="sf-container">
-        <h1 className="sf-visually-hidden">Ozkan3D: 3D baskı figür, dekor ve ev aparatları</h1>
+        <h1 className="sf-visually-hidden">Ozkan3d: 3D baskı figür, dekor ve ev aparatları</h1>
         <HeroShowcase slides={slides} newest={latest[0]} loading={isLoading} />
         <TrustPanel stats={payload.reviewStats} />
 

@@ -134,7 +134,7 @@ const VerifyPendingPage = () => {
     <div className="auth-page">
       <div className="auth-card login-card">
         <Link to="/" className="auth-logo">
-          <img src={siteLogo} alt="Ozkan3D logo" className="auth-logo-image" />
+          <img src={siteLogo} alt="Ozkan3d logo" className="auth-logo-image" />
         </Link>
 
         <div className="auth-form-header">

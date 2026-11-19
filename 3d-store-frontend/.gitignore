@@ -33,3 +33,7 @@ Thumbs.db
 .vscode/
 *.swp
 
+
+# Remotion: üretilen ses ve videolar
+remotion/public/audio/
+remotion/out/
