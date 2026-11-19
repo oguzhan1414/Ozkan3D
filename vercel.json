@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm ci --prefix backend && npm ci --prefix 3d-store-frontend",
+  "installCommand": "npm ci --prefix backend && npm ci --include=dev --prefix 3d-store-frontend",
   "buildCommand": "npm run build --prefix 3d-store-frontend",
   "outputDirectory": "3d-store-frontend/dist",
   "functions": {
