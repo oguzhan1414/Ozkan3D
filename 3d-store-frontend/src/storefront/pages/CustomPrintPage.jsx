@@ -1,31 +1,43 @@
 import { useState } from 'react'
+import {
+  FiFileText, FiLayers, FiMessageSquare, FiTruck, FiFile, FiPackage, FiBox,
+} from 'react-icons/fi'
 import SEO from '../../components/SEO'
 import examplesImage from '../../images/custom-print-examples.webp'
 import {
-  ServiceCinema, QuickPicks, FactorList, ServiceSection, RequestForm, Faq, CrossLink, scrollToId,
+  ServicePage, ServiceHero, ServiceSection, Steps, UseCases, SpecCards, Factors, RequestForm, Faq, CrossLink, scrollToId,
 } from '../components/service/ServiceKit'
 import '../storefront.css'
-import './CustomPrintPage.css'
 
 const WA_TEXT = 'Merhaba, özel 3D baskı için teklif almak istiyorum.'
 const FORM_ID = 'teklif'
 
 const INITIAL = { idea: '', size: '', quantity: '1', material: '', link: '' }
 
+const STEPS = [
+  { icon: FiMessageSquare, who: 'Sen', title: 'Anlat ya da dosyanı gönder', text: 'STL, OBJ ya da 3MF dosyan varsa gönder. Yoksa ne istediğini birkaç cümleyle yaz; fotoğraf ya da çizim de olur.' },
+  { icon: FiFileText, who: 'Biz', title: 'Yazılı teklif al', text: 'Ölçü, malzeme, fiyat ve hazırlanma süresini yazılı olarak iletiriz. Teklif ücretsizdir.' },
+  { icon: FiLayers, who: 'Biz', title: 'Onayla, basalım', text: 'Sen onaylayınca Bolu’daki atölyemizde parçanı katman katman basarız.' },
+  { icon: FiTruck, who: 'Kargo', title: 'Kapına gelsin', text: 'Paketleyip kargoya veririz, takip numarası e-postana gelir. Kargo şehrine göre 1–6 iş günü.' },
+]
+
 const EXAMPLES = [
   {
+    tag: 'Hediye',
     title: 'Kişiye özel hediye',
     text: 'İsimlik, anahtarlık, plaket. İsim, yazı ve renkleri sen seçersin.',
     media: <img src={examplesImage} alt="" className="cp-crop is-center" loading="lazy" />,
     prefill: { idea: 'İsme özel bir masa isimliği yaptırmak istiyorum. Yazı: … Renk: …' },
   },
   {
+    tag: 'Ölçüye özel',
     title: 'Ölçüye özel aparat',
     text: 'Telefon standı, tutucu, kırılan bir parçanın yenisi. Ölçünü ver, ona göre basalım.',
     media: <img src={examplesImage} alt="" className="cp-crop is-left" loading="lazy" />,
     prefill: { idea: 'Masam için bir telefon standı istiyorum.', size: 'Yaklaşık 12 cm yükseklik' },
   },
   {
+    tag: 'Prototip',
     title: 'Prototip ve yedek parça',
     text: 'Tasarladığın bir parçanın ilk örneği ya da piyasada bulunmayan küçük bir parça.',
     media: <img src={examplesImage} alt="" className="cp-crop is-right" loading="lazy" />,
@@ -33,13 +45,40 @@ const EXAMPLES = [
   },
 ]
 
+const MATERIALS = [
+  {
+    title: 'PLA',
+    subtitle: 'Varsayılan seçim',
+    badge: 'En ekonomik',
+    color: '#ff6b5a',
+    text: 'Çoğu dekor, hediye ve aparat için yeterlidir. Renk seçeneği geniştir, yüzeyi temiz çıkar.',
+    meters: [['Darbe dayanımı', 2], ['Esneklik', 1], ['Isı dayanımı', 2], ['Ekonomi', 5]],
+    best: ['Dekor', 'İsimlik', 'Stand', 'Figür'],
+  },
+  {
+    title: 'PETG',
+    subtitle: 'Dayanıklı kullanım',
+    color: '#5c8fb8',
+    text: 'Isıya ve darbeye PLA’dan daha dayanıklıdır. Sık kullanılacak ya da dışarıda duracak parçalar için.',
+    meters: [['Darbe dayanımı', 4], ['Esneklik', 2], ['Isı dayanımı', 4], ['Ekonomi', 4]],
+    best: ['Tutucu', 'Bağlantı parçası', 'Dış mekân'],
+  },
+  {
+    title: 'TPU',
+    subtitle: 'Esnek malzeme',
+    color: '#3a3a3a',
+    text: 'Lastik gibi esner, darbeyi emer. Kılıf, conta ve tampon gibi bükülmesi gereken parçalar için.',
+    meters: [['Darbe dayanımı', 5], ['Esneklik', 5], ['Isı dayanımı', 3], ['Ekonomi', 3]],
+    best: ['Conta', 'Tampon', 'Kılıf'],
+  },
+]
 
 const FACTORS = [
   ['Boyut ve ağırlık', 'Parça büyüdükçe kullanılan malzeme ve baskı süresi artar. Fiyatı en çok etkileyen şey budur.'],
-  ['Malzeme', 'PLA en ekonomik seçenektir ve çoğu dekor ve aparat için yeterlidir. Isıya ve darbeye dayanıklılık gerekirse PETG, esneklik gerekirse TPU kullanılır.'],
+  ['Malzeme', 'PLA en ekonomik seçenektir. Isı ve darbe dayanımı gerekirse PETG, esneklik gerekirse TPU kullanılır.'],
   ['Dayanım ihtiyacı', 'Taşıyıcı ya da sık kullanılacak parçalar daha yoğun basılır. Bu da süreyi ve malzemeyi artırır.'],
   ['Adet', 'Aynı parçadan birden fazla basılınca hazırlık bir kez yapıldığı için birim fiyat genelde düşer.'],
-  ['Model hazırlığı', 'Hazır bir 3D model dosyan varsa doğrudan baskıya geçeriz. Model yoksa ya da ölçüye göre değişiklik gerekiyorsa modelleme ücreti eklenir.'],
+  ['Model hazırlığı', 'Hazır model dosyan varsa doğrudan baskıya geçeriz. Model yoksa ya da değişiklik gerekiyorsa modelleme ücreti eklenir.'],
 ]
 
 const FAQ = [
@@ -65,73 +104,107 @@ const CustomPrintPage = () => {
   const pickExample = (prefill) => {
     setValues({ ...INITIAL, ...prefill })
     scrollToId(FORM_ID)
-    window.setTimeout(() => document.querySelector(`#${FORM_ID} textarea`)?.focus({ preventScroll: true }), 350)
+    window.setTimeout(() => document.querySelector(`#${FORM_ID} textarea`)?.focus({ preventScroll: true }), 450)
   }
 
   return (
-    <div className="sf-root sf-page sv-page">
+    <ServicePage variant="print">
       <SEO
         title="Özel 3D Baskı"
         description="Aklındaki parçayı 3D yazıcıyla basalım. STL, OBJ, 3MF dosyanı gönder ya da ne istediğini anlat; PLA, PETG ve TPU ile tek parçadan seri üretime teklif al."
         url="/custom"
       />
-      <ServiceCinema
+
+      <ServiceHero
+        film="print"
         kicker="Özel 3D baskı"
-        title="Aklındaki parçayı basalım."
+        title="Aklındaki parçayı"
+        accent="basalım."
         lead="3D model dosyan varsa gönder, yoksa ne istediğini anlat. Ölçüyü, malzemeyi ve fiyatı yazılı teklifle iletelim, onaylarsan basalım."
         primaryLabel="Teklif iste"
         onPrimary={() => scrollToId(FORM_ID)}
         whatsappText={WA_TEXT}
+        
         facts={[
-          ['Dosya', 'STL · OBJ · 3MF ya da sadece bir fikir'],
-          ['Malzeme', 'PLA · PETG · TPU'],
-          ['Adet', 'Tek parçadan itibaren'],
+          ['Dosya', 'STL, OBJ, 3MF ya da sadece bir fikir', FiFile],
+          ['Adet', 'Tek parçadan itibaren', FiBox],
+          ['Kargo', 'Şehrine göre 1–6 iş günü', FiPackage],
         ]}
-        film="print"
       />
-      <div className="sf-container">
-        <RequestForm
-          id={FORM_ID}
-          aside={(
-            <>
-              <QuickPicks items={EXAMPLES} onPick={pickExample} />
-              <FactorList rows={FACTORS} note="Teklif istemek ücretsizdir ve seni hiçbir şeye bağlamaz." />
-            </>
-          )}
-          title="Teklif iste"
-          lead="Ne istediğini kendi cümlelerinle yaz. Teknik terim bilmen gerekmiyor; eksik bir şey olursa biz sorarız."
-          subject="Özel 3D Baskı Talebi"
-          whatsappText={WA_TEXT}
-          values={values}
-          onChange={change}
-          buildMessage={buildMessage}
-          submitLabel="Teklif talebini gönder"
-          successTitle="Talebin bize ulaştı."
-          fields={[
-            {
-              name: 'idea', label: 'Ne bastırmak istiyorsun?', type: 'textarea', required: true, wide: true, rows: 5,
-              requiredMessage: 'Ne istediğini kısaca anlat.',
-              placeholder: 'Örn. Masam için mercan renkli bir telefon standı. Telefon kalın kılıflı.',
-            },
-            { name: 'size', label: 'Yaklaşık ölçü', placeholder: 'Örn. 12 cm yükseklik' },
-            { name: 'quantity', label: 'Adet', type: 'number' },
-            { name: 'material', label: 'Malzeme', type: 'select', options: ['Emin değilim, önerin', 'PLA', 'PETG', 'TPU (esnek)'] },
-            { name: 'link', label: 'Model ya da örnek bağlantısı', type: 'url', placeholder: 'https://…' },
-          ]}
-        />
 
-        <ServiceSection id="sss" title="Sık sorulanlar">
-          <Faq items={FAQ} />
-        </ServiceSection>
+      <ServiceSection
+        id="nasil"
+        eyebrow="Nasıl çalışır"
+        title="Fikirden kapına dört adım."
+        lead="Teknik bilgi gerekmiyor. Ne istediğini anlatman yeterli; gerisini birlikte netleştiririz."
+      >
+        <Steps items={STEPS} />
+      </ServiceSection>
 
-        <CrossLink
-          title="Elinde fiziksel bir parça mı var?"
-          text="Kırılan ya da artık bulunmayan bir parçayı önce 3D tarayıp dijital modelini çıkarabilir, sonra yenisini basabiliriz."
-          to="/scan"
-          label="3D taramaya bak"
-        />
-      </div>
-    </div>
+      <ServiceSection
+        id="ornekler"
+        eyebrow="Neler basıyoruz"
+        title="Bir örnek seç, formu senin için dolduralım."
+        lead="Kartlardan birine dokun; teklif formu o örneğe göre hazır gelsin, sadece detayları değiştir."
+      >
+        <UseCases items={EXAMPLES} onPick={pickExample} />
+      </ServiceSection>
+
+      <ServiceSection
+        id="malzeme"
+        tone="stone"
+        eyebrow="Malzemeler"
+        title="Hangi malzeme sana uygun?"
+        lead="Emin değilsen formda “Emin değilim” seç; parçanın nerede kullanılacağına göre biz önerelim."
+      >
+        <SpecCards items={MATERIALS} />
+      </ServiceSection>
+
+      <ServiceSection
+        id="fiyat"
+        eyebrow="Şeffaf fiyat"
+        title="Fiyatı ne belirler?"
+        lead="Her parça farklı olduğu için sabit fiyat yerine parçana özel teklif veriyoruz. Teklifi etkileyen başlıca etkenler:"
+      >
+        <Factors rows={FACTORS} note="Teklif istemek ücretsizdir ve seni hiçbir şeye bağlamaz." />
+      </ServiceSection>
+
+      <RequestForm
+        id={FORM_ID}
+        title="Teklif iste"
+        lead="Ne istediğini kendi cümlelerinle yaz. Teknik terim bilmen gerekmiyor; eksik bir şey olursa biz sorarız."
+        subject="Özel 3D Baskı Talebi"
+        whatsappText={WA_TEXT}
+        values={values}
+        onChange={change}
+        buildMessage={buildMessage}
+        submitLabel="Teklif talebini gönder"
+        successTitle="Talebin bize ulaştı."
+        fields={[
+          {
+            name: 'idea', label: 'Ne bastırmak istiyorsun?', type: 'textarea', required: true, wide: true, rows: 5,
+            requiredMessage: 'Ne istediğini kısaca anlat.',
+            placeholder: 'Örn. Masam için mercan renkli bir telefon standı. Telefon kalın kılıflı.',
+          },
+          { name: 'size', label: 'Yaklaşık ölçü', placeholder: 'Örn. 12 cm yükseklik' },
+          { name: 'quantity', label: 'Adet', type: 'number' },
+          { name: 'material', label: 'Malzeme', type: 'select', options: ['Emin değilim, önerin', 'PLA', 'PETG', 'TPU (esnek)'] },
+          { name: 'link', label: 'Model ya da örnek bağlantısı', type: 'url', placeholder: 'https://…' },
+        ]}
+      />
+
+      <ServiceSection id="sss" eyebrow="SSS" title="Sık sorulanlar">
+        <Faq items={FAQ} />
+      </ServiceSection>
+
+      <CrossLink
+        eyebrow="3D tarama"
+        title="Elinde fiziksel bir parça mı var?"
+        text="Kırılan ya da artık bulunmayan bir parçayı önce 3D tarayıp dijital modelini çıkarabilir, sonra yenisini basabiliriz."
+        to="/scan"
+        label="3D taramaya bak"
+      />
+    </ServicePage>
   )
 }
 

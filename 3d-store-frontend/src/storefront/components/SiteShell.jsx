@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { FiSearch, FiHeart, FiShoppingBag, FiHome, FiGrid, FiPenTool, FiAperture, FiUser, FiChevronUp } from 'react-icons/fi'
+import {
+  FiSearch, FiHeart, FiShoppingBag, FiHome, FiGrid, FiPenTool, FiUser, FiChevronDown,
+} from 'react-icons/fi'
 import { FaWhatsapp } from 'react-icons/fa'
 import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
@@ -10,33 +12,21 @@ import './SiteShell.css'
 
 /**
  * Mağaza iskeleti:
- *  - masaüstü: solda ikon menüsü + üstte ortalanmış arama
+ *  - masaüstü: ince atölye şeridi + yapışkan üst header (logo, menü, arama, ikonlar)
  *  - mobil: üstte logo + arama, altta sekme çubuğu
+ * Favoriler yalnızca giriş yapmış kullanıcıya gösterilir.
  */
 
-const NAV_GROUPS = [
-  {
-    title: 'Alışveriş',
-    items: [
-      { to: '/', label: 'Anasayfa', icon: FiHome, end: true },
-      { to: '/shop', label: 'Mağaza', icon: FiGrid },
-      { to: '/cart', label: 'Sepet', icon: FiShoppingBag, badge: true },
-      { to: '/account?tab=favorites', label: 'Favoriler', icon: FiHeart },
-    ],
-  },
-  {
-    title: 'Hizmetler',
-    items: [
-      { to: '/custom', label: 'Özel baskı', icon: FiPenTool },
-      { to: '/scan', label: '3D tarama', icon: FiAperture },
-    ],
-  },
+const MAIN_NAV = [
+  { to: '/shop', label: 'Mağaza' },
+  { to: '/custom', label: 'Özel baskı' },
+  { to: '/scan', label: '3D tarama' },
 ]
 
 const WHATSAPP = `https://wa.me/905411190626?text=${encodeURIComponent('Merhaba, bir sorum var.')}`
 
 /* ------------------------------------------------------------ Hesap menüsü */
-const AccountMenu = ({ placement = 'right' }) => {
+const AccountMenu = ({ placement = 'down' }) => {
   const { user, isAuthenticated, isAdmin, logout } = useAuth()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
@@ -64,7 +54,7 @@ const AccountMenu = ({ placement = 'right' }) => {
     <div className="sf-account" ref={ref}>
       <button
         type="button"
-        className="sf-rail-item sf-account-btn"
+        className="sf-account-btn"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -72,11 +62,10 @@ const AccountMenu = ({ placement = 'right' }) => {
         <span className={`sf-avatar ${isAuthenticated ? 'is-user' : ''}`} aria-hidden="true">
           {isAuthenticated ? initials(user) : <FiUser />}
         </span>
-        <span className="sf-rail-label">
+        <span className="sf-account-label">
           {isAuthenticated ? (user?.firstName || 'Hesabım') : 'Giriş yap'}
-          <small>{isAuthenticated ? 'Hesabım' : 'veya üye ol'}</small>
         </span>
-        <FiChevronUp className="sf-account-caret" aria-hidden="true" />
+        <FiChevronDown className="sf-account-caret" aria-hidden="true" />
       </button>
 
       {open && (
@@ -147,96 +136,135 @@ const CartBadge = () => {
   return <span className="sf-count">{totalItems > 99 ? '99+' : totalItems}</span>
 }
 
-/* ------------------------------------------------------------- Sol panel */
-// Aktif öğenin solundaki üç katman çizgisi: 3D baskının katmanlarına gönderme
+// Aktif menü öğesinin altındaki üç katman çizgisi: 3D baskının katmanlarına gönderme
 const LayerMark = () => (
   <span className="sf-layer-mark" aria-hidden="true"><i /><i /><i /></span>
 )
 
-const SideRail = () => (
-  <aside className="sf-root sf-rail-nav" aria-label="Site menüsü">
-    <Link to="/" className="sf-rail-brand" aria-label="Ozkan3d anasayfa">
-      <BrandLogo className="sf-rail-logo-full" />
-      <BrandLogo compact className="sf-rail-logo-mini" />
-    </Link>
+/* ------------------------------------------------------- Atölye şeridi */
+const STRIP_LINES = [
+  'Odana bir abajur, ruhuna bir ışık',
+  'Anahtarlığın cebinde, hikâyen elinde',
+  'Sıradan değil, sana özel basılır',
+  'Masana, rafına, hediye listene',
+  'Bolu atölyesinden 1–6 iş gününde kargoda',
+]
 
-    <nav className="sf-rail-groups" aria-label="Ana menü">
-      {NAV_GROUPS.map((group) => (
-        <div key={group.title} className="sf-rail-group">
-          <p className="sf-rail-heading">{group.title}</p>
-          {group.items.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) => `sf-rail-item ${isActive && !item.to.includes('?') ? 'is-active' : ''}`}
-            >
-              <LayerMark />
-              <item.icon aria-hidden="true" className="sf-rail-icon" />
-              <span className="sf-rail-label">{item.label}</span>
-              {item.badge && <CartBadge />}
-            </NavLink>
+const WorkshopStrip = () => (
+  <div className="sf-root sf-strip">
+    <div className="sf-strip-inner">
+      <div className="sf-strip-ticker" aria-label={STRIP_LINES.join('. ')}>
+        <div className="sf-strip-track" aria-hidden="true">
+          {[0, 1].map((copy) => (
+            <ul key={copy}>
+              {STRIP_LINES.map((line) => (
+                <li key={line}>
+                  <i className="sf-strip-dot" />
+                  {line}
+                </li>
+              ))}
+            </ul>
           ))}
         </div>
-      ))}
-    </nav>
-
-    <div className="sf-rail-bottom">
-      <div className="sf-workshop">
-        <p className="sf-workshop-title"><span className="sf-workshop-dot" aria-hidden="true" /> Bolu atölyesi</p>
-        <p className="sf-workshop-text">Her ürün siparişe özel basılır, 1–6 iş gününde kargoda.</p>
-        <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="sf-workshop-btn">
+      </div>
+      <div className="sf-strip-side">
+        <Link to="/shop" className="sf-strip-cta">Alışverişe başla →</Link>
+        <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="sf-strip-wa">
           <FaWhatsapp aria-hidden="true" /> Soru sor
         </a>
       </div>
-      <a href={WHATSAPP} target="_blank" rel="noopener noreferrer" className="sf-rail-item sf-rail-wa" aria-label="WhatsApp ile soru sor">
-        <FaWhatsapp aria-hidden="true" className="sf-rail-icon" />
-        <span className="sf-rail-label">Soru sor</span>
-      </a>
-      <AccountMenu placement="right" />
     </div>
-  </aside>
+  </div>
 )
 
-/* ------------------------------------------------------------- Üst bar */
-const TopBar = () => (
-  <header className="sf-root sf-topbar">
-    <Link to="/" className="sf-topbar-logo" aria-label="Ozkan3d anasayfa">
-      <BrandLogo responsive />
-    </Link>
-    <SearchPill />
-  </header>
-)
+/* --------------------------------------------------------------- Header */
+const Header = () => {
+  const { isAuthenticated } = useAuth()
+
+  return (
+    <header className="sf-root sf-header">
+      <div className="sf-header-inner">
+        <Link to="/" className="sf-header-logo" aria-label="Ozkan3d anasayfa">
+          <BrandLogo responsive />
+        </Link>
+
+        <nav className="sf-nav" aria-label="Ana menü">
+          {MAIN_NAV.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) => `sf-nav-link ${isActive ? 'is-active' : ''}`}
+            >
+              {item.label}
+              <LayerMark />
+            </NavLink>
+          ))}
+        </nav>
+
+        <SearchPill />
+
+        <div className="sf-actions">
+          {isAuthenticated && (
+            <Link to="/account?tab=favorites" className="sf-icon-btn" aria-label="Favoriler" title="Favoriler">
+              <FiHeart aria-hidden="true" />
+            </Link>
+          )}
+          <NavLink
+            to="/cart"
+            className={({ isActive }) => `sf-icon-btn ${isActive ? 'is-active' : ''}`}
+            aria-label="Sepet"
+            title="Sepet"
+          >
+            <FiShoppingBag aria-hidden="true" />
+            <CartBadge />
+          </NavLink>
+          <AccountMenu placement="down" />
+        </div>
+      </div>
+    </header>
+  )
+}
 
 /* ------------------------------------------------------ Mobil alt çubuk */
-const MOBILE_NAV = [
-  { to: '/', label: 'Anasayfa', icon: FiHome, end: true },
-  { to: '/shop', label: 'Mağaza', icon: FiGrid },
-  { to: '/cart', label: 'Sepet', icon: FiShoppingBag, badge: true },
-  { to: '/account?tab=favorites', label: 'Favoriler', icon: FiHeart },
-]
+const TabBar = () => {
+  const { isAuthenticated } = useAuth()
+  // Misafirde favoriler yerine özel baskı sekmesi
+  const items = [
+    { to: '/', label: 'Anasayfa', icon: FiHome, end: true },
+    { to: '/shop', label: 'Mağaza', icon: FiGrid },
+    isAuthenticated
+      ? { to: '/account?tab=favorites', label: 'Favoriler', icon: FiHeart, query: true }
+      : { to: '/custom', label: 'Özel baskı', icon: FiPenTool },
+    { to: '/cart', label: 'Sepet', icon: FiShoppingBag, badge: true },
+  ]
 
-const TabBar = () => (
-  <nav className="sf-root sf-tabbar" aria-label="Alt menü">
-    {MOBILE_NAV.map((item) => (
-      <NavLink key={item.to} to={item.to} end={item.end} className={({ isActive }) => `sf-tab ${isActive ? 'is-active' : ''}`}>
-        <span className="sf-tab-icon">
-          <item.icon aria-hidden="true" />
-          {item.badge && <CartBadge />}
-        </span>
-        {item.label}
-      </NavLink>
-    ))}
-    <div className="sf-tab sf-tab--account">
-      <AccountMenu placement="up" />
-    </div>
-  </nav>
-)
+  return (
+    <nav className="sf-root sf-tabbar" aria-label="Alt menü">
+      {items.map((item) => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          end={item.end}
+          className={({ isActive }) => `sf-tab ${isActive && !item.query ? 'is-active' : ''}`}
+        >
+          <span className="sf-tab-icon">
+            <item.icon aria-hidden="true" />
+            {item.badge && <CartBadge />}
+          </span>
+          {item.label}
+        </NavLink>
+      ))}
+      <div className="sf-tab sf-tab--account">
+        <AccountMenu placement="up" />
+      </div>
+    </nav>
+  )
+}
 
 const SiteShell = () => (
   <>
-    <SideRail />
-    <TopBar />
+    <WorkshopStrip />
+    <Header />
     <TabBar />
   </>
 )

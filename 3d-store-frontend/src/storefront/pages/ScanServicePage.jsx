@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { FiTool, FiBox, FiArchive } from 'react-icons/fi'
+import {
+  FiTool, FiBox, FiArchive, FiCamera, FiFileText, FiAperture, FiDownload, FiImage, FiLayers,
+} from 'react-icons/fi'
 import SEO from '../../components/SEO'
 import {
-  ServiceCinema, QuickPicks, FactorList, ServiceSection, RequestForm, Faq, CrossLink, scrollToId,
+  ServicePage, ServiceHero, ServiceSection, Steps, UseCases, ScanTile, SpecCards, Factors, RequestForm, Faq, CrossLink, scrollToId,
 } from '../components/service/ServiceKit'
 import '../storefront.css'
 
@@ -11,34 +13,76 @@ const FORM_ID = 'tarama-talebi'
 
 const INITIAL = { object: '', size: '', surface: '', purpose: '' }
 
-/* Yarısı fiziksel obje, yarısı dijital tel kafes; ortasından tarama çizgisi geçer */
+const STEPS = [
+  { icon: FiCamera, who: 'Sen', title: 'Fotoğraf gönder', text: 'Objenin birkaç açıdan fotoğrafını ve yaklaşık ölçüsünü gönder; taranmaya uygun mu bakalım.' },
+  { icon: FiFileText, who: 'Biz', title: 'Teklif ve gönderim', text: 'Fiyatı, süreyi ve objeyi nasıl göndereceğini yazılı iletiriz. Onaylarsan objeni kargolarsın.' },
+  { icon: FiAperture, who: 'Biz', title: 'Tarama ve düzenleme', text: 'Objeyi tarayıp yüzeyini dijitale aktarır, boşlukları ve gürültüyü temizleyerek modeli hazırlarız.' },
+  { icon: FiDownload, who: 'Teslim', title: 'Dosyan ve objen sende', text: 'Model dosyanı gönderir, objeni özenle geri kargolarız. İstersen kopyasını da basarız.' },
+]
+
 const EXAMPLES = [
   {
+    tag: 'Yedek parça',
     title: 'Kırık ya da eksik parça',
     text: 'Artık bulunmayan bir parçanın kopyasını çıkarmak için önce taranır, sonra yenisi basılır.',
-    media: <span className="sv-example-icon"><FiTool aria-hidden="true" /></span>,
+    media: <ScanTile icon={<FiTool aria-hidden="true" />} />,
     prefill: { object: 'Kırılan bir parçanın kopyasını çıkarmak istiyorum. Parça: …', purpose: '3D baskı (kopyasını bastırmak)' },
   },
   {
+    tag: 'Çoğaltma',
     title: 'Figür, heykel ve obje',
     text: 'El yapımı bir figürü ya da özel bir objeyi dijital modele çevirip çoğaltmak veya ölçeklemek.',
-    media: <span className="sv-example-icon"><FiBox aria-hidden="true" /></span>,
+    media: <ScanTile icon={<FiBox aria-hidden="true" />} />,
     prefill: { object: 'Bir figürü taratmak istiyorum. Malzemesi: …', purpose: '3D baskı (kopyasını bastırmak)' },
   },
   {
+    tag: 'Arşiv',
     title: 'Tasarım ve arşiv',
     text: 'Bir ürünün yeniden tasarımına referans olacak ya da arşivlenecek dijital kaydını oluşturmak.',
-    media: <span className="sv-example-icon"><FiArchive aria-hidden="true" /></span>,
+    media: <ScanTile icon={<FiArchive aria-hidden="true" />} />,
     prefill: { object: 'Bir objenin dijital kaydını çıkarmak istiyorum.', purpose: 'Dijital arşiv' },
   },
 ]
 
+/* Yüzey uygunluğu: SSS ve fiyat etkenlerindeki bilgiyle aynı */
+const SURFACES = [
+  {
+    title: 'Mat yüzey',
+    subtitle: 'Plastik, ahşap, alçı, taş',
+    badge: 'Kolay taranır',
+    tone: 'ok',
+    color: '#b9b4a8',
+    text: 'Işığı dağıtan mat yüzeyler en temiz sonucu verir. Çoğu parça ve figür bu gruptadır.',
+  },
+  {
+    title: 'Parlak ya da yansıtıcı',
+    subtitle: 'Metal, cilalı, lake',
+    badge: 'Ek hazırlık',
+    tone: 'warn',
+    color: '#c9ced6',
+    text: 'Yansımalar taramayı bozabilir. Yüzey geçici olarak matlaştırılarak taranır; bunu teklifte belirtiriz.',
+  },
+  {
+    title: 'Şeffaf ya da çok koyu',
+    subtitle: 'Cam, akrilik, siyah parlak',
+    badge: 'Ek hazırlık',
+    tone: 'warn',
+    color: '#2b2b2b',
+    text: 'Işığı geçiren ya da yutan yüzeyler zorlar. Göndermeden önce fotoğrafını at, uygun olup olmadığını söyleyelim.',
+  },
+]
+
+const FORMATS = [
+  { title: 'STL', subtitle: 'Baskı için', color: '#ff6b5a', text: 'Kopyasını bastırmak istiyorsan en yaygın format. Neredeyse her dilimleme programı açar.', best: ['3D baskı'] },
+  { title: 'OBJ', subtitle: 'Görsel ve tasarım', color: '#5c8fb8', text: 'Tasarım ve görselleştirme programlarında rahat kullanılır, renk ve doku bilgisi taşıyabilir.', best: ['Tasarım', 'Görselleştirme'] },
+  { title: 'PLY', subtitle: 'Ham tarama verisi', color: '#6f6a5f', text: 'Taramanın nokta ve yüzey verisini saklar. Arşiv ya da ileri düzenleme için uygundur.', best: ['Arşiv', 'Düzenleme'] },
+]
 
 const FACTORS = [
   ['Boyut', 'Büyük objeler daha fazla tarama ve birleştirme gerektirir.'],
   ['Yüzey', 'Mat yüzeyler kolay taranır. Parlak, yansıtıcı, şeffaf ya da çok koyu yüzeyler ek hazırlık ister.'],
   ['Detay seviyesi', 'İnce oymalar, yazılar ve küçük girintiler daha hassas tarama ve daha uzun düzenleme demektir.'],
-  ['Modelin kullanım amacı', 'Sadece görsel arşiv yeterliyse daha az iş gerekir. Baskıya hazır, kapalı bir model ya da ölçülü bir CAD modeli istenirse düzenleme süresi uzar.'],
+  ['Kullanım amacı', 'Sadece görsel arşiv yeterliyse daha az iş gerekir. Baskıya hazır, kapalı bir model ya da ölçülü bir CAD modeli istenirse düzenleme süresi uzar.'],
 ]
 
 const FAQ = [
@@ -63,75 +107,119 @@ const ScanServicePage = () => {
   const pickExample = (prefill) => {
     setValues({ ...INITIAL, ...prefill })
     scrollToId(FORM_ID)
-    window.setTimeout(() => document.querySelector(`#${FORM_ID} textarea`)?.focus({ preventScroll: true }), 350)
+    window.setTimeout(() => document.querySelector(`#${FORM_ID} textarea`)?.focus({ preventScroll: true }), 450)
   }
 
   return (
-    <div className="sf-root sf-page sv-page">
+    <ServicePage variant="scan">
       <SEO
         title="3D Tarama Hizmeti"
         description="Fiziksel objeni 3D tarama ile dijital modele çevirelim. Kırık parça kopyası, figür, prototip ve arşiv için STL, OBJ, PLY teslim; istersen baskısını da yapalım."
         url="/scan"
       />
-      <ServiceCinema
+
+      <ServiceHero
+        film="scan"
         kicker="3D tarama"
-        title="Elindeki objeyi dijital modele çevirelim."
+        title="Elindeki objeyi dijital modele"
+        accent="çevirelim."
         lead="Kopyasını bastırmak, ölçüsünü değiştirmek ya da arşivlemek için objenin yüzeyini 3D tarayıcıyla dijital modele aktarıyoruz."
         primaryLabel="Tarama için teklif iste"
         onPrimary={() => scrollToId(FORM_ID)}
         whatsappText={WA_TEXT}
+        
         facts={[
-          ['Başlangıç', 'Birkaç fotoğraf ve yaklaşık ölçü'],
-          ['Teslim', 'STL · OBJ · PLY'],
-          ['Sonrası', 'İstersen baskısını da yaparız'],
+          ['Başlangıç', 'Birkaç fotoğraf ve yaklaşık ölçü', FiImage],
+          ['Teslim', 'STL, OBJ ya da PLY dosyası', FiDownload],
+          ['Sonrası', 'İstersen kopyasını da basarız', FiLayers],
         ]}
-        film="scan"
       />
-      <div className="sf-container">
-        <RequestForm
-          id={FORM_ID}
-          aside={(
-            <>
-              <QuickPicks items={EXAMPLES} onPick={pickExample} />
-              <FactorList rows={FACTORS} note="Fotoğrafla ön değerlendirme ücretsizdir." />
-            </>
-          )}
-          title="Tarama için teklif iste"
-          lead="Objeyi ve ne yapmak istediğini anlat. Fotoğrafları formdan sonra WhatsApp ya da e-postayla gönderebilirsin."
-          subject="3D Tarama Talebi"
-          whatsappText={WA_TEXT}
-          values={values}
-          onChange={change}
-          buildMessage={buildMessage}
-          submitLabel="Tarama talebini gönder"
-          successTitle="Tarama talebin bize ulaştı."
-          fields={[
-            {
-              name: 'object', label: 'Taranacak obje ne?', type: 'textarea', required: true, wide: true, rows: 5,
-              requiredMessage: 'Objeyi kısaca anlat.',
-              placeholder: 'Örn. Eski bir radyonun kırılan düğmesi. Plastik, mat siyah. Kopyasını bastırmak istiyorum.',
-            },
-            { name: 'size', label: 'Yaklaşık ölçü', placeholder: 'Örn. 15 × 10 × 8 cm' },
-            { name: 'surface', label: 'Yüzeyi nasıl?', type: 'select', options: ['Seç', 'Mat', 'Parlak / yansıtıcı', 'Şeffaf', 'Emin değilim'] },
-            {
-              name: 'purpose', label: 'Modeli ne için kullanacaksın?', type: 'select', wide: true,
-              options: ['Seç', '3D baskı (kopyasını bastırmak)', 'Tasarım / prototip', 'Dijital arşiv', 'Diğer'],
-            },
-          ]}
-        />
 
-        <ServiceSection id="sss" title="Sık sorulanlar">
-          <Faq items={FAQ} />
-        </ServiceSection>
+      <ServiceSection
+        id="nasil"
+        eyebrow="Nasıl çalışır"
+        title="Objeden dosyaya dört adım."
+        lead="Objen bize gelir, taranır ve sana geri döner. Elinde artık dijital bir kopyası da olur."
+      >
+        <Steps items={STEPS} />
+      </ServiceSection>
 
-        <CrossLink
-          title="Taramadan sonra baskı mı istiyorsun?"
-          text="Dijital modeli çıkarıp aynı ya da farklı ölçüde, istediğin renkte basabiliriz."
-          to="/custom"
-          label="Özel baskıya bak"
-        />
-      </div>
-    </div>
+      <ServiceSection
+        id="ornekler"
+        eyebrow="Ne için taranır"
+        title="Bir örnek seç, formu senin için dolduralım."
+        lead="Kartlardan birine dokun; tarama talebi o örneğe göre hazır gelsin, sadece detayları değiştir."
+      >
+        <UseCases items={EXAMPLES} onPick={pickExample} />
+      </ServiceSection>
+
+      <ServiceSection
+        id="yuzey"
+        tone="stone"
+        eyebrow="Taranabilirlik"
+        title="Objen taramaya uygun mu?"
+        lead="Sonucu en çok yüzey belirler. Emin değilsen formda “Emin değilim” seç, fotoğrafına bakıp söyleyelim."
+      >
+        <SpecCards items={SURFACES} />
+      </ServiceSection>
+
+      <ServiceSection
+        id="format"
+        tone="stone"
+        eyebrow="Teslim formatı"
+        title="Dosyanı nasıl teslim alırsın?"
+        lead="Kullanacağın programa göre birlikte seçeriz."
+      >
+        <SpecCards items={FORMATS} />
+      </ServiceSection>
+
+      <ServiceSection
+        id="fiyat"
+        eyebrow="Şeffaf fiyat"
+        title="Fiyatı ne belirler?"
+        lead="Her obje farklı olduğu için sabit fiyat yerine objene özel teklif veriyoruz."
+      >
+        <Factors rows={FACTORS} note="Fotoğrafla ön değerlendirme ücretsizdir." />
+      </ServiceSection>
+
+      <RequestForm
+        id={FORM_ID}
+        title="Tarama için teklif iste"
+        lead="Objeyi ve ne yapmak istediğini anlat. Fotoğrafları formdan sonra WhatsApp ya da e-postayla gönderebilirsin."
+        subject="3D Tarama Talebi"
+        whatsappText={WA_TEXT}
+        values={values}
+        onChange={change}
+        buildMessage={buildMessage}
+        submitLabel="Tarama talebini gönder"
+        successTitle="Tarama talebin bize ulaştı."
+        fields={[
+          {
+            name: 'object', label: 'Taranacak obje ne?', type: 'textarea', required: true, wide: true, rows: 5,
+            requiredMessage: 'Objeyi kısaca anlat.',
+            placeholder: 'Örn. Eski bir radyonun kırılan düğmesi. Plastik, mat siyah. Kopyasını bastırmak istiyorum.',
+          },
+          { name: 'size', label: 'Yaklaşık ölçü', placeholder: 'Örn. 15 × 10 × 8 cm' },
+          { name: 'surface', label: 'Yüzeyi nasıl?', type: 'select', options: ['Seç', 'Mat', 'Parlak / yansıtıcı', 'Şeffaf', 'Emin değilim'] },
+          {
+            name: 'purpose', label: 'Modeli ne için kullanacaksın?', type: 'select', wide: true,
+            options: ['Seç', '3D baskı (kopyasını bastırmak)', 'Tasarım / prototip', 'Dijital arşiv', 'Diğer'],
+          },
+        ]}
+      />
+
+      <ServiceSection id="sss" eyebrow="SSS" title="Sık sorulanlar">
+        <Faq items={FAQ} />
+      </ServiceSection>
+
+      <CrossLink
+        eyebrow="Özel baskı"
+        title="Taramadan sonra baskı mı istiyorsun?"
+        text="Dijital modeli çıkarıp aynı ya da farklı ölçüde, istediğin renkte basabiliriz."
+        to="/custom"
+        label="Özel baskıya bak"
+      />
+    </ServicePage>
   )
 }
 
